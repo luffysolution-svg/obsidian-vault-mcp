@@ -63,6 +63,29 @@ python -m pip install -r requirements.txt
 
 See [Install](./docs/INSTALL.md) for local plugin setup and Zotero notes.
 
+## Deploy With Codex
+
+You can ask Codex to install and configure this plugin for you. Copy this
+prompt into Codex:
+
+```text
+Install and configure the open-source Obsidian Vault MCP plugin from
+https://github.com/luffysolution-svg/obsidian-vault-mcp.
+
+Please:
+1. Clone the repository to a suitable local plugins folder.
+2. Install its Python dependencies with `python -m pip install -r requirements.txt`.
+3. Register it as a local Codex plugin/MCP server using the checked-in `.mcp.json`.
+4. Keep the portable `${CLAUDE_PLUGIN_ROOT}` script path; do not hard-code the repository path into files that will be committed.
+5. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me for my local Obsidian vault path and configure it only in my local MCP/plugin settings.
+6. Do not modify or publish my Obsidian vault contents.
+7. Verify the server can start, then run `python -m unittest discover -s tests`.
+8. Tell me how to restart/reload Codex so the new MCP tools become available.
+
+Optional: if I want Zotero features, remind me to open Zotero Desktop so its
+local API at `http://127.0.0.1:23119/api` is reachable.
+```
+
 ## Public Release Safety
 
 This repository is intended to be reusable by other users. The checked-in
