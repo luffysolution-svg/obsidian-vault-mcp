@@ -1,6 +1,6 @@
 {
   "name": "obsidian-vault",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Work with local Obsidian vaults: files, properties, wikilinks, Canvas, Bases, graph data, and the Obsidian CLI.",
   "author": {
     "name": "Obsidian Vault MCP Contributors",
@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "Obsidian Vault",
     "shortDescription": "Maintain local Obsidian vaults as persistent linked wikis.",
-    "longDescription": "Provides local MCP tools and workflow guidance for reading and editing vault files, previewing write diffs with dry runs, applying rollbackable batch edit transactions, managing YAML properties and tags, creating wikilinks, generating JSON Canvas and Bases files, generating Dataview notes, laying out Canvas maps from vault graphs, generating built-in Base templates, building graph data, suggesting graph improvements, validating frontmatter/Canvas/Base schemas, linting vault health, maintaining Karpathy-style index/log files, ingesting source notes into linked entity and concept pages, ingesting literature and extraction outputs from BibTeX/reference metadata, MinerU Markdown, PDF attachments, and direct Zotero Desktop local API items, and calling the local Obsidian CLI through generic and structured wrappers when available. It follows the persistent LLM-maintained wiki pattern while reusing Obsidian Markdown, Bases, Canvas, Dataview, Zotero, and CLI conventions.",
+    "longDescription": "Provides local MCP tools and workflow guidance for reading and editing vault files, previewing write diffs with dry runs, applying rollbackable batch edit transactions, managing YAML properties and tags, creating wikilinks, generating JSON Canvas and Bases files, generating Dataview notes, laying out Canvas maps from vault graphs, generating built-in Base templates, building graph data, suggesting graph improvements, validating frontmatter/Canvas/Base schemas, linting vault health, maintaining Karpathy-style index/log files, ingesting source notes into linked entity and concept pages, ingesting literature and extraction outputs from BibTeX/reference metadata, existing MinerU Markdown, optional MinerU CLI extraction, PDF attachments, and direct Zotero Desktop local API items, and calling the local Obsidian CLI through generic and structured wrappers when available. It follows the persistent LLM-maintained wiki pattern while reusing Obsidian Markdown, Bases, Canvas, Dataview, Zotero, MinerU, and CLI conventions.",
     "developerName": "Obsidian Vault MCP Contributors",
     "category": "Productivity",
     "capabilities": [

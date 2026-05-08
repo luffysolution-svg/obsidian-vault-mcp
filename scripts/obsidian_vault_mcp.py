@@ -22,6 +22,8 @@ DEFAULT_EXCLUDES = {".git", ".obsidian", ".trash", "node_modules", ".DS_Store"}
 BACKUP_DIR = ".obsidian-vault-backups"
 ZOTERO_API_BASE = os.environ.get("ZOTERO_LOCAL_API", "http://127.0.0.1:23119/api").rstrip("/")
 ZOTERO_TIMEOUT = float(os.environ.get("ZOTERO_TIMEOUT", "20"))
+MINERU_CLI_COMMAND = os.environ.get("MINERU_CLI_COMMAND", "mineru-open-api")
+MINERU_TIMEOUT = int(os.environ.get("MINERU_TIMEOUT", "600"))
 WIKILINK_RE = re.compile(r"(?<!!)\[\[([^\]\n]+)\]\]")
 EMBED_RE = re.compile(r"!\[\[([^\]\n]+)\]\]")
 INLINE_TAG_RE = re.compile(r"(?<![\w/])#([^\s#.,;:!?()\[\]{}<>\"'`]+)")
@@ -774,6 +776,124 @@ def _markdown_excerpt(markdown: str, max_chars: int = 800) -> str:
         if sum(len(item) for item in lines) >= max_chars:
             break
     return " ".join(lines)[:max_chars]
+
+
+def _is_url(value: str) -> bool:
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def _mineru_token_available() -> bool:
+    return bool(os.environ.get("MINERU_TOKEN") or os.environ.get("MINERU_API_TOKEN"))
+
+
+def _mineru_cli_status(cli_command: str = "") -> dict[str, Any]:
+    cli = cli_command or MINERU_CLI_COMMAND
+    executable = shutil.which(cli)
+    status: dict[str, Any] = {
+        "cli": cli,
+        "available": executable is not None,
+        "path": executable or "",
+        "tokenAvailable": _mineru_token_available(),
+        "tokenEnvVars": [name for name in ["MINERU_TOKEN", "MINERU_API_TOKEN"] if os.environ.get(name)],
+    }
+    if not executable:
+        status["installHint"] = "Install MinerU CLI with: npm install -g mineru-open-api"
+        return status
+    try:
+        completed = subprocess.run([cli, "version"], capture_output=True, text=True, timeout=20, check=False)  # noqa: S603
+        status["versionCommand"] = [cli, "version"]
+        status["returnCode"] = completed.returncode
+        status["stdout"] = completed.stdout.strip()
+        status["stderr"] = completed.stderr.strip()
+        status["ok"] = completed.returncode == 0
+    except Exception as exc:
+        status["ok"] = False
+        status["error"] = str(exc)
+    return status
+
+
+def _mineru_input_argument(vault: Path, input_path: str) -> tuple[str, str]:
+    value = input_path.strip()
+    if not value:
+        raise ValueError("input_path is required.")
+    if _is_url(value):
+        parsed = urlparse(value)
+        name = Path(parsed.path).name or "remote-document.pdf"
+        return value, name
+    candidate = Path(value).expanduser()
+    full = candidate.resolve() if candidate.is_absolute() else _safe_path(vault, value)
+    if not full.exists():
+        raise FileNotFoundError(f"MinerU input file was not found: {value}")
+    return str(full), full.name
+
+
+def _mineru_output_path(vault: Path, output_path: str, input_name: str) -> tuple[Path, str]:
+    rel_path = output_path.strip() or f"mineru-output/{_slug_filename(Path(input_name).stem or 'document')}"
+    full = _safe_path(vault, rel_path)
+    return full, _rel(vault, full)
+
+
+def _find_mineru_markdown(vault: Path, output_full: Path) -> str:
+    if output_full.is_file() and output_full.suffix.lower() in {".md", ".markdown"}:
+        return _rel(vault, output_full)
+    search_root = output_full if output_full.is_dir() else output_full.parent
+    if not search_root.exists():
+        return ""
+    markdown_files = [
+        path
+        for path in search_root.rglob("*")
+        if path.is_file() and path.suffix.lower() in {".md", ".markdown"}
+    ]
+    if not markdown_files:
+        return ""
+    markdown_files.sort(key=lambda path: (path.stat().st_mtime, len(path.parts)), reverse=True)
+    return _rel(vault, markdown_files[0])
+
+
+def _mineru_command_args(
+    cli: str,
+    mode: str,
+    input_arg: str,
+    output_full: Path,
+    output_format: str,
+    language: str,
+    pages: str,
+    model: str,
+    ocr: bool,
+    table: bool,
+    formula: bool,
+    token: str,
+    base_url: str,
+    verbose: bool,
+    timeout_seconds: int,
+) -> list[str]:
+    normalized_mode = mode.strip().lower()
+    if normalized_mode not in {"flash-extract", "extract"}:
+        raise ValueError("mode must be 'flash-extract' or 'extract'.")
+    args = [cli, normalized_mode, input_arg, "-o", str(output_full)]
+    if normalized_mode == "extract":
+        args.extend(["-f", output_format or "md"])
+        if model:
+            args.extend(["--model", model])
+    if language:
+        args.extend(["--language" if normalized_mode == "flash-extract" else "-l", language])
+    if pages:
+        args.extend(["--pages", pages])
+    if ocr:
+        args.append("--ocr")
+    if table:
+        args.append("--table")
+    if formula:
+        args.append("--formula")
+    if token:
+        args.extend(["--token", token])
+    if base_url:
+        args.extend(["--base-url", base_url])
+    if verbose:
+        args.append("--verbose")
+    args.extend(["--timeout", str(max(1, timeout_seconds))])
+    return args
 
 
 def _property_config(names: list[tuple[str, str]]) -> dict[str, dict[str, str]]:
@@ -2057,6 +2177,195 @@ def obsidian_ingest_mineru_markdown(
     result["sourcePath"] = rel_path
     result["markdownPath"] = markdown_path
     result["pdfAttachmentPath"] = pdf_attachment_path
+    return result
+
+
+@mcp.tool()
+def obsidian_mineru_status(
+    cli_command: str = "",
+) -> dict[str, Any]:
+    """Check optional MinerU CLI availability and token environment variables."""
+    return _mineru_cli_status(cli_command)
+
+
+@mcp.tool()
+def obsidian_mineru_extract(
+    input_path: str,
+    vault_path: str = "",
+    output_path: str = "",
+    mode: str = "flash-extract",
+    output_format: str = "md",
+    language: str = "ch",
+    pages: str = "",
+    model: str = "",
+    ocr: bool = False,
+    table: bool = False,
+    formula: bool = False,
+    token: str = "",
+    base_url: str = "",
+    cli_command: str = "",
+    timeout_seconds: int = MINERU_TIMEOUT,
+    verbose: bool = False,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Run optional MinerU CLI extraction and save output under the vault."""
+    vault = _vault(vault_path)
+    status = _mineru_cli_status(cli_command)
+    cli = cli_command or MINERU_CLI_COMMAND
+    input_arg, input_name = _mineru_input_argument(vault, input_path)
+    output_full, output_rel = _mineru_output_path(vault, output_path, input_name)
+    args = _mineru_command_args(
+        cli=cli,
+        mode=mode,
+        input_arg=input_arg,
+        output_full=output_full,
+        output_format=output_format,
+        language=language,
+        pages=pages,
+        model=model,
+        ocr=ocr,
+        table=table,
+        formula=formula,
+        token=token,
+        base_url=base_url,
+        verbose=verbose,
+        timeout_seconds=timeout_seconds,
+    )
+    redacted_args = list(args)
+    if token and "--token" in redacted_args:
+        token_index = redacted_args.index("--token") + 1
+        if token_index < len(redacted_args):
+            redacted_args[token_index] = "***"
+    result: dict[str, Any] = {
+        "ok": False,
+        "dryRun": dry_run,
+        "vaultPath": str(vault),
+        "input": input_path,
+        "outputPath": output_rel,
+        "mode": mode,
+        "command": redacted_args,
+        "mineru": status,
+    }
+    if not status.get("available"):
+        result["error"] = status.get("installHint") or "MinerU CLI is not available."
+        return result
+    if dry_run:
+        result["ok"] = True
+        return result
+
+    if output_full.suffix:
+        output_full.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        output_full.mkdir(parents=True, exist_ok=True)
+    completed = subprocess.run(args, capture_output=True, text=True, timeout=max(1, timeout_seconds + 30), check=False)  # noqa: S603
+    markdown_rel = _find_mineru_markdown(vault, output_full)
+    result.update(
+        {
+            "ok": completed.returncode == 0 and bool(markdown_rel),
+            "returnCode": completed.returncode,
+            "stdout": completed.stdout.strip(),
+            "stderr": completed.stderr.strip(),
+            "markdownPath": markdown_rel,
+        }
+    )
+    if completed.returncode != 0:
+        result["error"] = "MinerU CLI failed."
+    elif not markdown_rel:
+        result["error"] = "MinerU CLI completed but no Markdown output was found."
+    return result
+
+
+@mcp.tool()
+def obsidian_mineru_extract_and_ingest(
+    input_path: str,
+    vault_path: str = "",
+    output_path: str = "",
+    source_path: str = "",
+    title: str = "",
+    mode: str = "flash-extract",
+    output_format: str = "md",
+    language: str = "ch",
+    pages: str = "",
+    model: str = "",
+    ocr: bool = False,
+    table: bool = False,
+    formula: bool = False,
+    token: str = "",
+    base_url: str = "",
+    cli_command: str = "",
+    timeout_seconds: int = MINERU_TIMEOUT,
+    metadata_json: str = "{}",
+    entities_json: str = "[]",
+    concepts_json: str = "[]",
+    index_path: str = "index.md",
+    log_path: str = "log.md",
+    overwrite: bool = False,
+    update_index: bool = True,
+    append_log: bool = True,
+    verbose: bool = False,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Extract a document with optional MinerU CLI, then ingest the Markdown output."""
+    vault = _vault(vault_path)
+    extraction = obsidian_mineru_extract(
+        input_path=input_path,
+        vault_path=str(vault),
+        output_path=output_path,
+        mode=mode,
+        output_format=output_format,
+        language=language,
+        pages=pages,
+        model=model,
+        ocr=ocr,
+        table=table,
+        formula=formula,
+        token=token,
+        base_url=base_url,
+        cli_command=cli_command,
+        timeout_seconds=timeout_seconds,
+        verbose=verbose,
+        dry_run=dry_run,
+    )
+    result: dict[str, Any] = {"ok": False, "dryRun": dry_run, "extraction": extraction}
+    if dry_run:
+        result["ok"] = extraction.get("ok", False)
+        return result
+    if not extraction.get("ok"):
+        result["error"] = extraction.get("error") or "MinerU extraction failed."
+        return result
+
+    pdf_attachment_path = ""
+    if not _is_url(input_path):
+        try:
+            input_full = Path(input_path).expanduser()
+            if not input_full.is_absolute():
+                input_full = _safe_path(vault, input_path)
+            input_full = input_full.resolve()
+            try:
+                pdf_attachment_path = _rel(vault, input_full)
+            except ValueError:
+                pdf_attachment_path = ""
+        except Exception:
+            pdf_attachment_path = ""
+
+    ingest = obsidian_ingest_mineru_markdown(
+        markdown_path=str(extraction.get("markdownPath") or ""),
+        pdf_attachment_path=pdf_attachment_path,
+        vault_path=str(vault),
+        source_path=source_path,
+        title=title,
+        metadata_json=metadata_json,
+        entities_json=entities_json,
+        concepts_json=concepts_json,
+        index_path=index_path,
+        log_path=log_path,
+        overwrite=overwrite,
+        update_index=update_index,
+        append_log=append_log,
+        dry_run=False,
+    )
+    result["ingest"] = ingest
+    result["ok"] = bool(ingest.get("ok"))
     return result
 
 

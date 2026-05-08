@@ -73,3 +73,4 @@ git push -u origin main
 - Any demo screenshots are sanitized and do not reveal private note contents.
 - A fresh clone can install dependencies with `python -m pip install -r
   requirements.txt`.
+- Optional MinerU tests remain mocked and do not require a MinerU API token.

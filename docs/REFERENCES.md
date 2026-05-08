@@ -17,6 +17,9 @@ How this plugin adapts it:
 - The bundled `obsidian-vault` skill coordinates local vault operations.
 - The MCP server provides practical tools for listing, reading, writing, frontmatter updates, wikilink creation, graph generation, Canvas creation, Base creation, and CLI calls.
 - Existing `obsidian-markdown`, `json-canvas`, and `obsidian-bases` skills remain the format authorities for generated content.
+- MinerU can be used as an optional external parser; this plugin either ingests
+  existing MinerU Markdown or calls the local `mineru-open-api` CLI when users
+  choose the optional extraction tools.
 
 ## Karpathy LLM Wiki
 

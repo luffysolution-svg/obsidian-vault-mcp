@@ -44,7 +44,9 @@ For LLM-maintained wiki work:
 
 Use `obsidian_ingest_source_note` for the source/entity/concept/index/log pass when the user gives source content or extracted notes. Use `obsidian_update_wiki_index` and `obsidian_append_wiki_log` directly for smaller maintenance passes.
 
-Use `obsidian_ingest_bibtex`, `obsidian_ingest_reference`, `obsidian_ingest_mineru_markdown`, or `obsidian_ingest_pdf_attachment` when the source comes from Zotero exports, BibTeX, MinerU Markdown, or a vault PDF attachment. These tools create literature/source notes and can still update entity/concept pages, `index.md`, and `log.md`.
+Use `obsidian_ingest_bibtex`, `obsidian_ingest_reference`, `obsidian_ingest_mineru_markdown`, or `obsidian_ingest_pdf_attachment` when the source comes from Zotero exports, BibTeX, existing MinerU Markdown, or a vault PDF attachment. These tools create literature/source notes and can still update entity/concept pages, `index.md`, and `log.md`.
+
+When the user wants MinerU to parse a document directly, first call `obsidian_mineru_status`. If `mineru-open-api` is available, use `obsidian_mineru_extract` for extraction or `obsidian_mineru_extract_and_ingest` for the full extract-and-import workflow. Prefer `flash-extract` when no token is configured. Precision `extract` may require MinerU authentication. If the user already has a separate MinerU MCP server, let Codex use that MCP directly and then ingest the generated Markdown with this plugin; this plugin does not call another MCP server internally.
 
 Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user to open Zotero Desktop and enable local API access. Once reachable, use `obsidian_zotero_search_items`, `obsidian_zotero_get_item`, `obsidian_zotero_get_children`, and `obsidian_ingest_zotero_item`.
 
@@ -72,6 +74,9 @@ Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user 
 - `obsidian_ingest_reference`: ingest one reference metadata object as a literature source note.
 - `obsidian_ingest_bibtex`: ingest one or more BibTeX entries as literature source notes.
 - `obsidian_ingest_mineru_markdown`: ingest MinerU Markdown output and optional PDF attachment as a source note.
+- `obsidian_mineru_status`: check optional MinerU CLI availability and token environment variables.
+- `obsidian_mineru_extract`: run optional MinerU CLI extraction and save Markdown output under the vault.
+- `obsidian_mineru_extract_and_ingest`: run MinerU CLI, find the generated Markdown, and ingest it as a source note.
 - `obsidian_ingest_pdf_attachment`: create a source note for a PDF attachment already in the vault.
 - `obsidian_zotero_ping`: check whether Zotero Desktop local API is reachable.
 - `obsidian_zotero_search_items`: search local Zotero items.

@@ -18,6 +18,7 @@ persistent linked wikis.
 - Graph improvement suggestions for unresolved links, reciprocal links, duplicate pages, Markdown links, and attachments.
 - Karpathy-style wiki workflow tools for source ingestion, generated index refreshes, and chronological log entries.
 - Literature and extraction ingestion from BibTeX/reference metadata, MinerU Markdown output, and PDF attachments.
+- Optional MinerU CLI extraction followed by Obsidian source-note ingestion.
 - Direct Zotero Desktop local API integration for search, metadata, child notes, annotations, PDF attachments, PDF text extraction, and one-step item ingestion.
 - JSON Canvas creation, including automatic graph-to-canvas maps from vault wikilinks with grid, radial, grouped, and layered layouts.
 - Obsidian Bases creation, including built-in templates for literature, project tasks, equipment, utilities, economics, and sources.
@@ -76,3 +77,5 @@ python -m pip install -r requirements.txt
 - Non-vault folders are rejected by default unless `OBSIDIAN_ALLOW_NON_VAULT=true`.
 - Existing files require `overwrite=true` before replacement.
 - Zotero access uses the user's own local Zotero Desktop API.
+- MinerU CLI and MinerU MCP are optional external tools and are not installed
+  automatically by this plugin.

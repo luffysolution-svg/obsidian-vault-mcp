@@ -17,6 +17,8 @@ The plugin can access:
   running and reachable.
 - Local PDF files referenced by Zotero attachments.
 - Obsidian CLI output when the CLI is installed and called through the plugin.
+- MinerU CLI output when `mineru-open-api` is installed and called through the
+  optional MinerU tools.
 
 ## Configuration
 
@@ -27,3 +29,8 @@ the active vault. Users can set an explicit vault path in their local
 
 Non-vault folders are rejected by default unless the user explicitly sets
 `OBSIDIAN_ALLOW_NON_VAULT=true`.
+
+MinerU tokens are not required for Markdown ingestion or `flash-extract`.
+Precision MinerU extraction may use a token from the user's local CLI
+configuration, environment, or explicit tool call. Do not commit tokens to this
+repository.

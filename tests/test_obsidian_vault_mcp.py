@@ -580,6 +580,83 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("![[attachments/paper.pdf]]", mineru_note)
         self.assertIn("type: pdf", pdf_note)
 
+    def test_mineru_status_reports_missing_cli(self):
+        original_which = self.module.shutil.which
+        self.module.shutil.which = lambda command: None
+        try:
+            status = self.module.obsidian_mineru_status("missing-mineru")
+        finally:
+            self.module.shutil.which = original_which
+
+        self.assertFalse(status["available"])
+        self.assertIn("Install MinerU CLI", status["installHint"])
+
+    def test_mineru_extract_dry_run_redacts_token(self):
+        (self.vault / "input.pdf").write_bytes(b"%PDF-1.4\n")
+        original_which = self.module.shutil.which
+        original_run = self.module.subprocess.run
+        self.module.shutil.which = lambda command: "mineru-open-api"
+        self.module.subprocess.run = lambda *args, **kwargs: type("Completed", (), {"returncode": 0, "stdout": "version", "stderr": ""})()
+        try:
+            result = self.module.obsidian_mineru_extract(
+                "input.pdf",
+                str(self.vault),
+                output_path="mineru-output/input",
+                token="secret-token",
+                dry_run=True,
+            )
+        finally:
+            self.module.shutil.which = original_which
+            self.module.subprocess.run = original_run
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["dryRun"])
+        self.assertIn("--token", result["command"])
+        self.assertIn("***", result["command"])
+        self.assertNotIn("secret-token", result["command"])
+        self.assertFalse((self.vault / "mineru-output").exists())
+
+    def test_mineru_extract_and_ingest_uses_cli_output(self):
+        (self.vault / "attachments").mkdir(exist_ok=True)
+        (self.vault / "attachments" / "paper.pdf").write_bytes(b"%PDF-1.4\n")
+
+        class Completed:
+            def __init__(self, returncode=0, stdout="", stderr=""):
+                self.returncode = returncode
+                self.stdout = stdout
+                self.stderr = stderr
+
+        def fake_run(args, capture_output=True, text=True, timeout=0, check=False):
+            if args[1] == "version":
+                return Completed(0, "mineru-open-api version v0.test")
+            output_path = self.module.Path(args[args.index("-o") + 1])
+            output_path.mkdir(parents=True, exist_ok=True)
+            (output_path / "paper.md").write_text("# MinerU Output\n\nExtracted by fake CLI.", encoding="utf-8")
+            return Completed(0, "ok")
+
+        original_which = self.module.shutil.which
+        original_run = self.module.subprocess.run
+        self.module.shutil.which = lambda command: "mineru-open-api"
+        self.module.subprocess.run = fake_run
+        try:
+            result = self.module.obsidian_mineru_extract_and_ingest(
+                "attachments/paper.pdf",
+                str(self.vault),
+                output_path="mineru-output/paper",
+                source_path="sources/mineru-cli-paper.md",
+                title="MinerU CLI Paper",
+                overwrite=True,
+            )
+        finally:
+            self.module.shutil.which = original_which
+            self.module.subprocess.run = original_run
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["extraction"]["markdownPath"], "mineru-output/paper/paper.md")
+        note = (self.vault / "sources" / "mineru-cli-paper.md").read_text(encoding="utf-8")
+        self.assertIn("mineru_markdown: mineru-output/paper/paper.md", note)
+        self.assertIn("![[attachments/paper.pdf]]", note)
+
 
 if __name__ == "__main__":
     unittest.main()

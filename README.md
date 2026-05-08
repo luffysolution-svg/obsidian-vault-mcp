@@ -12,7 +12,7 @@ It provides:
 - Schema and format validation for Markdown frontmatter, Canvas JSON, and Base YAML files.
 - Graph improvement suggestions for unresolved links, reciprocal links, possible duplicate pages, Markdown links, and attachment embeds.
 - Karpathy-style wiki workflow tools for refreshing `index.md`, appending `log.md`, and ingesting source notes into linked source/entity/concept pages.
-- Literature and extraction ingestion from BibTeX/reference metadata, MinerU Markdown output, and PDF attachments.
+- Literature and extraction ingestion from BibTeX/reference metadata, existing MinerU Markdown output, optional MinerU CLI extraction, and PDF attachments.
 - Direct Zotero Desktop local API integration for search, item metadata, child notes, annotations, PDF attachments, PDF text extraction, and one-step item ingestion.
 - JSON Canvas creation for visual maps, including automatic graph-to-canvas layout from vault wikilinks with grid, radial, grouped, and layered layouts.
 - Obsidian Bases creation for table/card/list views, including built-in Base templates for literature, project tasks, equipment, utilities, economics, and sources.
@@ -49,6 +49,13 @@ The CLI wrapper expects Obsidian 1.12.7 or newer and the `obsidian` command on P
 
 Direct Zotero tools expect Zotero Desktop's local API at `http://127.0.0.1:23119/api`. Override it with `ZOTERO_LOCAL_API` if needed.
 
+MinerU support is optional. Existing MinerU Markdown can be ingested without
+installing MinerU. To parse documents directly, install `mineru-open-api` and
+use the `obsidian_mineru_*` tools. `flash-extract` works without a token for
+small/simple documents; precision `extract` may require a MinerU token or a
+local MinerU CLI auth configuration. This plugin does not install MinerU CLI,
+MinerU MCP, Zotero Desktop, or Obsidian CLI automatically.
+
 By default, paths must resolve to a folder containing `.obsidian`. Set `OBSIDIAN_ALLOW_NON_VAULT=true` only when intentionally using a plain Markdown folder.
 
 ## Install Dependencies
@@ -62,6 +69,13 @@ python -m pip install -r requirements.txt
 `PyYAML` is used for full YAML compatibility. `pypdf` is used for Zotero PDF text extraction; the code can fall back to `PyPDF2` when it is already installed, but packaged installs should include `pypdf`.
 
 See [Install](./docs/INSTALL.md) for local plugin setup and Zotero notes.
+
+### Optional External Tools
+
+- Zotero Desktop: required only for direct Zotero library search/import.
+- Obsidian CLI: required only for app-backed read/open/backlinks/Base/property/task/screenshot operations.
+- MinerU CLI (`mineru-open-api`): required only for `obsidian_mineru_extract` and `obsidian_mineru_extract_and_ingest`.
+- MinerU MCP: optional companion server. Codex can use MinerU MCP to parse a document, then use this plugin to ingest the generated Markdown. This plugin does not call MinerU MCP internally.
 
 ## Deploy With Codex
 
@@ -84,6 +98,12 @@ Please:
 
 Optional: if I want Zotero features, remind me to open Zotero Desktop so its
 local API at `http://127.0.0.1:23119/api` is reachable.
+
+Optional: if I want MinerU document parsing, check whether `mineru-open-api`
+is installed. If it is not installed, tell me how to install it. Do not store
+or commit MinerU tokens in the repository. Use `flash-extract` when I do not
+have a token, and use precision `extract` only when I have configured MinerU
+authentication locally.
 ```
 
 ## Public Release Safety
@@ -134,6 +154,8 @@ See [Deployment Guide](./docs/DEPLOYMENT.md) for a GitHub publishing flow.
 - "Refresh the wiki index and append a log entry."
 - "Ingest this source into linked source, entity, and concept notes."
 - "Ingest this BibTeX entry or MinerU extraction into the literature wiki."
+- "Check whether MinerU CLI is available for this vault."
+- "Use MinerU flash-extract on this PDF and ingest the result into Obsidian."
 - "Search Zotero and ingest this Zotero item into Obsidian."
 - "Create a source note for this PDF attachment."
 - "Create an equipment or economics Base template for this project."
