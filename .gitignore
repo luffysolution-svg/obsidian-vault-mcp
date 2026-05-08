@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.venv/
+venv/
+.env
+.DS_Store
+Thumbs.db
+
+# Local vault data and generated backups should never be published.
+.obsidian-vault-backups/
+test/
+test-*/
+*.zip

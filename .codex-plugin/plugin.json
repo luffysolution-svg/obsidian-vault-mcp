@@ -1,0 +1,45 @@
+{
+  "name": "obsidian-vault",
+  "version": "0.1.0",
+  "description": "Work with local Obsidian vaults: files, properties, wikilinks, Canvas, Bases, graph data, and the Obsidian CLI.",
+  "author": {
+    "name": "Obsidian Vault MCP Contributors",
+    "url": "https://github.com/luffysolution-svg/obsidian-vault-mcp"
+  },
+  "homepage": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+  "repository": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+  "license": "MIT",
+  "keywords": [
+    "obsidian",
+    "vault",
+    "markdown",
+    "canvas",
+    "bases",
+    "wiki"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Obsidian Vault",
+    "shortDescription": "Maintain local Obsidian vaults as persistent linked wikis.",
+    "longDescription": "Provides local MCP tools and workflow guidance for reading and editing vault files, previewing write diffs with dry runs, applying rollbackable batch edit transactions, managing YAML properties and tags, creating wikilinks, generating JSON Canvas and Bases files, generating Dataview notes, laying out Canvas maps from vault graphs, generating built-in Base templates, building graph data, suggesting graph improvements, validating frontmatter/Canvas/Base schemas, linting vault health, maintaining Karpathy-style index/log files, ingesting source notes into linked entity and concept pages, ingesting literature and extraction outputs from BibTeX/reference metadata, MinerU Markdown, PDF attachments, and direct Zotero Desktop local API items, and calling the local Obsidian CLI through generic and structured wrappers when available. It follows the persistent LLM-maintained wiki pattern while reusing Obsidian Markdown, Bases, Canvas, Dataview, Zotero, and CLI conventions.",
+    "developerName": "Obsidian Vault MCP Contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Analyze",
+      "Interactive"
+    ],
+    "websiteURL": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+    "privacyPolicyURL": "https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Show me the structure of this Obsidian vault.",
+      "Create a linked wiki note with YAML properties.",
+      "Build a Canvas graph for these vault notes."
+    ],
+    "brandColor": "#7C3AED",
+    "screenshots": []
+  }
+}

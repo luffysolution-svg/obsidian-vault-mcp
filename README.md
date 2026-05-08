@@ -1,0 +1,127 @@
+# Obsidian Vault
+
+Local Codex plugin for maintaining Obsidian vaults as persistent linked wikis.
+
+It provides:
+
+- MCP tools for vault file listing, search, reading, writing, note creation, and YAML property updates.
+- Dry-run diff previews for write operations before changing vault files.
+- Batch edit transactions with multi-file preview, apply, vault-local backups, and rollback.
+- Wikilink helpers for adding related links and building backlink-aware graph data with aliases, tags, ambiguous links, and unresolved links.
+- Vault lint checks for orphan notes, dead ends, missing wiki helper files, duplicate keys, and frontmatter consistency.
+- Schema and format validation for Markdown frontmatter, Canvas JSON, and Base YAML files.
+- Graph improvement suggestions for unresolved links, reciprocal links, possible duplicate pages, Markdown links, and attachment embeds.
+- Karpathy-style wiki workflow tools for refreshing `index.md`, appending `log.md`, and ingesting source notes into linked source/entity/concept pages.
+- Literature and extraction ingestion from BibTeX/reference metadata, MinerU Markdown output, and PDF attachments.
+- Direct Zotero Desktop local API integration for search, item metadata, child notes, annotations, PDF attachments, PDF text extraction, and one-step item ingestion.
+- JSON Canvas creation for visual maps, including automatic graph-to-canvas layout from vault wikilinks with grid, radial, grouped, and layered layouts.
+- Obsidian Bases creation for table/card/list views, including built-in Base templates for literature, project tasks, equipment, utilities, economics, and sources.
+- Dataview note templates for the same literature, project task, equipment, utilities, economics, and sources workflows.
+- A safe wrapper around the local `obsidian` CLI plus structured helpers for read/open, backlinks, Base queries, properties, tasks, screenshots, plugin reloads, and move/rename dry-runs.
+- A workflow skill that composes this plugin with `obsidian-markdown`, `json-canvas`, and `obsidian-bases`.
+
+## Demo Assets
+
+No screenshots are bundled in the public package yet. Add only sanitized demo
+images that do not reveal private vault contents.
+
+## Design References
+
+This plugin intentionally borrows ideas from two references:
+
+- [Kepano's Obsidian Skills](https://github.com/kepano/obsidian-skills): the domain is split into Obsidian Markdown, JSON Canvas, Bases, CLI, and extraction-oriented workflows. This plugin follows that modular approach, then bundles the common local vault operations behind MCP tools.
+- [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f): the vault is treated as a persistent, compounding wiki maintained by an LLM. The plugin supports that pattern with hub notes, wikilinks, graph checks, index/log-friendly workflows, Canvas maps, and Bases views.
+
+See [References and Attribution](./docs/REFERENCES.md) for the fuller rationale.
+
+## Configure
+
+Set `OBSIDIAN_VAULT_PATH` in `.mcp.json`, or pass `vault_path` to each tool call. The default value is `auto`, which asks the local Obsidian CLI for the currently active vault path and falls back to the process working directory if the CLI is unavailable.
+
+```json
+{
+  "OBSIDIAN_VAULT_PATH": "auto",
+  "OBSIDIAN_CLI_COMMAND": "obsidian"
+}
+```
+
+The CLI wrapper expects Obsidian 1.12.7 or newer and the `obsidian` command on PATH.
+
+Direct Zotero tools expect Zotero Desktop's local API at `http://127.0.0.1:23119/api`. Override it with `ZOTERO_LOCAL_API` if needed.
+
+By default, paths must resolve to a folder containing `.obsidian`. Set `OBSIDIAN_ALLOW_NON_VAULT=true` only when intentionally using a plain Markdown folder.
+
+## Install Dependencies
+
+The MCP server is Python-based:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+`PyYAML` is used for full YAML compatibility. `pypdf` is used for Zotero PDF text extraction; the code can fall back to `PyPDF2` when it is already installed, but packaged installs should include `pypdf`.
+
+See [Install](./docs/INSTALL.md) for local plugin setup and Zotero notes.
+
+## Public Release Safety
+
+This repository is intended to be reusable by other users. The checked-in
+configuration is portable by default:
+
+- `.mcp.json` uses `${CLAUDE_PLUGIN_ROOT}` instead of an absolute script path.
+- `OBSIDIAN_VAULT_PATH` defaults to `auto`; users can set their own local vault
+  path without committing it.
+- Zotero integration points at the user's own local Zotero Desktop API.
+- File tools reject non-vault folders unless `OBSIDIAN_ALLOW_NON_VAULT=true` is
+  explicitly set by the user.
+- Unit tests create temporary vaults and do not write to a real vault.
+
+## Portability Notes
+
+- The plugin does not hard-code a vault path. `auto` follows the vault currently active in the local Obsidian CLI.
+- All file operations are constrained to the resolved vault root.
+- Existing files are not overwritten unless the tool call passes `overwrite=true`.
+- Write tools support `dry_run=true` to return a unified diff without modifying files.
+- Wiki workflow tools keep generated sections inside marker comments so hand-written note content can stay outside the managed block.
+- Obsidian CLI features require Obsidian Desktop to be running. Direct file tools still work when the CLI is unavailable if `OBSIDIAN_VAULT_PATH` is set.
+- `.mcp.json` uses `${CLAUDE_PLUGIN_ROOT}` because that is the plugin-root variable supported by current local plugin examples. If your host uses a different variable, update the script path before publishing.
+
+## Publish Checklist
+
+Before sharing this plugin with other people:
+
+- Confirm `.codex-plugin/plugin.json` points at the repository you will publish.
+- Test on a clean machine with `OBSIDIAN_VAULT_PATH=auto` and with an explicit vault path containing non-ASCII characters.
+- Confirm Obsidian 1.12.7+ and the `bases`, `canvas`, and `properties` core plugins are enabled when testing app-backed features.
+- Run `python -m unittest discover -s tests` before tagging a release.
+
+See [Deployment Guide](./docs/DEPLOYMENT.md) for a GitHub publishing flow.
+
+## Useful Prompts
+
+- "Show me the structure of this Obsidian vault."
+- "Create a linked wiki note with YAML properties."
+- "Add wikilinks between these notes and report orphans."
+- "Preview the changes before updating these vault notes."
+- "Preview and apply a batch edit plan, then rollback if needed."
+- "Lint this vault and show unresolved links, dead ends, and missing index/log files."
+- "Validate frontmatter, Canvas, and Base schemas across this vault."
+- "Preview schema default fixes for notes that are missing frontmatter."
+- "Suggest graph improvements for unresolved and weakly linked pages."
+- "Refresh the wiki index and append a log entry."
+- "Ingest this source into linked source, entity, and concept notes."
+- "Ingest this BibTeX entry or MinerU extraction into the literature wiki."
+- "Search Zotero and ingest this Zotero item into Obsidian."
+- "Create a source note for this PDF attachment."
+- "Create an equipment or economics Base template for this project."
+- "Create a Dataview equipment table note."
+- "Create a Canvas map of this topic cluster."
+- "Generate a Canvas knowledge map from this vault's wikilinks."
+- "Create a Base view for all project notes."
+- "Use the Obsidian CLI to read backlinks or query a Base."
+
+## References
+
+- Kepano's Obsidian skills split the domain into Markdown, Bases, Canvas, CLI, and extraction skills: https://github.com/kepano/obsidian-skills
+- Karpathy's LLM Wiki pattern frames Obsidian as an IDE for a persistent, LLM-maintained wiki: https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+- Obsidian CLI documentation: https://help.obsidian.md/cli

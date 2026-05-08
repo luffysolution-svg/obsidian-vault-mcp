@@ -1,0 +1,585 @@
+import importlib.util
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+
+PLUGIN_ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_PATH = PLUGIN_ROOT / "scripts" / "obsidian_vault_mcp.py"
+
+
+def load_module():
+    spec = importlib.util.spec_from_file_location("obsidian_vault_mcp", SCRIPT_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+class ObsidianVaultMcpTests(unittest.TestCase):
+    def setUp(self):
+        self.module = load_module()
+        self.tempdir = tempfile.TemporaryDirectory(prefix="obsidian-vault-test-")
+        self.vault = Path(self.tempdir.name)
+        (self.vault / ".obsidian").mkdir()
+
+    def tearDown(self):
+        self.tempdir.cleanup()
+
+    def write_note(self, path, content):
+        full = self.vault / path
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_text(content, encoding="utf-8")
+
+    def test_dry_run_returns_diff_without_writing(self):
+        self.write_note("A.md", "---\ntags: alpha\n---\n\n# A\n")
+
+        result = self.module.obsidian_update_properties(
+            "A.md",
+            json.dumps({"title": "A"}),
+            str(self.vault),
+            dry_run=True,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["dryRun"])
+        self.assertTrue(result["changed"])
+        self.assertIn("+title: A", result["diff"])
+        self.assertNotIn("title: A", (self.vault / "A.md").read_text(encoding="utf-8"))
+
+    def test_graph_resolves_aliases_and_counts_inline_tags(self):
+        self.write_note(
+            "A.md",
+            "---\ntitle: A\naliases: [Alpha Note]\ntags: [alpha]\n---\n\n# A\nSee [[Beta Note]]. #inline/tag\n",
+        )
+        self.write_note("B.md", "---\ntitle: B\naliases: [Beta Note]\ntags: gamma\n---\n\n# B\n")
+
+        graph = self.module.obsidian_build_graph(str(self.vault))
+
+        self.assertEqual(graph["edgeCount"], 1)
+        self.assertEqual(graph["edges"][0]["target"], "B.md")
+        self.assertEqual(graph["backlinks"]["B.md"], ["A.md"])
+        self.assertEqual({item["tag"] for item in graph["tags"]}, {"alpha", "gamma", "inline/tag"})
+
+    def test_lint_reports_unresolved_links_and_missing_wiki_files(self):
+        self.write_note("A.md", "---\ntitle: A\n---\n\n# A\nSee [[Missing]].\n")
+
+        result = self.module.obsidian_lint_vault(str(self.vault))
+        codes = {issue["code"] for issue in result["issues"]}
+
+        self.assertFalse(result["ok"])
+        self.assertIn("unresolved_links", codes)
+        self.assertIn("missing_wiki_files", codes)
+
+    def test_update_wiki_index_creates_generated_catalogue(self):
+        self.write_note("notes/A.md", "---\ntitle: Alpha\ntags: [topic]\n---\n\n# Alpha\n")
+
+        result = self.module.obsidian_update_wiki_index(str(self.vault))
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["changed"])
+        index = (self.vault / "index.md").read_text(encoding="utf-8")
+        self.assertIn("obsidian-vault:index:start", index)
+        self.assertIn("[[notes/A|Alpha]]", index)
+        self.assertIn("`#topic`", index)
+
+    def test_append_wiki_log_adds_chronological_entry(self):
+        result = self.module.obsidian_append_wiki_log(
+            "Updated project notes",
+            str(self.vault),
+            touched_paths_json=json.dumps(["notes/A.md"]),
+            metadata_json=json.dumps({"mode": "test"}),
+        )
+
+        self.assertTrue(result["ok"])
+        log = (self.vault / "log.md").read_text(encoding="utf-8")
+        self.assertIn("# Log", log)
+        self.assertIn("Updated project notes", log)
+        self.assertIn("[[notes/A]]", log)
+        self.assertIn("`mode`: test", log)
+
+    def test_ingest_source_note_creates_linked_wiki_pages(self):
+        result = self.module.obsidian_ingest_source_note(
+            "sources/Paper.md",
+            "Raw extraction text.",
+            str(self.vault),
+            title="Important Paper",
+            summary="A concise source summary.",
+            metadata_json=json.dumps({"doi": "10.0000/example"}),
+            entities_json=json.dumps([{"name": "Example Entity", "summary": "An important entity."}]),
+            concepts_json=json.dumps(["Example Concept"]),
+            overwrite=True,
+        )
+
+        self.assertTrue(result["ok"])
+        source = (self.vault / "sources" / "Paper.md").read_text(encoding="utf-8")
+        entity = (self.vault / "entities" / "Example Entity.md").read_text(encoding="utf-8")
+        concept = (self.vault / "concepts" / "Example Concept.md").read_text(encoding="utf-8")
+        index = (self.vault / "index.md").read_text(encoding="utf-8")
+        log = (self.vault / "log.md").read_text(encoding="utf-8")
+
+        self.assertIn("[[entities/Example Entity|Example Entity]]", source)
+        self.assertIn("[[concepts/Example Concept|Example Concept]]", source)
+        self.assertIn("[[sources/Paper|Important Paper]]", entity)
+        self.assertIn("type: concept", concept)
+        self.assertIn("[[sources/Paper|Important Paper]]", index)
+        self.assertIn("Ingested source note: Important Paper", log)
+
+    def test_base_template_list_includes_project_templates(self):
+        templates = self.module.obsidian_list_base_templates()
+
+        self.assertIn("literature", templates)
+        self.assertIn("equipment", templates)
+        self.assertIn("economics", templates)
+
+    def test_create_base_template_writes_yaml(self):
+        result = self.module.obsidian_create_base_template(
+            "equipment",
+            "bases/equipment.base",
+            str(self.vault),
+            options_json=json.dumps({"folder": "02-equipment", "tag": "equipment", "title": "Equipment Register"}),
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["template"], "equipment")
+        content = (self.vault / "bases" / "equipment.base").read_text(encoding="utf-8")
+        self.assertIn("Equipment Register", content)
+        self.assertIn('file.inFolder("02-equipment")', content)
+        self.assertIn("tag_no", content)
+        self.assertIn("summaries", content)
+
+    def test_create_base_template_dry_run_does_not_write(self):
+        result = self.module.obsidian_create_base_template(
+            "sources",
+            "bases/sources.base",
+            str(self.vault),
+            dry_run=True,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["dryRun"])
+        self.assertTrue(result["changed"])
+        self.assertIn("+views:", result["diff"])
+        self.assertFalse((self.vault / "bases" / "sources.base").exists())
+
+    def test_create_canvas_from_graph_writes_file_nodes_and_edges(self):
+        self.write_note("A.md", "---\ntitle: A\ntags: [concept]\n---\n\n# A\nSee [[B]].\n")
+        self.write_note("B.md", "---\ntitle: B\ntags: [concept]\n---\n\n# B\n")
+
+        result = self.module.obsidian_create_canvas_from_graph(
+            "maps/topic.canvas",
+            str(self.vault),
+            tag="concept",
+            layout="grid",
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["noteNodeCount"], 2)
+        self.assertEqual(result["edgeCount"], 1)
+        payload = json.loads((self.vault / "maps" / "topic.canvas").read_text(encoding="utf-8"))
+        file_nodes = [node for node in payload["nodes"] if node["type"] == "file"]
+        self.assertEqual({node["file"] for node in file_nodes}, {"A.md", "B.md"})
+        self.assertEqual(payload["edges"][0]["toEnd"], "arrow")
+
+    def test_create_canvas_from_graph_dry_run_does_not_write(self):
+        self.write_note("A.md", "---\ntitle: A\ntags: [source]\n---\n\n# A\n")
+
+        result = self.module.obsidian_create_canvas_from_graph(
+            "maps/source.canvas",
+            str(self.vault),
+            tag="source",
+            dry_run=True,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["dryRun"])
+        self.assertIn("+  \"nodes\": [", result["diff"])
+        self.assertFalse((self.vault / "maps" / "source.canvas").exists())
+
+    def test_create_dataview_note_writes_query_block(self):
+        result = self.module.obsidian_create_dataview_note(
+            "equipment",
+            "views/equipment.md",
+            str(self.vault),
+            options_json=json.dumps({"folder": "equipment", "tag": "equipment", "title": "Equipment View"}),
+        )
+
+        self.assertTrue(result["ok"])
+        content = (self.vault / "views" / "equipment.md").read_text(encoding="utf-8")
+        self.assertIn("```dataview", content)
+        self.assertIn('FROM #equipment AND "equipment"', content)
+        self.assertIn("TABLE tag_no, service, area, status, cost, vendor", content)
+
+    def test_validate_vault_schema_reports_frontmatter_and_canvas_errors(self):
+        self.write_note("sources/Bad.md", "---\ntype: source\ntags: source\n---\n\n# Bad\n")
+        (self.vault / "bad.canvas").write_text(json.dumps({"nodes": [{"id": "a", "type": "file"}], "edges": []}), encoding="utf-8")
+
+        result = self.module.obsidian_validate_vault_schema(str(self.vault))
+        messages = [issue["message"] for issue in result["issues"]]
+
+        self.assertFalse(result["ok"])
+        self.assertIn("Missing required property.", messages)
+        self.assertIn("Canvas node is missing a required field.", messages)
+
+    def test_apply_schema_defaults_fills_missing_frontmatter(self):
+        self.write_note("entities/Example Entity.md", "# Example Entity\n\nEntity note.")
+
+        dry = self.module.obsidian_apply_schema_defaults(str(self.vault), dry_run=True)
+        self.assertTrue(dry["ok"])
+        self.assertTrue(dry["dryRun"])
+        self.assertEqual(dry["updateCount"], 1)
+        self.assertIn("+title: Example Entity", dry["changes"][0]["diff"])
+        self.assertFalse((self.vault / "entities" / "Example Entity.md").read_text(encoding="utf-8").startswith("---"))
+
+        applied = self.module.obsidian_apply_schema_defaults(str(self.vault), dry_run=False)
+        self.assertTrue(applied["ok"])
+        note = (self.vault / "entities" / "Example Entity.md").read_text(encoding="utf-8")
+        self.assertIn("type: entity", note)
+        self.assertIn("sources: []", note)
+
+    def test_graph_improvements_suggest_unresolved_and_markdown_links(self):
+        self.write_note("A.md", "---\ntitle: A\ntags: [topic]\n---\n\n# A\nSee [[Missing]] and [B](B.md).\n")
+
+        result = self.module.obsidian_suggest_graph_improvements(str(self.vault))
+        kinds = {suggestion["kind"] for suggestion in result["suggestions"]}
+
+        self.assertIn("create_note", kinds)
+        self.assertIn("markdown_links", kinds)
+
+    def test_canvas_from_graph_grouped_layout_creates_group_nodes(self):
+        self.write_note("sources/A.md", "---\ntitle: A\ntags: [source]\n---\n\n# A\nSee [[entities/B]].\n")
+        self.write_note("entities/B.md", "---\ntitle: B\ntags: [entity]\n---\n\n# B\n")
+
+        result = self.module.obsidian_create_canvas_from_graph(
+            "maps/grouped.canvas",
+            str(self.vault),
+            layout="grouped",
+            group_by="tag",
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertGreaterEqual(result["groupCount"], 2)
+        payload = json.loads((self.vault / "maps" / "grouped.canvas").read_text(encoding="utf-8"))
+        group_labels = {node["label"] for node in payload["nodes"] if node["type"] == "group"}
+        self.assertIn("source", group_labels)
+        self.assertIn("entity", group_labels)
+
+    def test_structured_cli_wrappers_parse_json_and_build_commands(self):
+        calls = []
+
+        def fake_cli(command, params_json="{}", flags_json="[]", vault="", cwd="", timeout_seconds=30):
+            calls.append((command, json.loads(params_json), json.loads(flags_json), vault, timeout_seconds))
+            if command in {"backlinks", "base:query", "properties", "tasks"}:
+                return {"ok": True, "command": ["obsidian", command], "returnCode": 0, "stdout": '[{\"file\":\"A.md\"}]', "stderr": ""}
+            return {"ok": True, "command": ["obsidian", command], "returnCode": 0, "stdout": "plain", "stderr": ""}
+
+        original = self.module.obsidian_cli
+        self.module.obsidian_cli = fake_cli
+        try:
+            backlinks = self.module.obsidian_cli_backlinks(path="A.md", counts=True)
+            base = self.module.obsidian_cli_base_query(path="bases/test.base", view="Main")
+            props = self.module.obsidian_cli_properties(path="A.md", counts=True)
+            tasks = self.module.obsidian_cli_tasks(path="A.md", todo=True)
+            read = self.module.obsidian_cli_read(path="A.md")
+        finally:
+            self.module.obsidian_cli = original
+
+        self.assertEqual(backlinks["data"], [{"file": "A.md"}])
+        self.assertEqual(base["data"], [{"file": "A.md"}])
+        self.assertEqual(props["data"], [{"file": "A.md"}])
+        self.assertEqual(tasks["data"], [{"file": "A.md"}])
+        self.assertEqual(read["content"], "plain")
+        self.assertIn(("backlinks", {"path": "A.md", "format": "json"}, ["counts"], "", 30), calls)
+        self.assertIn(("base:query", {"path": "bases/test.base", "view": "Main", "format": "json"}, [], "", 30), calls)
+
+    def test_structured_cli_mutating_wrappers(self):
+        calls = []
+
+        def fake_cli(command, params_json="{}", flags_json="[]", vault="", cwd="", timeout_seconds=30):
+            calls.append((command, json.loads(params_json), json.loads(flags_json), vault))
+            return {"ok": True, "command": ["obsidian", command], "returnCode": 0, "stdout": "", "stderr": ""}
+
+        original = self.module.obsidian_cli
+        self.module.obsidian_cli = fake_cli
+        try:
+            set_result = self.module.obsidian_cli_property_set("status", "done", path="A.md", property_type="text")
+            remove_result = self.module.obsidian_cli_property_remove("status", path="A.md")
+            screenshot = self.module.obsidian_cli_screenshot("shot.png")
+            reload_result = self.module.obsidian_cli_plugin_reload("obsidian-git")
+            dry_move = self.module.obsidian_cli_move_or_rename("move", path="A.md", to="Archive/A.md")
+            applied_rename = self.module.obsidian_cli_move_or_rename("rename", path="A.md", name="B.md", dry_run=False)
+        finally:
+            self.module.obsidian_cli = original
+
+        self.assertTrue(set_result["ok"])
+        self.assertTrue(remove_result["ok"])
+        self.assertTrue(screenshot["ok"])
+        self.assertTrue(reload_result["ok"])
+        self.assertTrue(dry_move["dryRun"])
+        self.assertEqual(dry_move["command"][-1], "to=Archive/A.md")
+        self.assertFalse(applied_rename["dryRun"])
+        self.assertIn(("property:set", {"name": "status", "value": "done", "type": "text", "path": "A.md"}, [], ""), calls)
+        self.assertIn(("rename", {"path": "A.md", "name": "B.md"}, [], ""), calls)
+
+    def test_cli_json_parser_handles_no_rows_messages(self):
+        parsed = self.module._parse_cli_stdout(
+            {"ok": True, "command": ["obsidian", "tasks"], "returnCode": 0, "stdout": "\nNo tasks found.\n", "stderr": ""},
+            "json",
+        )
+
+        self.assertEqual(parsed["data"], [])
+        self.assertNotIn("parseError", parsed)
+
+    def test_edit_plan_preview_apply_and_rollback(self):
+        self.write_note("A.md", "---\ntitle: A\ntags: [topic]\n---\n\n# A\nOld text.\n")
+        plan = {
+            "operations": [
+                {"op": "update_properties", "path": "A.md", "properties": {"status": "draft"}},
+                {"op": "write", "path": "B.md", "content": "# B\nCreated.\n"},
+            ]
+        }
+
+        preview = self.module.obsidian_preview_edit_plan(json.dumps(plan), str(self.vault))
+        self.assertEqual(preview["operationCount"], 2)
+        self.assertEqual(preview["changeCount"], 2)
+        self.assertFalse((self.vault / "B.md").exists())
+
+        applied = self.module.obsidian_apply_edit_plan(json.dumps(plan), str(self.vault), transaction_id="tx-test")
+        self.assertTrue(applied["ok"])
+        self.assertTrue((self.vault / ".obsidian-vault-backups" / "tx-test" / "manifest.json").exists())
+        self.assertIn("status: draft", (self.vault / "A.md").read_text(encoding="utf-8"))
+        self.assertTrue((self.vault / "B.md").exists())
+
+        rollback_preview = self.module.obsidian_rollback_edit_plan("tx-test", str(self.vault), dry_run=True)
+        self.assertTrue(rollback_preview["dryRun"])
+        self.assertTrue((self.vault / "B.md").exists())
+
+        rolled_back = self.module.obsidian_rollback_edit_plan("tx-test", str(self.vault))
+        self.assertTrue(rolled_back["ok"])
+        self.assertNotIn("status: draft", (self.vault / "A.md").read_text(encoding="utf-8"))
+        self.assertFalse((self.vault / "B.md").exists())
+
+    def test_edit_plan_rejects_duplicate_targets_and_escaping_paths(self):
+        duplicate_plan = {
+            "operations": [
+                {"op": "write", "path": "A.md", "content": "one"},
+                {"op": "append", "path": "A.md", "content": "two"},
+            ]
+        }
+        escape_plan = {"operations": [{"op": "write", "path": "../outside.md", "content": "bad"}]}
+
+        with self.assertRaises(ValueError):
+            self.module.obsidian_preview_edit_plan(json.dumps(duplicate_plan), str(self.vault))
+        with self.assertRaises(ValueError):
+            self.module.obsidian_preview_edit_plan(json.dumps(escape_plan), str(self.vault))
+
+    def test_zotero_wrappers_use_local_api_summaries(self):
+        calls = []
+
+        def fake_api(path, params=None, api_base=""):
+            calls.append((path, params or {}, api_base))
+            if path == "users/0/items":
+                return [
+                    {
+                        "key": "ITEM1",
+                        "data": {
+                            "key": "ITEM1",
+                            "itemType": "journalArticle",
+                            "title": "Zotero Article",
+                            "creators": [{"firstName": "Ada", "lastName": "Lovelace"}],
+                            "date": "2024",
+                            "DOI": "10.1000/zotero",
+                            "tags": [{"tag": "zotero"}],
+                        },
+                    }
+                ]
+            if path == "users/0/items/ITEM1":
+                return {
+                    "key": "ITEM1",
+                    "data": {
+                        "key": "ITEM1",
+                        "itemType": "journalArticle",
+                        "title": "Zotero Article",
+                        "creators": [{"firstName": "Ada", "lastName": "Lovelace"}],
+                    },
+                }
+            if path == "users/0/items/ITEM1/children":
+                return [
+                    {"key": "NOTE1", "data": {"key": "NOTE1", "itemType": "note", "note": "<p>Child note</p>"}},
+                    {"key": "PDF1", "data": {"key": "PDF1", "itemType": "attachment", "contentType": "application/pdf", "path": "C:/tmp/file.pdf"}},
+                ]
+            return []
+
+        original = self.module._zotero_api
+        self.module._zotero_api = fake_api
+        try:
+            search = self.module.obsidian_zotero_search_items("zotero")
+            item = self.module.obsidian_zotero_get_item("ITEM1")
+            children = self.module.obsidian_zotero_get_children("ITEM1")
+            pdfs = self.module.obsidian_zotero_list_pdf_attachments(parent_key="ITEM1")
+        finally:
+            self.module._zotero_api = original
+
+        self.assertEqual(search[0]["key"], "ITEM1")
+        self.assertEqual(item["title"], "Zotero Article")
+        self.assertEqual(children["notes"][0]["note"], "Child note")
+        self.assertEqual(pdfs[0]["key"], "PDF1")
+        self.assertEqual(calls[0][0], "users/0/items")
+
+    def test_ingest_zotero_item_copies_pdf_and_creates_note(self):
+        pdf = self.vault / "external.pdf"
+        supplement = self.vault / "supplement.pdf"
+        missing = self.vault / "missing.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        supplement.write_bytes(b"%PDF-1.4\n")
+
+        def fake_api(path, params=None, api_base=""):
+            if path == "users/0/items/ITEM1":
+                return {
+                    "key": "ITEM1",
+                    "data": {
+                        "key": "ITEM1",
+                        "itemType": "journalArticle",
+                        "title": "Zotero Article",
+                        "creators": [{"firstName": "Ada", "lastName": "Lovelace"}],
+                        "date": "2024",
+                        "DOI": "10.1000/zotero",
+                        "abstractNote": "Abstract from Zotero.",
+                        "tags": [{"tag": "chemistry"}],
+                    },
+                }
+            if path == "users/0/items/ITEM1/children":
+                return [
+                    {"key": "NOTE1", "data": {"key": "NOTE1", "itemType": "note", "note": "<p>Imported note</p>"}},
+                    {"key": "PDF1", "data": {"key": "PDF1", "itemType": "attachment", "title": "PDF", "contentType": "application/pdf", "path": str(pdf)}},
+                    {"key": "PDF2", "data": {"key": "PDF2", "itemType": "attachment", "title": "Supplement", "contentType": "application/pdf", "path": str(supplement)}},
+                    {"key": "PDF3", "data": {"key": "PDF3", "itemType": "attachment", "title": "Missing", "contentType": "application/pdf", "path": str(missing)}},
+                ]
+            return []
+
+        original = self.module._zotero_api
+        self.module._zotero_api = fake_api
+        try:
+            result = self.module.obsidian_ingest_zotero_item(
+                "ITEM1",
+                str(self.vault),
+                source_folder="zotero",
+                attachments_folder="attachments/zotero",
+                copy_pdf_attachments=True,
+                overwrite=True,
+            )
+        finally:
+            self.module._zotero_api = original
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["children"]["attachments"], 3)
+        self.assertTrue((self.vault / "attachments" / "zotero" / "ITEM1" / "external.pdf").exists())
+        self.assertTrue((self.vault / "attachments" / "zotero" / "ITEM1" / "supplement.pdf").exists())
+        self.assertEqual(
+            result["linkedAttachments"],
+            ["attachments/zotero/ITEM1/external.pdf", "attachments/zotero/ITEM1/supplement.pdf"],
+        )
+        self.assertEqual(len(result["attachmentErrors"]), 1)
+        note = (self.vault / "zotero" / "ITEM1.md").read_text(encoding="utf-8")
+        self.assertIn("zoteroKey: ITEM1", note)
+        self.assertIn("Imported note", note)
+        self.assertIn("![[attachments/zotero/ITEM1/external.pdf]]", note)
+        self.assertIn("![[attachments/zotero/ITEM1/supplement.pdf]]", note)
+        self.assertIn("Attachment Import Warnings", note)
+
+    def test_parse_bibtex_normalizes_reference_metadata(self):
+        bibtex = """@article{smith2024example,
+          title={Example process design},
+          author={Smith, Jane and Doe, John},
+          year={2024},
+          doi={10.1000/example},
+          keywords={example, process}
+        }"""
+
+        result = self.module.obsidian_parse_bibtex(bibtex)
+
+        self.assertEqual(result["entryCount"], 1)
+        entry = result["entries"][0]
+        self.assertEqual(entry["citekey"], "smith2024example")
+        self.assertEqual(entry["authors"], ["Smith, Jane", "Doe, John"])
+        self.assertEqual(entry["year"], 2024)
+        self.assertEqual(entry["keywords"], ["example", "process"])
+
+    def test_ingest_reference_dry_run_and_apply(self):
+        metadata = {
+            "title": "Example Process Design",
+            "authors": ["Jane Smith"],
+            "year": 2024,
+            "doi": "10.1000/example",
+            "citekey": "smith2024example",
+        }
+
+        dry = self.module.obsidian_ingest_reference(
+            json.dumps(metadata),
+            str(self.vault),
+            source_folder="literature",
+            abstract="Reference abstract.",
+            dry_run=True,
+        )
+        self.assertTrue(dry["dryRun"])
+        self.assertFalse((self.vault / "literature" / "smith2024example.md").exists())
+
+        applied = self.module.obsidian_ingest_reference(
+            json.dumps(metadata),
+            str(self.vault),
+            source_folder="literature",
+            abstract="Reference abstract.",
+            overwrite=True,
+        )
+        self.assertTrue(applied["ok"])
+        note = (self.vault / "literature" / "smith2024example.md").read_text(encoding="utf-8")
+        self.assertIn("type: literature", note)
+        self.assertIn("10.1000/example", note)
+
+    def test_ingest_bibtex_creates_literature_note(self):
+        bibtex = """@article{doe2025energy,
+          title={Energy integration},
+          author={Doe, Jane},
+          year={2025}
+        }"""
+
+        result = self.module.obsidian_ingest_bibtex(bibtex, str(self.vault), source_folder="papers", overwrite=True)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["entryCount"], 1)
+        self.assertTrue((self.vault / "papers" / "doe2025energy.md").exists())
+
+    def test_ingest_mineru_markdown_and_pdf_attachment(self):
+        self.write_note("extracts/paper.md", "# Extracted Paper\n\nThis paragraph came from MinerU.")
+        (self.vault / "attachments").mkdir(exist_ok=True)
+        (self.vault / "attachments" / "paper.pdf").write_bytes(b"%PDF-1.4\n")
+
+        mineru = self.module.obsidian_ingest_mineru_markdown(
+            markdown_path="extracts/paper.md",
+            pdf_attachment_path="attachments/paper.pdf",
+            vault_path=str(self.vault),
+            title="MinerU Paper",
+            source_path="sources/mineru-paper.md",
+            metadata_json=json.dumps({"project": "demo"}),
+            overwrite=True,
+        )
+        pdf = self.module.obsidian_ingest_pdf_attachment(
+            "attachments/paper.pdf",
+            str(self.vault),
+            source_path="sources/pdf-paper.md",
+            title="PDF Paper",
+            overwrite=True,
+        )
+
+        self.assertTrue(mineru["ok"])
+        self.assertTrue(pdf["ok"])
+        mineru_note = (self.vault / "sources" / "mineru-paper.md").read_text(encoding="utf-8")
+        pdf_note = (self.vault / "sources" / "pdf-paper.md").read_text(encoding="utf-8")
+        self.assertIn("mineru_markdown: extracts/paper.md", mineru_note)
+        self.assertIn("![[attachments/paper.pdf]]", mineru_note)
+        self.assertIn("type: pdf", pdf_note)
+
+
+if __name__ == "__main__":
+    unittest.main()
