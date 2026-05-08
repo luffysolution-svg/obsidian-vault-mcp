@@ -73,3 +73,29 @@ mineru-open-api version
 Do not commit tokens to this repository. If you use MinerU MCP as a separate
 server, let Codex call that MCP directly and then use this plugin to ingest the
 generated Markdown.
+
+### MinerU Network Notes
+
+MinerU extraction uses more than one endpoint. Successful task creation does
+not guarantee that result download will work. Make sure these domains are
+reachable:
+
+- `mineru.net`
+- `mineru.oss-cn-shanghai.aliyuncs.com`
+- `cdn-mineru.openxlab.org.cn`
+- `*.openxlab.org.cn`
+
+On VPN/proxy setups, `cdn-mineru.openxlab.org.cn` may be resolved to fake-IP
+ranges such as `198.18.x.x`. That can cause TLS handshake or EOF errors when
+MinerU downloads the generated Markdown. Prefer direct routing for
+MinerU/OpenXLab domains, or configure your proxy DNS rules so these domains
+resolve and connect correctly.
+
+Quick checks on Windows:
+
+```powershell
+mineru-open-api version
+curl.exe -I https://mineru.net
+curl.exe -I https://cdn-mineru.openxlab.org.cn
+Resolve-DnsName cdn-mineru.openxlab.org.cn
+```

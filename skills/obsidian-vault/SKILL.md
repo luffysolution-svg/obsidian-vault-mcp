@@ -48,6 +48,11 @@ Use `obsidian_ingest_bibtex`, `obsidian_ingest_reference`, `obsidian_ingest_mine
 
 When the user wants MinerU to parse a document directly, first call `obsidian_mineru_status`. If `mineru-open-api` is available, use `obsidian_mineru_extract` for extraction or `obsidian_mineru_extract_and_ingest` for the full extract-and-import workflow. Prefer `flash-extract` when no token is configured. Precision `extract` may require MinerU authentication. If the user already has a separate MinerU MCP server, let Codex use that MCP directly and then ingest the generated Markdown with this plugin; this plugin does not call another MCP server internally.
 
+If MinerU task creation succeeds but Markdown download fails, check network
+routes for `mineru.net`, `mineru.oss-cn-shanghai.aliyuncs.com`,
+`cdn-mineru.openxlab.org.cn`, and `*.openxlab.org.cn`. VPN/proxy fake-IP DNS
+can break result downloads even when the main API is reachable.
+
 Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user to open Zotero Desktop and enable local API access. Once reachable, use `obsidian_zotero_search_items`, `obsidian_zotero_get_item`, `obsidian_zotero_get_children`, and `obsidian_ingest_zotero_item`.
 
 ## Tool Hints

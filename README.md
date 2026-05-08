@@ -56,6 +56,19 @@ small/simple documents; precision `extract` may require a MinerU token or a
 local MinerU CLI auth configuration. This plugin does not install MinerU CLI,
 MinerU MCP, Zotero Desktop, or Obsidian CLI automatically.
 
+MinerU extraction calls several MinerU/OpenXLab endpoints. If you use a VPN,
+proxy, or fake-IP DNS mode, make sure these domains are reachable and preferably
+routed directly:
+
+- `mineru.net`
+- `mineru.oss-cn-shanghai.aliyuncs.com`
+- `cdn-mineru.openxlab.org.cn`
+- `*.openxlab.org.cn`
+
+A common failure mode is that the parse task and OSS upload succeed, but
+downloading `full.md` from `cdn-mineru.openxlab.org.cn` fails with TLS/EOF
+errors. In that case, check proxy/DNS rules before debugging this plugin.
+
 By default, paths must resolve to a folder containing `.obsidian`. Set `OBSIDIAN_ALLOW_NON_VAULT=true` only when intentionally using a plain Markdown folder.
 
 ## Install Dependencies
@@ -76,6 +89,19 @@ See [Install](./docs/INSTALL.md) for local plugin setup and Zotero notes.
 - Obsidian CLI: required only for app-backed read/open/backlinks/Base/property/task/screenshot operations.
 - MinerU CLI (`mineru-open-api`): required only for `obsidian_mineru_extract` and `obsidian_mineru_extract_and_ingest`.
 - MinerU MCP: optional companion server. Codex can use MinerU MCP to parse a document, then use this plugin to ingest the generated Markdown. This plugin does not call MinerU MCP internally.
+
+Quick MinerU connectivity checks on Windows:
+
+```powershell
+mineru-open-api version
+curl.exe -I https://mineru.net
+curl.exe -I https://cdn-mineru.openxlab.org.cn
+Resolve-DnsName cdn-mineru.openxlab.org.cn
+```
+
+If `cdn-mineru.openxlab.org.cn` resolves to a fake-IP range such as
+`198.18.x.x`, configure your proxy/VPN DNS rules so MinerU/OpenXLab domains use
+a working route.
 
 ## Deploy With Codex
 
