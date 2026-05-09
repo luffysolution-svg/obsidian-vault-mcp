@@ -581,7 +581,8 @@ def _item_summary(item: Any) -> str:
 def _item_path(item: Any, folder: str) -> str:
     if isinstance(item, dict) and item.get("path"):
         return _ensure_md_path(str(item["path"]))
-    return f"{folder.strip('/').replace('\\', '/')}/{_slug_filename(_item_name(item))}.md"
+    clean_folder = folder.strip("/").replace("\\", "/")
+    return f"{clean_folder}/{_slug_filename(_item_name(item))}.md"
 
 
 def _merge_unique(existing: Any, additions: list[str]) -> list[str]:
