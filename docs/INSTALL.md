@@ -40,6 +40,11 @@ python -m pip install -r requirements.txt
 }
 ```
 
+The configured script path points to `scripts/obsidian_vault_mcp.py`. That
+file is a small compatibility entrypoint; the implementation package lives next
+to it in `scripts/obsidian_vault_mcp/`, so both the file and directory must be
+kept together.
+
 5. If `auto` cannot find your vault, set `OBSIDIAN_VAULT_PATH` locally to your
    vault root. Do not commit personal vault paths to the repository.
 

@@ -274,8 +274,8 @@ class ObsidianVaultMcpTests(unittest.TestCase):
                 return {"ok": True, "command": ["obsidian", command], "returnCode": 0, "stdout": '[{\"file\":\"A.md\"}]', "stderr": ""}
             return {"ok": True, "command": ["obsidian", command], "returnCode": 0, "stdout": "plain", "stderr": ""}
 
-        original = self.module.obsidian_cli
-        self.module.obsidian_cli = fake_cli
+        original = self.module._tools.obsidian_cli
+        self.module._tools.obsidian_cli = fake_cli
         try:
             backlinks = self.module.obsidian_cli_backlinks(path="A.md", counts=True)
             base = self.module.obsidian_cli_base_query(path="bases/test.base", view="Main")
@@ -283,7 +283,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             tasks = self.module.obsidian_cli_tasks(path="A.md", todo=True)
             read = self.module.obsidian_cli_read(path="A.md")
         finally:
-            self.module.obsidian_cli = original
+            self.module._tools.obsidian_cli = original
 
         self.assertEqual(backlinks["data"], [{"file": "A.md"}])
         self.assertEqual(base["data"], [{"file": "A.md"}])
@@ -300,8 +300,8 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             calls.append((command, json.loads(params_json), json.loads(flags_json), vault))
             return {"ok": True, "command": ["obsidian", command], "returnCode": 0, "stdout": "", "stderr": ""}
 
-        original = self.module.obsidian_cli
-        self.module.obsidian_cli = fake_cli
+        original = self.module._tools.obsidian_cli
+        self.module._tools.obsidian_cli = fake_cli
         try:
             set_result = self.module.obsidian_cli_property_set("status", "done", path="A.md", property_type="text")
             remove_result = self.module.obsidian_cli_property_remove("status", path="A.md")
@@ -310,7 +310,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             dry_move = self.module.obsidian_cli_move_or_rename("move", path="A.md", to="Archive/A.md")
             applied_rename = self.module.obsidian_cli_move_or_rename("rename", path="A.md", name="B.md", dry_run=False)
         finally:
-            self.module.obsidian_cli = original
+            self.module._tools.obsidian_cli = original
 
         self.assertTrue(set_result["ok"])
         self.assertTrue(remove_result["ok"])
@@ -411,15 +411,15 @@ class ObsidianVaultMcpTests(unittest.TestCase):
                 ]
             return []
 
-        original = self.module._zotero_api
-        self.module._zotero_api = fake_api
+        original = self.module._tools._zotero_api
+        self.module._tools._zotero_api = fake_api
         try:
             search = self.module.obsidian_zotero_search_items("zotero")
             item = self.module.obsidian_zotero_get_item("ITEM1")
             children = self.module.obsidian_zotero_get_children("ITEM1")
             pdfs = self.module.obsidian_zotero_list_pdf_attachments(parent_key="ITEM1")
         finally:
-            self.module._zotero_api = original
+            self.module._tools._zotero_api = original
 
         self.assertEqual(search[0]["key"], "ITEM1")
         self.assertEqual(item["title"], "Zotero Article")
@@ -458,8 +458,8 @@ class ObsidianVaultMcpTests(unittest.TestCase):
                 ]
             return []
 
-        original = self.module._zotero_api
-        self.module._zotero_api = fake_api
+        original = self.module._tools._zotero_api
+        self.module._tools._zotero_api = fake_api
         try:
             result = self.module.obsidian_ingest_zotero_item(
                 "ITEM1",
@@ -470,7 +470,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
                 overwrite=True,
             )
         finally:
-            self.module._zotero_api = original
+            self.module._tools._zotero_api = original
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["children"]["attachments"], 3)

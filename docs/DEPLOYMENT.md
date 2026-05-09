@@ -15,12 +15,22 @@ obsidian-vault-mcp/
   requirements.txt
   docs/
   scripts/obsidian_vault_mcp.py
+  scripts/obsidian_vault_mcp/
+    __init__.py
+    common.py
+    helpers.py
+    server.py
+    tools.py
   skills/obsidian-vault/SKILL.md
   tests/
 ```
 
 Do not publish local vault files, generated backups, virtual environments,
 `__pycache__`, or ad-hoc scripts that write to a real vault.
+
+`scripts/obsidian_vault_mcp.py` is a compatibility entrypoint for `.mcp.json`.
+Keep the implementation package under `scripts/obsidian_vault_mcp/` together
+with it when publishing or packaging the plugin.
 
 ## Before Publishing
 

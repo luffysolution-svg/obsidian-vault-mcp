@@ -83,6 +83,26 @@ python -m pip install -r requirements.txt
 
 See [Install](./docs/INSTALL.md) for local plugin setup and Zotero notes.
 
+## Code Architecture
+
+The checked-in MCP entrypoint remains `scripts/obsidian_vault_mcp.py` so
+existing `.mcp.json` installs keep working. That file is intentionally thin:
+it adds the `scripts/` directory to `sys.path`, imports the package, and runs
+the server.
+
+The implementation lives in `scripts/obsidian_vault_mcp/`:
+
+- `common.py`: shared imports, constants, and MCP tool registration metadata.
+- `helpers.py`: vault-safe paths, frontmatter/YAML handling, graph helpers,
+  Canvas/Base/schema utilities, edit-plan support, Zotero/MinerU helpers, and
+  other non-tool implementation details.
+- `tools.py`: public MCP tool functions and CLI wrappers.
+- `server.py`: FastMCP server construction and tool registration.
+- `__init__.py`: package exports for tests and direct imports.
+
+This keeps the published command stable while avoiding a single multi-thousand
+line server script as the project grows.
+
 ### Optional External Tools
 
 - Zotero Desktop: required only for direct Zotero library search/import.
