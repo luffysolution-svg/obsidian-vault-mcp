@@ -1,6 +1,6 @@
 {
   "name": "obsidian-vault",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Work with local Obsidian vaults: files, properties, wikilinks, Canvas, Bases, graph data, and the Obsidian CLI.",
   "author": {
     "name": "Obsidian Vault MCP Contributors",
