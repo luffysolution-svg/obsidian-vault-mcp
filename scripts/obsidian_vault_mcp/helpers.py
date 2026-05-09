@@ -211,30 +211,82 @@ def _find_user_template(vault: Path, template_path: str = "", template_name: str
     raise FileNotFoundError(f"Template not found: {wanted}")
 
 
+def _moment_to_strftime(fmt: str) -> str:
+    replacements = [
+        ("YYYY", "%Y"),
+        ("YY", "%y"),
+        ("MMMM", "%B"),
+        ("MMM", "%b"),
+        ("MM", "%m"),
+        ("DD", "%d"),
+        ("HH", "%H"),
+        ("mm", "%M"),
+        ("ss", "%S"),
+    ]
+    result = fmt
+    for old, new in replacements:
+        result = result.replace(old, new)
+    return result
+
+
 def _render_template(template: str, title: str, body: str, properties: dict[str, Any]) -> str:
+    now = datetime.now()
+
+    def property_value(key: str) -> str:
+        value = properties.get(key, "")
+        if isinstance(value, (list, dict)):
+            return json.dumps(value, ensure_ascii=False)
+        return str(value)
+
+    def replace_date(match: re.Match[str]) -> str:
+        fmt = match.group(1) or "YYYY-MM-DD"
+        return now.strftime(_moment_to_strftime(fmt))
+
+    def replace_time(match: re.Match[str]) -> str:
+        fmt = match.group(1) or "HH:mm"
+        return now.strftime(_moment_to_strftime(fmt))
+
+    def replace_property(match: re.Match[str]) -> str:
+        return property_value(match.group(1).strip())
+
     rendered = template
     replacements = {
         "{{title}}": title,
         "{{name}}": title,
-        "{{date}}": datetime.now().strftime("%Y-%m-%d"),
-        "{{time}}": datetime.now().strftime("%H:%M"),
+        "{{date}}": now.strftime("%Y-%m-%d"),
+        "{{time}}": now.strftime("%H:%M"),
         "{{body}}": body,
         "{{content}}": body,
+        "<% tp.file.title %>": title,
+        "<% tp.file.content %>": body,
     }
     for key, value in replacements.items():
         rendered = rendered.replace(key, value)
     for key, value in properties.items():
-        rendered = rendered.replace(f"{{{{{key}}}}}", str(value))
+        rendered = rendered.replace(f"{{{{{key}}}}}", property_value(str(key)))
+    rendered = re.sub(r"\{\{\s*date(?::([^}]+))?\s*\}\}", replace_date, rendered)
+    rendered = re.sub(r"\{\{\s*time(?::([^}]+))?\s*\}\}", replace_time, rendered)
+    rendered = re.sub(r"\{\{\s*(?:property|prop)\s*:\s*([^}]+)\s*\}\}", replace_property, rendered)
+    rendered = re.sub(r"<%\s*tp\.date\.now\(\s*['\"]([^'\"]+)['\"]\s*\)\s*%>", replace_date, rendered)
+    rendered = re.sub(r"<%\s*tp\.frontmatter\.([A-Za-z0-9_-]+)\s*%>", replace_property, rendered)
     return rendered
 
 
-def _apply_note_template(vault: Path, title: str, body: str, properties: dict[str, Any], template_path: str = "", template_name: str = "", use_template: bool = False) -> tuple[str, str]:
+def _apply_note_template(vault: Path, title: str, body: str, properties: dict[str, Any], template_path: str = "", template_name: str = "", use_template: bool = False) -> tuple[str, str, dict[str, Any]]:
     config = _template_config(vault)
     should_use = use_template or bool(template_path.strip() or template_name.strip() or config.get("defaultTemplate"))
     if not should_use:
-        return body, ""
+        return body, "", properties
     rel_path, template = _find_user_template(vault, template_path, template_name)
-    return _render_template(template, title, body, properties), rel_path
+    template_props, template_body = _split_frontmatter(template)
+    merged_props = dict(template_props)
+    merged_props.update(properties)
+    rendered_body = _render_template(template_body, title, body, merged_props)
+    rendered_props = {
+        key: _render_template(str(value), title, body, merged_props) if isinstance(value, str) else value
+        for key, value in merged_props.items()
+    }
+    return rendered_body, rel_path, rendered_props
 
 
 def _diff_text(rel_path: str, before: str, after: str) -> str:
@@ -653,15 +705,246 @@ def _dataview_template(template: str, options: dict[str, Any]) -> str:
     )
 
 
+BIBTEX_MONTHS = {
+    "jan": "January",
+    "feb": "February",
+    "mar": "March",
+    "apr": "April",
+    "may": "May",
+    "jun": "June",
+    "jul": "July",
+    "aug": "August",
+    "sep": "September",
+    "oct": "October",
+    "nov": "November",
+    "dec": "December",
+}
+
+
+class _BibTeXParser:
+    def __init__(self, raw: str):
+        self.raw = raw
+        self.length = len(raw)
+        self.pos = 0
+        self.strings: dict[str, str] = dict(BIBTEX_MONTHS)
+
+    def parse(self) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = []
+        while True:
+            self._skip_ws_and_comments()
+            at = self.raw.find("@", self.pos)
+            if at == -1:
+                break
+            self.pos = at + 1
+            entry_type = self._read_identifier().lower()
+            self._skip_ws_and_comments()
+            if not entry_type or self.pos >= self.length or self.raw[self.pos] not in "{(":
+                continue
+            close = "}" if self.raw[self.pos] == "{" else ")"
+            self.pos += 1
+            if entry_type == "string":
+                self._parse_string(close)
+            elif entry_type in {"comment", "preamble"}:
+                self._skip_balanced(close)
+            else:
+                entry = self._parse_entry(entry_type, close)
+                if entry:
+                    entries.append(entry)
+        return entries
+
+    def _skip_ws_and_comments(self) -> None:
+        while self.pos < self.length:
+            if self.raw[self.pos].isspace():
+                self.pos += 1
+                continue
+            if self.raw[self.pos] == "%":
+                newline = self.raw.find("\n", self.pos)
+                self.pos = self.length if newline == -1 else newline + 1
+                continue
+            break
+
+    def _read_identifier(self) -> str:
+        start = self.pos
+        while self.pos < self.length and re.match(r"[A-Za-z0-9_.:+/-]", self.raw[self.pos]):
+            self.pos += 1
+        return self.raw[start:self.pos].strip()
+
+    def _read_until_entry_delimiter(self, close: str) -> str:
+        start = self.pos
+        while self.pos < self.length and self.raw[self.pos] not in {",", close}:
+            self.pos += 1
+        return self.raw[start:self.pos].strip()
+
+    def _consume(self, value: str) -> bool:
+        self._skip_ws_and_comments()
+        if self.pos < self.length and self.raw[self.pos] == value:
+            self.pos += 1
+            return True
+        return False
+
+    def _skip_balanced(self, close: str) -> None:
+        depth = 1
+        quote = False
+        escape = False
+        while self.pos < self.length and depth > 0:
+            ch = self.raw[self.pos]
+            self.pos += 1
+            if escape:
+                escape = False
+                continue
+            if ch == "\\":
+                escape = True
+                continue
+            if ch == '"' and close == "}" and depth == 1:
+                quote = not quote
+                continue
+            if quote:
+                continue
+            if ch in "{(":
+                depth += 1
+            elif ch == close:
+                depth -= 1
+
+    def _parse_string(self, close: str) -> None:
+        while self.pos < self.length:
+            self._skip_ws_and_comments()
+            if self._consume(close):
+                return
+            key = self._read_identifier().lower()
+            if not key or not self._consume("="):
+                self._skip_balanced(close)
+                return
+            self.strings[key] = self._parse_value(close)
+            self._consume(",")
+
+    def _parse_entry(self, entry_type: str, close: str) -> dict[str, Any]:
+        citekey = self._read_until_entry_delimiter(close)
+        if not citekey:
+            self._skip_balanced(close)
+            return {}
+        if self._consume(close):
+            return {"entryType": entry_type, "citekey": citekey}
+        self._consume(",")
+        fields: dict[str, Any] = {}
+        while self.pos < self.length:
+            self._skip_ws_and_comments()
+            if self._consume(close):
+                break
+            name = self._read_identifier().lower()
+            if not name:
+                self.pos += 1
+                continue
+            if not self._consume("="):
+                fields[name] = ""
+                self._consume(",")
+                continue
+            fields[name] = _clean_bibtex_value(self._parse_value(close))
+            self._consume(",")
+        if "author" in fields:
+            fields["authors"] = _split_authors(str(fields["author"]))
+        if "editor" in fields:
+            fields["editors"] = _split_authors(str(fields["editor"]))
+        if "keywords" in fields:
+            fields["keywords"] = [part.strip() for part in re.split(r"[,;]", str(fields["keywords"])) if part.strip()]
+        if "year" in fields:
+            try:
+                fields["year"] = int(str(fields["year"])[:4])
+            except ValueError:
+                pass
+        return {"entryType": entry_type, "citekey": citekey.strip(), **fields}
+
+    def _parse_value(self, close: str) -> str:
+        parts = [self._parse_value_part(close)]
+        while True:
+            self._skip_ws_and_comments()
+            if self.pos >= self.length or self.raw[self.pos] != "#":
+                break
+            self.pos += 1
+            parts.append(self._parse_value_part(close))
+        return "".join(parts)
+
+    def _parse_value_part(self, close: str) -> str:
+        self._skip_ws_and_comments()
+        if self.pos >= self.length:
+            return ""
+        ch = self.raw[self.pos]
+        if ch == "{":
+            return self._read_braced()
+        if ch == '"':
+            return self._read_quoted()
+        token = self._read_until_value_delimiter(close)
+        if re.fullmatch(r"[+-]?\d+", token):
+            return token
+        return self.strings.get(token.lower(), token)
+
+    def _read_until_value_delimiter(self, close: str) -> str:
+        start = self.pos
+        while self.pos < self.length and self.raw[self.pos] not in {"#", ",", close} and not self.raw[self.pos].isspace():
+            self.pos += 1
+        return self.raw[start:self.pos].strip()
+
+    def _read_braced(self) -> str:
+        self.pos += 1
+        depth = 1
+        start = self.pos
+        escape = False
+        while self.pos < self.length and depth > 0:
+            ch = self.raw[self.pos]
+            if escape:
+                escape = False
+                self.pos += 1
+                continue
+            if ch == "\\":
+                escape = True
+                self.pos += 1
+                continue
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    value = self.raw[start:self.pos]
+                    self.pos += 1
+                    return value
+            self.pos += 1
+        return self.raw[start:self.pos]
+
+    def _read_quoted(self) -> str:
+        self.pos += 1
+        start = self.pos
+        brace_depth = 0
+        escape = False
+        while self.pos < self.length:
+            ch = self.raw[self.pos]
+            if escape:
+                escape = False
+                self.pos += 1
+                continue
+            if ch == "\\":
+                escape = True
+                self.pos += 1
+                continue
+            if ch == "{":
+                brace_depth += 1
+            elif ch == "}" and brace_depth > 0:
+                brace_depth -= 1
+            elif ch == '"' and brace_depth == 0:
+                value = self.raw[start:self.pos]
+                self.pos += 1
+                return value
+            self.pos += 1
+        return self.raw[start:self.pos]
+
+
 def _clean_bibtex_value(value: str) -> str:
     cleaned = value.strip().rstrip(",").strip()
-    if (cleaned.startswith("{") and cleaned.endswith("}")) or (cleaned.startswith('"') and cleaned.endswith('"')):
-        cleaned = cleaned[1:-1]
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     replacements = {
         r"\\&": "&",
         r"\\%": "%",
         r"\\_": "_",
+        r"\\#": "#",
+        r"\\$": "$",
         "{": "",
         "}": "",
     }
@@ -675,26 +958,7 @@ def _split_authors(value: str) -> list[str]:
 
 
 def _parse_bibtex_entries(raw: str) -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for match in BIBTEX_ENTRY_RE.finditer(raw):
-        body = match.group("body").strip()
-        if body.endswith("}"):
-            body = body[:-1]
-        fields: dict[str, Any] = {}
-        for field in BIBTEX_FIELD_RE.finditer(body):
-            name = field.group("name").lower()
-            fields[name] = _clean_bibtex_value(field.group("value"))
-        if "author" in fields:
-            fields["authors"] = _split_authors(str(fields["author"]))
-        if "keywords" in fields:
-            fields["keywords"] = [part.strip() for part in re.split(r"[,;]", str(fields["keywords"])) if part.strip()]
-        if "year" in fields:
-            try:
-                fields["year"] = int(str(fields["year"])[:4])
-            except ValueError:
-                pass
-        entries.append({"entryType": match.group("type").lower(), "citekey": match.group("key").strip(), **fields})
-    return entries
+    return _BibTeXParser(raw).parse()
 
 
 def _metadata_from_reference(item: dict[str, Any]) -> dict[str, Any]:
@@ -1403,6 +1667,10 @@ def _validate_canvas_payload(rel_path: str, payload: Any) -> list[dict[str, Any]
         issues.append({"path": rel_path, "severity": "error", "message": "Canvas edges must be an array."})
         edges = []
     node_ids: set[str] = set()
+    edge_ids: set[str] = set()
+    valid_node_types = {"text", "file", "link", "group"}
+    valid_sides = {"top", "right", "bottom", "left"}
+    valid_ends = {"none", "arrow"}
     for index, node in enumerate(nodes):
         if not isinstance(node, dict):
             issues.append({"path": rel_path, "severity": "error", "message": f"Node {index} must be an object."})
@@ -1410,6 +1678,26 @@ def _validate_canvas_payload(rel_path: str, payload: Any) -> list[dict[str, Any]
         for key in ["id", "type", "x", "y", "width", "height"]:
             if key not in node:
                 issues.append({"path": rel_path, "severity": "error", "node": node.get("id", index), "field": key, "message": "Canvas node is missing a required field."})
+        node_id = node.get("id")
+        node_type = node.get("type")
+        if not isinstance(node_id, str) or not node_id:
+            issues.append({"path": rel_path, "severity": "error", "node": index, "field": "id", "message": "Canvas node id must be a non-empty string."})
+        if node_type not in valid_node_types:
+            issues.append({"path": rel_path, "severity": "error", "node": node.get("id", index), "field": "type", "message": "Canvas node type must be text, file, link, or group."})
+        for key in ["x", "y", "width", "height"]:
+            if key in node and not isinstance(node.get(key), (int, float)):
+                issues.append({"path": rel_path, "severity": "error", "node": node.get("id", index), "field": key, "message": "Canvas node geometry fields must be numbers."})
+        for key in ["width", "height"]:
+            if isinstance(node.get(key), (int, float)) and node.get(key) <= 0:
+                issues.append({"path": rel_path, "severity": "error", "node": node.get("id", index), "field": key, "message": "Canvas node size must be positive."})
+        if node_type == "text" and not isinstance(node.get("text"), str):
+            issues.append({"path": rel_path, "severity": "error", "node": node.get("id", index), "field": "text", "message": "Text nodes require a text string."})
+        if node_type == "file" and not isinstance(node.get("file"), str):
+            issues.append({"path": rel_path, "severity": "error", "node": node.get("id", index), "field": "file", "message": "File nodes require a file path string."})
+        if node_type == "link" and not isinstance(node.get("url"), str):
+            issues.append({"path": rel_path, "severity": "error", "node": node.get("id", index), "field": "url", "message": "Link nodes require a URL string."})
+        if "color" in node and not isinstance(node.get("color"), str):
+            issues.append({"path": rel_path, "severity": "warning", "node": node.get("id", index), "field": "color", "message": "Canvas node color should be a string."})
         if node.get("id") in node_ids:
             issues.append({"path": rel_path, "severity": "error", "node": node.get("id"), "message": "Duplicate Canvas node id."})
         if node.get("id"):
@@ -1421,8 +1709,46 @@ def _validate_canvas_payload(rel_path: str, payload: Any) -> list[dict[str, Any]
         for key in ["id", "fromNode", "toNode"]:
             if key not in edge:
                 issues.append({"path": rel_path, "severity": "error", "edge": edge.get("id", index), "field": key, "message": "Canvas edge is missing a required field."})
+        edge_id = edge.get("id")
+        if not isinstance(edge_id, str) or not edge_id:
+            issues.append({"path": rel_path, "severity": "error", "edge": index, "field": "id", "message": "Canvas edge id must be a non-empty string."})
+        if edge.get("id") in edge_ids:
+            issues.append({"path": rel_path, "severity": "error", "edge": edge.get("id"), "message": "Duplicate Canvas edge id."})
+        if edge.get("id"):
+            edge_ids.add(str(edge["id"]))
         if edge.get("fromNode") not in node_ids or edge.get("toNode") not in node_ids:
             issues.append({"path": rel_path, "severity": "error", "edge": edge.get("id", index), "message": "Canvas edge references a missing node."})
+        for key in ["fromSide", "toSide"]:
+            if key in edge and edge.get(key) not in valid_sides:
+                issues.append({"path": rel_path, "severity": "error", "edge": edge.get("id", index), "field": key, "message": "Canvas edge side must be top, right, bottom, or left."})
+        for key in ["fromEnd", "toEnd"]:
+            if key in edge and edge.get(key) not in valid_ends:
+                issues.append({"path": rel_path, "severity": "error", "edge": edge.get("id", index), "field": key, "message": "Canvas edge end must be none or arrow."})
+    return issues
+
+
+def _validate_base_filter(rel_path: str, value: Any, field: str = "filters") -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    if value in ("", None):
+        return issues
+    if isinstance(value, str):
+        return issues
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            issues.extend(_validate_base_filter(rel_path, item, f"{field}[{index}]"))
+        return issues
+    if isinstance(value, dict):
+        if len(value) != 1:
+            issues.append({"path": rel_path, "severity": "error", "field": field, "message": "Base filter objects should contain exactly one operator."})
+        for operator, nested in value.items():
+            if operator not in {"and", "or", "not"}:
+                issues.append({"path": rel_path, "severity": "error", "field": field, "operator": operator, "message": "Base filter operator must be and, or, or not."})
+                continue
+            if operator in {"and", "or"} and not isinstance(nested, list):
+                issues.append({"path": rel_path, "severity": "error", "field": field, "operator": operator, "message": "Base and/or filters must contain a list."})
+            issues.extend(_validate_base_filter(rel_path, nested, f"{field}.{operator}"))
+        return issues
+    issues.append({"path": rel_path, "severity": "error", "field": field, "message": "Base filter must be a string, list, or operator object."})
     return issues
 
 
@@ -1430,6 +1756,14 @@ def _validate_base_payload(rel_path: str, payload: Any) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     if not isinstance(payload, dict):
         return [{"path": rel_path, "severity": "error", "message": "Base root must be a YAML object."}]
+    allowed_top_level = {"filters", "formulas", "properties", "summaries", "views"}
+    for key in payload:
+        if key not in allowed_top_level:
+            issues.append({"path": rel_path, "severity": "warning", "field": key, "message": "Unknown top-level Base key."})
+    issues.extend(_validate_base_filter(rel_path, payload.get("filters"), "filters"))
+    for key in ["formulas", "properties", "summaries"]:
+        if key in payload and not isinstance(payload.get(key), dict):
+            issues.append({"path": rel_path, "severity": "error", "field": key, "message": f"Base {key} section must be an object."})
     views = payload.get("views")
     if not isinstance(views, list) or not views:
         issues.append({"path": rel_path, "severity": "error", "field": "views", "message": "Base must define at least one view."})
@@ -1438,10 +1772,25 @@ def _validate_base_payload(rel_path: str, payload: Any) -> list[dict[str, Any]]:
         if not isinstance(view, dict):
             issues.append({"path": rel_path, "severity": "error", "view": index, "message": "Base view must be an object."})
             continue
-        if view.get("type") not in {"table", "cards", "list", "map"}:
-            issues.append({"path": rel_path, "severity": "error", "view": index, "field": "type", "message": "Base view type is invalid or missing."})
+        if not isinstance(view.get("type"), str) or not view.get("type"):
+            issues.append({"path": rel_path, "severity": "error", "view": index, "field": "type", "message": "Base view type is required."})
         if not view.get("name"):
             issues.append({"path": rel_path, "severity": "warning", "view": index, "field": "name", "message": "Base view should have a name."})
+        if "filters" in view:
+            issues.extend(_validate_base_filter(rel_path, view.get("filters"), f"views[{index}].filters"))
+        if "limit" in view and not isinstance(view.get("limit"), int):
+            issues.append({"path": rel_path, "severity": "error", "view": index, "field": "limit", "message": "Base view limit must be an integer."})
+        if "order" in view and not (isinstance(view.get("order"), list) and all(isinstance(item, str) for item in view.get("order", []))):
+            issues.append({"path": rel_path, "severity": "error", "view": index, "field": "order", "message": "Base view order must be a list of property strings."})
+        if "summaries" in view and not isinstance(view.get("summaries"), dict):
+            issues.append({"path": rel_path, "severity": "error", "view": index, "field": "summaries", "message": "Base view summaries must be an object."})
+        if "groupBy" in view:
+            group_by = view.get("groupBy")
+            if not isinstance(group_by, dict) or not isinstance(group_by.get("property"), str):
+                issues.append({"path": rel_path, "severity": "error", "view": index, "field": "groupBy", "message": "Base groupBy must define a property string."})
+            direction = str(group_by.get("direction", "")).upper() if isinstance(group_by, dict) else ""
+            if direction and direction not in {"ASC", "DESC"}:
+                issues.append({"path": rel_path, "severity": "error", "view": index, "field": "groupBy.direction", "message": "Base groupBy direction must be ASC or DESC."})
     return issues
 
 

@@ -230,6 +230,30 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("Template for Templated", note)
         self.assertIn("Status: draft", note)
 
+    def test_create_note_merges_template_frontmatter_and_templater_variables(self):
+        (self.vault / ".obsidian" / "templates.json").write_text(json.dumps({"folder": "Templates"}), encoding="utf-8")
+        self.write_note(
+            "Templates/Project.md",
+            "---\ntype: project\nstatus: template\ncreated: \"<% tp.date.now('YYYY-MM-DD') %>\"\nowner: \"{{property:owner}}\"\n---\n# <% tp.file.title %>\n\n{{content}}\n",
+        )
+
+        result = self.module.obsidian_create_note(
+            "projects/Alpha",
+            body="Project body.",
+            properties_json=json.dumps({"status": "active", "owner": "Ada"}),
+            vault_path=str(self.vault),
+            template_name="Project",
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["properties"]["type"], "project")
+        self.assertEqual(result["properties"]["status"], "active")
+        self.assertEqual(result["properties"]["owner"], "Ada")
+        note = (self.vault / "projects" / "Alpha.md").read_text(encoding="utf-8")
+        self.assertIn("created:", note)
+        self.assertIn("# Alpha", note)
+        self.assertIn("Project body.", note)
+
     def test_vault_config_overrides_default_output_folders(self):
         (self.vault / ".obsidian-vault-mcp.json").write_text(
             json.dumps({"literatureFolder": "01-literature", "zoteroAttachmentsFolder": "assets/zotero"}),
@@ -253,6 +277,32 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("Missing required property.", messages)
         self.assertIn("Canvas node is missing a required field.", messages)
+
+    def test_validate_vault_schema_reports_strict_canvas_and_base_errors(self):
+        (self.vault / "bad.canvas").write_text(
+            json.dumps(
+                {
+                    "nodes": [{"id": "a", "type": "unknown", "x": 0, "y": 0, "width": -1, "height": 100}],
+                    "edges": [{"id": "e1", "fromNode": "a", "toNode": "missing", "fromSide": "middle"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        (self.vault / "bad.base").write_text(
+            "filters:\n  xor:\n    - file.ext == \"md\"\nviews:\n  - type: table\n    groupBy:\n      property: status\n      direction: SIDEWAYS\n    order: file.name\n",
+            encoding="utf-8",
+        )
+
+        result = self.module.obsidian_validate_vault_schema(str(self.vault))
+        messages = [issue["message"] for issue in result["issues"]]
+
+        self.assertFalse(result["ok"])
+        self.assertIn("Canvas node type must be text, file, link, or group.", messages)
+        self.assertIn("Canvas node size must be positive.", messages)
+        self.assertIn("Canvas edge side must be top, right, bottom, or left.", messages)
+        self.assertIn("Base filter operator must be and, or, or not.", messages)
+        self.assertIn("Base view order must be a list of property strings.", messages)
+        self.assertIn("Base groupBy direction must be ASC or DESC.", messages)
 
     def test_apply_schema_defaults_fills_missing_frontmatter(self):
         self.write_note("entities/Example Entity.md", "# Example Entity\n\nEntity note.")
@@ -613,10 +663,14 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("templates", names)
 
     def test_parse_bibtex_normalizes_reference_metadata(self):
-        bibtex = """@article{smith2024example,
-          title={Example process design},
+        bibtex = """@string{jcp = "Journal of " # "Catalysis"}
+        @comment{ignored}
+        @article{smith2024example,
+          title={{Example} process design},
           author={Smith, Jane and Doe, John},
-          year={2024},
+          journal=jcp,
+          month=jan # " 15",
+          year=2024,
           doi={10.1000/example},
           keywords={example, process}
         }"""
@@ -628,6 +682,8 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(entry["citekey"], "smith2024example")
         self.assertEqual(entry["authors"], ["Smith, Jane", "Doe, John"])
         self.assertEqual(entry["year"], 2024)
+        self.assertEqual(entry["journal"], "Journal of Catalysis")
+        self.assertEqual(entry["month"], "January 15")
         self.assertEqual(entry["keywords"], ["example", "process"])
 
     def test_ingest_reference_dry_run_and_apply(self):

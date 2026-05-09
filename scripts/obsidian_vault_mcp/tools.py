@@ -157,7 +157,7 @@ def obsidian_create_note(
     properties.setdefault("title", note_title)
     content_body = body.strip()
     template_used = ""
-    content_body, template_used = _apply_note_template(vault, note_title, content_body, properties, template_path, template_name, use_template)
+    content_body, template_used, properties = _apply_note_template(vault, note_title, content_body, properties, template_path, template_name, use_template)
     content_body = content_body.strip()
     if content_body and not content_body.startswith("#"):
         content_body = f"# {note_title}\n\n{content_body}"
@@ -1558,18 +1558,15 @@ def obsidian_create_canvas(
     edges = _json(edges_json, [])
     if not isinstance(nodes, list) or not isinstance(edges, list):
         raise ValueError("nodes_json and edges_json must decode to arrays.")
-    node_ids = {node.get("id") for node in nodes if isinstance(node, dict)}
-    if len(node_ids) != len(nodes):
-        raise ValueError("Every Canvas node needs a unique id.")
-    for edge in edges:
-        if not isinstance(edge, dict):
-            raise ValueError("Each edge must be an object.")
-        if edge.get("fromNode") not in node_ids or edge.get("toNode") not in node_ids:
-            raise ValueError(f"Canvas edge references missing node: {edge}")
     payload = {"nodes": nodes, "edges": edges}
+    issues = _validate_canvas_payload(rel_path, payload)
+    errors = [issue for issue in issues if issue.get("severity") == "error"]
+    if errors:
+        raise ValueError(f"Invalid Canvas payload: {errors[0]['message']}")
     result = _write_result(vault, full, json.dumps(payload, ensure_ascii=False, indent=2), dry_run)
     result["nodeCount"] = len(nodes)
     result["edgeCount"] = len(edges)
+    result["validation"] = {"issueCount": len(issues), "issues": issues}
     return result
 
 
@@ -1743,8 +1740,13 @@ def obsidian_create_base(
     base = _json(base_json, {})
     if not isinstance(base, dict):
         raise ValueError("base_json must decode to an object.")
+    issues = _validate_base_payload(rel_path, base)
+    errors = [issue for issue in issues if issue.get("severity") == "error"]
+    if errors:
+        raise ValueError(f"Invalid Base payload: {errors[0]['message']}")
     result = _write_result(vault, full, _dump_yaml(base) + "\n", dry_run)
     result["topLevelKeys"] = list(base.keys())
+    result["validation"] = {"issueCount": len(issues), "issues": issues}
     return result
 
 
