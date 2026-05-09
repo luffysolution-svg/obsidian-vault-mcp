@@ -87,6 +87,44 @@ Check the local setup without starting the MCP server:
 python scripts/obsidian_vault_mcp.py --doctor --vault "path/to/vault"
 ```
 
+## Obsidian CLI Targeting
+
+Direct file tools use `vault_path` as a filesystem path. The app-backed
+Obsidian CLI wrappers use the Obsidian CLI's `vault=<name>` option, where the
+value is a vault name known to Obsidian, not a filesystem path. Leave `vault`
+empty to target the currently active vault, or pass the name shown by
+`obsidian vaults verbose`.
+
+## Batch Edit Plan Format
+
+`obsidian_preview_edit_plan`, `obsidian_apply_edit_plan`, and
+`obsidian_rollback_edit_plan` use a simple JSON plan format. A plan can be an
+array or an object with an `operations` array. Each operation can name its
+action with `op`, `operation`, or `type`.
+
+```json
+{
+  "operations": [
+    {
+      "operation": "write",
+      "path": "Inbox/New note.md",
+      "content": "# New note\n",
+      "overwrite": false
+    },
+    {
+      "operation": "replace",
+      "path": "Inbox/Existing note.md",
+      "old": "draft",
+      "new": "reviewed"
+    }
+  ]
+}
+```
+
+Supported actions are `write`, `update_properties`, `append`, `replace`, and
+`delete`. Preview plans before applying them; applied plans store vault-local
+rollback backups under `.obsidian-vault-backups/`.
+
 ## Local Smoke Checks
 
 After opening Obsidian and Zotero Desktop, run the optional integration smoke

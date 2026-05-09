@@ -1807,7 +1807,7 @@ def _plan_operations(plan_json: str) -> list[dict[str, Any]]:
     for index, operation in enumerate(operations):
         if not isinstance(operation, dict):
             raise ValueError(f"Operation {index} must be an object.")
-        op = str(operation.get("op") or operation.get("type") or "").strip().lower()
+        op = str(operation.get("op") or operation.get("operation") or operation.get("type") or "").strip().lower()
         path = str(operation.get("path") or "").strip()
         if op not in {"write", "update_properties", "append", "replace", "delete"}:
             raise ValueError(f"Operation {index} has unsupported op: {op}")

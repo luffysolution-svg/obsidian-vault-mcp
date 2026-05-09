@@ -121,6 +121,8 @@ docs, tests, and `skills/obsidian-vault/SKILL.md`.
 - Non-vault folders are rejected by default unless `OBSIDIAN_ALLOW_NON_VAULT=true`.
 - Existing files require `overwrite=true` before replacement.
 - Zotero access uses the user's own local Zotero Desktop API.
+- Obsidian CLI wrapper `vault` arguments use Obsidian vault names, while direct
+  file tools use filesystem `vault_path` values.
 - The smoke script only performs dry-run vault writes; it should not change a
   user's vault.
 - MinerU CLI and MinerU MCP are optional external tools and are not installed

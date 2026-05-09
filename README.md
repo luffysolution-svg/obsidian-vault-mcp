@@ -126,6 +126,34 @@ Optional integrations such as Zotero Desktop, Obsidian CLI, MinerU, and PDF text
 extraction are reported as checks; they do not need to be available for the core
 vault tools to work.
 
+## Batch Edit Plans
+
+Batch edit tools accept either a JSON array or an object with an `operations`
+array. Each operation may use `op`, `operation`, or `type` for the action name.
+Supported actions are `write`, `update_properties`, `append`, `replace`, and
+`delete`.
+
+```json
+{
+  "operations": [
+    {
+      "operation": "update_properties",
+      "path": "Projects/Alpha.md",
+      "properties": { "status": "draft" }
+    },
+    {
+      "operation": "append",
+      "path": "Projects/Alpha.md",
+      "content": "\n\nReviewed by Codex."
+    }
+  ]
+}
+```
+
+Run `obsidian_preview_edit_plan` first, then `obsidian_apply_edit_plan`. Applied
+plans create vault-local backups under `.obsidian-vault-backups/` so
+`obsidian_rollback_edit_plan` can restore the previous state.
+
 ## Install Dependencies
 
 The MCP server is Python-based:
@@ -182,6 +210,11 @@ line server script as the project grows.
 - Obsidian CLI: required only for app-backed read/open/backlinks/Base/property/task/screenshot operations.
 - MinerU CLI (`mineru-open-api`): required only for `obsidian_mineru_extract` and `obsidian_mineru_extract_and_ingest`.
 - MinerU MCP: optional companion server. Codex can use MinerU MCP to parse a document, then use this plugin to ingest the generated Markdown. This plugin does not call MinerU MCP internally.
+
+For structured Obsidian CLI wrappers, the optional `vault` argument is the
+Obsidian vault name known to the app, not a filesystem path. If omitted, the CLI
+uses the active Obsidian vault. Direct file tools such as `obsidian_read_file`
+and `obsidian_create_note` still accept `vault_path` filesystem paths.
 
 Quick MinerU connectivity checks on Windows:
 

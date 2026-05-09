@@ -423,6 +423,35 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(parsed["data"], [])
         self.assertNotIn("parseError", parsed)
 
+    def test_cli_json_parser_skips_failed_results(self):
+        parsed = self.module._parse_cli_stdout(
+            {"ok": False, "command": ["obsidian", "tasks"], "returnCode": 0, "stdout": "Vault not found.\n", "stderr": "", "error": "Vault not found."},
+            "json",
+        )
+
+        self.assertFalse(parsed["ok"])
+        self.assertEqual(parsed["error"], "Vault not found.")
+        self.assertNotIn("parseError", parsed)
+
+    def test_obsidian_cli_treats_zero_exit_error_text_as_failure(self):
+        class Completed:
+            returncode = 0
+            stdout = "Vault not found.\n"
+            stderr = ""
+
+        original_which = self.module.shutil.which
+        original_run = self.module.subprocess.run
+        self.module.shutil.which = lambda command: "obsidian.CMD"
+        self.module.subprocess.run = lambda *args, **kwargs: Completed()
+        try:
+            result = self.module.obsidian_cli("read", params_json=json.dumps({"path": "A.md"}))
+        finally:
+            self.module.shutil.which = original_which
+            self.module.subprocess.run = original_run
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "Vault not found.")
+
     def test_obsidian_cli_does_not_use_shell_fallback_on_windows(self):
         calls = []
 
@@ -479,6 +508,19 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertTrue(rolled_back["ok"])
         self.assertNotIn("status: draft", (self.vault / "A.md").read_text(encoding="utf-8"))
         self.assertFalse((self.vault / "B.md").exists())
+
+    def test_edit_plan_accepts_operation_alias(self):
+        self.write_note("A.md", "# A\nOld text.\n")
+        plan = {
+            "operations": [
+                {"operation": "replace", "path": "A.md", "old": "Old text.", "new": "New text."},
+            ]
+        }
+
+        preview = self.module.obsidian_preview_edit_plan(json.dumps(plan), str(self.vault))
+
+        self.assertEqual(preview["changes"][0]["op"], "replace")
+        self.assertIn("+New text.", preview["changes"][0]["diff"])
 
     def test_edit_plan_rejects_duplicate_targets_and_escaping_paths(self):
         duplicate_plan = {

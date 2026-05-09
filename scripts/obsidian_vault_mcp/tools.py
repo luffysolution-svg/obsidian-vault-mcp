@@ -1969,13 +1969,20 @@ def obsidian_cli(
         errors="replace",
         timeout=max(1, timeout_seconds),
     )
-    return {
-        "ok": completed.returncode == 0,
+    stdout = completed.stdout.strip()
+    stderr = completed.stderr.strip()
+    fatal_output = stdout in {"Vault not found.", "File not found.", "Command not found."} or stderr in {"Vault not found.", "File not found.", "Command not found."}
+    ok = completed.returncode == 0 and not fatal_output
+    result = {
+        "ok": ok,
         "command": args,
         "returnCode": completed.returncode,
         "stdout": completed.stdout,
         "stderr": completed.stderr,
     }
+    if fatal_output:
+        result["error"] = stdout or stderr
+    return result
 
 
 def _clean_cli_params(params: dict[str, Any]) -> dict[str, Any]:
@@ -1983,6 +1990,8 @@ def _clean_cli_params(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_cli_stdout(result: dict[str, Any], output_format: str = "") -> dict[str, Any]:
+    if not result.get("ok", False):
+        return result
     parsed = None
     stdout = result.get("stdout", "").strip()
     if output_format == "json" and stdout:

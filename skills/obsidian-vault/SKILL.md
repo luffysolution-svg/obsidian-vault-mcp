@@ -31,7 +31,7 @@ If Obsidian Desktop 1.12.7 or newer is installed and running, the tool `obsidian
 9. Create Canvas files with `obsidian_create_canvas` for custom JSON or `obsidian_create_canvas_from_graph` to lay out vault wikilinks automatically.
 10. Create Bases files with `obsidian_create_base` for custom YAML or `obsidian_create_base_template` for built-in literature, project task, equipment, utilities, economics, and sources templates.
 11. Create Dataview notes with `obsidian_create_dataview_note` when the user wants Dataview/DQL query blocks instead of Bases.
-12. Use structured CLI wrappers such as `obsidian_cli_read`, `obsidian_cli_backlinks`, `obsidian_cli_base_query`, `obsidian_cli_properties`, and `obsidian_cli_tasks` for common app-backed operations. Use generic `obsidian_cli` only when no structured wrapper exists.
+12. Use structured CLI wrappers such as `obsidian_cli_read`, `obsidian_cli_backlinks`, `obsidian_cli_base_query`, `obsidian_cli_properties`, and `obsidian_cli_tasks` for common app-backed operations. Use generic `obsidian_cli` only when no structured wrapper exists. CLI wrapper `vault` parameters are Obsidian vault names, not filesystem paths; direct vault tools use `vault_path` for paths.
 
 ## Persistent Wiki Pattern
 
@@ -111,7 +111,7 @@ Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user 
 - `obsidian_cli_plugin_reload`: reload an Obsidian plugin.
 - `obsidian_cli_move_or_rename`: move or rename notes through Obsidian; defaults to `dry_run=true`.
 
-Write tools including `obsidian_write_file`, `obsidian_create_note`, `obsidian_update_properties`, `obsidian_add_wikilinks`, `obsidian_create_canvas`, and `obsidian_create_base` accept `dry_run=true` to return a diff without writing. Batch edit plans support operations `write`, `update_properties`, `append`, `replace`, and `delete`.
+Write tools including `obsidian_write_file`, `obsidian_create_note`, `obsidian_update_properties`, `obsidian_add_wikilinks`, `obsidian_create_canvas`, and `obsidian_create_base` accept `dry_run=true` to return a diff without writing. Batch edit plans support operations `write`, `update_properties`, `append`, `replace`, and `delete`; each operation can use `op`, `operation`, or `type` for the action field.
 
 ## Safety Rules
 
