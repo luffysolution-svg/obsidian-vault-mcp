@@ -11,12 +11,15 @@ obsidian-vault-mcp/
   .mcp.json
   .gitignore
   LICENSE
+  pyproject.toml
   README.md
   requirements.txt
   docs/
   scripts/obsidian_vault_mcp.py
+  scripts/smoke_integrations.py
   scripts/obsidian_vault_mcp/
     __init__.py
+    cli.py
     common.py
     helpers.py
     server.py
@@ -32,24 +35,43 @@ Do not publish local vault files, generated backups, virtual environments,
 Keep the implementation package under `scripts/obsidian_vault_mcp/` together
 with it when publishing or packaging the plugin.
 
+`pyproject.toml` is required for editable installs and the
+`obsidian-vault-mcp` console command. `scripts/smoke_integrations.py` is the
+read-only local integration smoke checker used before release.
+
 ## Before Publishing
 
 1. Confirm `.codex-plugin/plugin.json` has the correct `repository`,
    `homepage`, `websiteURL`, `privacyPolicyURL`, and `termsOfServiceURL`.
 2. Keep `.mcp.json` portable. It should use `${CLAUDE_PLUGIN_ROOT}` and
    `OBSIDIAN_VAULT_PATH=auto`.
-3. Run:
+3. Install in editable mode and run the full local verification set:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -e ".[dev]"
+python -m ruff check .
 python -m unittest discover -s tests
+python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py
 python scripts/obsidian_vault_mcp.py --doctor --vault path/to/test-vault
 ```
 
 4. Test with a clean temporary vault and with a real vault path that contains
    non-ASCII characters.
-5. Test Zotero tools with Zotero Desktop running. Zotero access should remain
-   local to each user's machine.
+5. With Obsidian and Zotero Desktop running, run the optional smoke checks:
+
+```bash
+python scripts/smoke_integrations.py --vault path/to/test-vault
+```
+
+Zotero and Obsidian CLI failures are warnings in the smoke script so the core
+vault checks can still pass when optional apps are closed. Before publishing a
+release, run the smoke script in an environment where those integrations are
+expected to be available.
+6. Build the release zip and confirm it contains the modular package files:
+
+```powershell
+./scripts/build_release.ps1
+```
 
 ## GitHub CLI Publishing Flow
 
@@ -75,15 +97,22 @@ git push -u origin main
 
 ## Release Checklist
 
+- `python -m ruff check .` passes.
 - `python -m unittest discover -s tests` passes.
-- `python -m py_compile scripts/obsidian_vault_mcp.py` passes.
+- `python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py`
+  passes.
 - `python scripts/obsidian_vault_mcp.py --doctor --vault path/to/test-vault`
   reports the vault and template checks successfully.
+- `python scripts/smoke_integrations.py --vault path/to/test-vault` has no
+  required-check failures; optional integration warnings are understood.
+- `./scripts/build_release.ps1` creates `dist/obsidian-vault-mcp-*.zip` and the
+  archive contains `pyproject.toml`, `scripts/smoke_integrations.py`, and the
+  `scripts/obsidian_vault_mcp/` package.
 - `docs/PRIVACY.md` accurately describes local data access.
 - `LICENSE` is present.
 - No personal vault path, username, cache path, or Zotero storage path is
   committed.
 - Any demo screenshots are sanitized and do not reveal private note contents.
-- A fresh clone can install dependencies with `python -m pip install -r
-  requirements.txt`.
+- A fresh clone can install dependencies with `python -m pip install -e
+  ".[dev]"`.
 - Optional MinerU tests remain mocked and do not require a MinerU API token.

@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "obsidian-vault-mcp"
+version = "1.0.0"
+description = "Local MCP server for maintaining Obsidian vaults as persistent linked wikis."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Obsidian Vault MCP Contributors" }
+]
+keywords = ["obsidian", "vault", "markdown", "canvas", "bases", "mcp"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "mcp",
+  "PyYAML",
+  "pypdf",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff==0.13.2",
+]
+
+[project.scripts]
+obsidian-vault-mcp = "obsidian_vault_mcp.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/luffysolution-svg/obsidian-vault-mcp"
+Repository = "https://github.com/luffysolution-svg/obsidian-vault-mcp"
+Issues = "https://github.com/luffysolution-svg/obsidian-vault-mcp/issues"
+
+[tool.setuptools]
+package-dir = { "" = "scripts" }
+
+[tool.setuptools.packages.find]
+where = ["scripts"]
+include = ["obsidian_vault_mcp*"]
+
+[tool.ruff]
+line-length = 160
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501", "F403", "F405"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/obsidian_vault_mcp.py" = ["E402", "F401", "F403", "I001"]
+"scripts/obsidian_vault_mcp/__init__.py" = ["F401", "F403"]
+"scripts/obsidian_vault_mcp/common.py" = ["F401"]
+"scripts/obsidian_vault_mcp/helpers.py" = ["F821"]
+"scripts/obsidian_vault_mcp/tools.py" = ["F821"]

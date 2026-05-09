@@ -28,13 +28,16 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint Python sources
+        run: python -m ruff check .
 
       - name: Run unit tests
         run: python -m unittest discover -s tests
 
       - name: Compile Python sources
-        run: python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py
+        run: python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py
 
       - name: Build release zip
         shell: pwsh

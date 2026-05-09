@@ -1,16 +1,26 @@
 import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PLUGIN_ROOT / "scripts" / "obsidian_vault_mcp.py"
+SMOKE_SCRIPT_PATH = PLUGIN_ROOT / "scripts" / "smoke_integrations.py"
 
 
 def load_module():
     spec = importlib.util.spec_from_file_location("obsidian_vault_mcp", SCRIPT_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_smoke_module():
+    spec = importlib.util.spec_from_file_location("smoke_integrations", SMOKE_SCRIPT_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
@@ -661,6 +671,121 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         names = {check["name"] for check in result["checks"]}
         self.assertIn("vault", names)
         self.assertIn("templates", names)
+
+    def test_compat_entrypoint_runs_doctor(self):
+        completed = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--doctor", "--vault", str(self.vault)],
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+
+        stdout = completed.stdout.decode("utf-8", errors="replace")
+        stderr = completed.stderr.decode("utf-8", errors="replace")
+        self.assertEqual(completed.returncode, 0, stderr)
+        result = json.loads(stdout)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["checks"][0]["name"], "vault")
+
+    def test_smoke_integrations_reports_success_without_writing(self):
+        smoke = load_smoke_module()
+        calls = []
+
+        class FakeTools:
+            @staticmethod
+            def obsidian_vault_status(vault_path=""):
+                calls.append(("status", vault_path))
+                return {"vaultPath": vault_path, "fileCount": 3}
+
+            @staticmethod
+            def obsidian_create_note(path, title="", body="", properties_json="{}", vault_path="", dry_run=False, overwrite=False):
+                calls.append(("create_note", path, dry_run, overwrite))
+                return {"ok": True, "dryRun": dry_run, "changed": True, "path": path}
+
+            @staticmethod
+            def obsidian_zotero_ping():
+                calls.append(("zotero_ping",))
+                return {"ok": True, "sampleCount": 1}
+
+            @staticmethod
+            def obsidian_zotero_search_items(query, limit=1):
+                calls.append(("zotero_search", query, limit))
+                return [{"key": "ITEM1", "itemType": "journalArticle", "title": "Example", "rawData": {"private": True}}]
+
+            @staticmethod
+            def obsidian_cli(command, params_json="{}", timeout_seconds=30):
+                calls.append(("cli", command, params_json, timeout_seconds))
+                return {"ok": True, "stdout": "F:/Vault\n"}
+
+        result = smoke.run_smoke("F:/Vault", tools=FakeTools)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["summary"]["failed"], 0)
+        zotero_search = next(check for check in result["checks"] if check["name"] == "zotero_search")
+        self.assertEqual(zotero_search["data"], [{"key": "ITEM1", "itemType": "journalArticle", "title": "Example"}])
+        self.assertIn(("create_note", ".obsidian-vault-smoke.md", True, True), calls)
+        self.assertFalse((self.vault / ".obsidian-vault-smoke.md").exists())
+
+    def test_smoke_integrations_treats_optional_checks_as_warnings(self):
+        smoke = load_smoke_module()
+
+        class FakeTools:
+            @staticmethod
+            def obsidian_vault_status(vault_path=""):
+                return {"vaultPath": vault_path}
+
+            @staticmethod
+            def obsidian_create_note(*args, **kwargs):
+                return {"ok": True, "dryRun": True}
+
+            @staticmethod
+            def obsidian_zotero_ping():
+                return {"ok": False, "error": "Zotero is closed"}
+
+            @staticmethod
+            def obsidian_zotero_search_items(query, limit=1):
+                raise AssertionError("search should be skipped when ping fails")
+
+            @staticmethod
+            def obsidian_cli(command, params_json="{}", timeout_seconds=30):
+                return {"ok": False, "error": "CLI unavailable"}
+
+        result = smoke.run_smoke("F:/Vault", tools=FakeTools)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["summary"]["warning"], 2)
+        self.assertEqual(result["summary"]["failed"], 0)
+
+    def test_smoke_integrations_warns_when_obsidian_cli_uses_different_vault(self):
+        smoke = load_smoke_module()
+
+        class FakeTools:
+            @staticmethod
+            def obsidian_vault_status(vault_path=""):
+                return {"vaultPath": vault_path}
+
+            @staticmethod
+            def obsidian_create_note(*args, **kwargs):
+                return {"ok": True, "dryRun": True}
+
+            @staticmethod
+            def obsidian_zotero_ping():
+                return {"ok": False}
+
+            @staticmethod
+            def obsidian_zotero_search_items(query, limit=1):
+                return []
+
+            @staticmethod
+            def obsidian_cli(command, params_json="{}", timeout_seconds=30):
+                return {"ok": True, "stdout": "F:/OtherVault\n"}
+
+        result = smoke.run_smoke("F:/Vault", tools=FakeTools)
+        cli_check = next(check for check in result["checks"] if check["name"] == "obsidian_cli_vault")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(cli_check["status"], "warning")
+        self.assertEqual(cli_check["data"]["activeVault"], "F:/OtherVault")
 
     def test_parse_bibtex_normalizes_reference_metadata(self):
         bibtex = """@string{jcp = "Journal of " # "Catalysis"}

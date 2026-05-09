@@ -25,7 +25,10 @@ try {
     }
     New-Item -ItemType Directory -Path $stage -Force | Out-Null
 
-    $files = git ls-files
+    $files = @(
+        git ls-files
+        git ls-files --others --exclude-standard
+    ) | Sort-Object -Unique
     foreach ($file in $files) {
         $source = Join-Path $root $file
         $dest = Join-Path $stage $file
@@ -41,8 +44,11 @@ try {
 
     $required = @(
         "obsidian-vault/scripts/obsidian_vault_mcp.py",
+        "obsidian-vault/scripts/smoke_integrations.py",
+        "obsidian-vault/scripts/obsidian_vault_mcp/cli.py",
         "obsidian-vault/scripts/obsidian_vault_mcp/tools.py",
         "obsidian-vault/scripts/obsidian_vault_mcp/helpers.py",
+        "obsidian-vault/pyproject.toml",
         "obsidian-vault/.codex-plugin/plugin.json",
         "obsidian-vault/.mcp.json",
         "obsidian-vault/skills/obsidian-vault/SKILL.md"
