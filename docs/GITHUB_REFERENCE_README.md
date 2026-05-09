@@ -20,6 +20,9 @@ persistent linked wikis.
 - Literature and extraction ingestion from BibTeX/reference metadata, MinerU Markdown output, and PDF attachments.
 - Optional MinerU CLI extraction followed by Obsidian source-note ingestion.
 - Direct Zotero Desktop local API integration for search, metadata, child notes, annotations, PDF attachments, PDF text extraction, and one-step item ingestion.
+- Vault-local defaults for output folders, template folders, default templates, and Zotero attachment naming.
+- User template discovery from Obsidian Templates, Templater, and plugin defaults when creating notes.
+- A `--doctor` readiness check and an optional read-only local smoke-check script.
 - JSON Canvas creation, including automatic graph-to-canvas maps from vault wikilinks with grid, radial, grouped, and layered layouts.
 - Obsidian Bases creation, including built-in templates for literature, project tasks, equipment, utilities, economics, and sources.
 - Dataview note templates for literature, project tasks, equipment, utilities, economics, and sources.
@@ -44,12 +47,24 @@ The repository contains:
 ```text
 obsidian-vault-mcp/
   .codex-plugin/plugin.json
+  .github/workflows/
   .mcp.json
+  .gitignore
   LICENSE
+  pyproject.toml
   README.md
   requirements.txt
   docs/
+  scripts/build_release.ps1
   scripts/obsidian_vault_mcp.py
+  scripts/smoke_integrations.py
+  scripts/obsidian_vault_mcp/
+    __init__.py
+    cli.py
+    common.py
+    helpers.py
+    server.py
+    tools.py
   skills/obsidian-vault/SKILL.md
   tests/
 ```
@@ -63,12 +78,41 @@ obsidian-vault-mcp/
 python -m pip install -r requirements.txt
 ```
 
+For development, release checks, or the console command:
+
+```bash
+python -m pip install -e ".[dev]"
+obsidian-vault-mcp --doctor --vault "path/to/vault"
+```
+
 3. Register this folder as a local Codex plugin or copy it into your host's
    local plugin directory.
 4. Open Obsidian 1.12.7 or newer.
 5. Confirm the core plugins `bases`, `canvas`, and `properties` are enabled.
 6. Leave `.mcp.json` as `OBSIDIAN_VAULT_PATH=auto`, or set an explicit vault
    root in your own local configuration.
+
+## Release Checks
+
+Before tagging or uploading a release:
+
+```bash
+python -m ruff check .
+python -m unittest discover -s tests
+python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py
+python scripts/obsidian_vault_mcp.py --doctor --vault "path/to/vault"
+python scripts/smoke_integrations.py --vault "path/to/vault"
+```
+
+Build the portable plugin archive with:
+
+```powershell
+./scripts/build_release.ps1
+```
+
+The release zip should include `pyproject.toml`, the compatibility entrypoint,
+the modular `scripts/obsidian_vault_mcp/` package, `scripts/smoke_integrations.py`,
+docs, tests, and `skills/obsidian-vault/SKILL.md`.
 
 ## Portability Notes
 
@@ -77,5 +121,7 @@ python -m pip install -r requirements.txt
 - Non-vault folders are rejected by default unless `OBSIDIAN_ALLOW_NON_VAULT=true`.
 - Existing files require `overwrite=true` before replacement.
 - Zotero access uses the user's own local Zotero Desktop API.
+- The smoke script only performs dry-run vault writes; it should not change a
+  user's vault.
 - MinerU CLI and MinerU MCP are optional external tools and are not installed
   automatically by this plugin.

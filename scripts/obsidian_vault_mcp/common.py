@@ -15,8 +15,6 @@ from typing import Any
 from urllib.parse import unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
-
-
 DEFAULT_EXCLUDES = {".git", ".obsidian", ".trash", "node_modules", ".DS_Store"}
 BACKUP_DIR = ".obsidian-vault-backups"
 ZOTERO_API_BASE = os.environ.get("ZOTERO_LOCAL_API", "http://127.0.0.1:23119/api").rstrip("/")

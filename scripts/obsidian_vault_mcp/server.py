@@ -1,7 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 
-from .common import REGISTERED_TOOLS
 from . import tools as tools  # noqa: F401 - importing registers tool functions
+from .common import REGISTERED_TOOLS
 
 
 def create_server() -> FastMCP:

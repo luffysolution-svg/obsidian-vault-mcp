@@ -20,6 +20,13 @@
 python -m pip install -r requirements.txt
 ```
 
+For development or command-line use, install the package in editable mode:
+
+```bash
+python -m pip install -e ".[dev]"
+obsidian-vault-mcp --doctor --vault "path/to/vault"
+```
+
 3. Register this folder as a local Codex plugin, or copy the folder into your
    host application's local plugin directory.
 4. Keep `.mcp.json` as-is for portable installs:
@@ -44,6 +51,10 @@ The configured script path points to `scripts/obsidian_vault_mcp.py`. That
 file is a small compatibility entrypoint; the implementation package lives next
 to it in `scripts/obsidian_vault_mcp/`, so both the file and directory must be
 kept together.
+
+Editable installs also expose the `obsidian-vault-mcp` console command. The
+checked-in `.mcp.json` continues to use the compatibility script so local plugin
+installs remain portable.
 
 5. If `auto` cannot find your vault, set `OBSIDIAN_VAULT_PATH` locally to your
    vault root. Do not commit personal vault paths to the repository.
@@ -75,6 +86,21 @@ Check the local setup without starting the MCP server:
 ```bash
 python scripts/obsidian_vault_mcp.py --doctor --vault "path/to/vault"
 ```
+
+## Local Smoke Checks
+
+After opening Obsidian and Zotero Desktop, run the optional integration smoke
+checks:
+
+```bash
+python scripts/smoke_integrations.py --vault "path/to/vault"
+```
+
+The smoke script does not apply vault edits. It verifies vault status, a
+dry-run note creation diff, Zotero local API access, a one-item Zotero search,
+and the Obsidian CLI vault command. Zotero and Obsidian CLI failures are
+reported as warnings so the core vault checks can still pass on machines where
+optional apps are closed.
 
 ## Zotero
 

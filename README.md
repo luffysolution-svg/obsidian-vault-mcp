@@ -134,6 +134,24 @@ The MCP server is Python-based:
 python -m pip install -r requirements.txt
 ```
 
+For editable development installs, use the package metadata in
+`pyproject.toml`:
+
+```bash
+python -m pip install -e ".[dev]"
+obsidian-vault-mcp --doctor --vault /path/to/vault
+```
+
+After opening Obsidian and Zotero Desktop, run the local smoke checks:
+
+```bash
+python scripts/smoke_integrations.py --vault /path/to/vault
+```
+
+The smoke script is intentionally read-only except for dry-run write previews.
+It checks vault resolution, dry-run note creation, Zotero local API access, and
+the Obsidian CLI.
+
 `PyYAML` is used for full YAML compatibility. `pypdf` is used for Zotero PDF text extraction; the code can fall back to `PyPDF2` when it is already installed, but packaged installs should include `pypdf`.
 
 See [Install](./docs/INSTALL.md) for local plugin setup and Zotero notes.
@@ -237,7 +255,9 @@ Before sharing this plugin with other people:
 - Confirm `.codex-plugin/plugin.json` points at the repository you will publish.
 - Test on a clean machine with `OBSIDIAN_VAULT_PATH=auto` and with an explicit vault path containing non-ASCII characters.
 - Confirm Obsidian 1.12.7+ and the `bases`, `canvas`, and `properties` core plugins are enabled when testing app-backed features.
+- Run `python -m ruff check .` before tagging a release.
 - Run `python -m unittest discover -s tests` before tagging a release.
+- With Obsidian and Zotero open, run `python scripts/smoke_integrations.py --vault /path/to/vault` before tagging a release.
 
 See [Deployment Guide](./docs/DEPLOYMENT.md) for a GitHub publishing flow.
 

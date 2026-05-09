@@ -104,7 +104,7 @@ Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user 
 - `obsidian_cli`: call commands such as `files`, `read`, `search`, `property:set`, `base:query`, `links`, `backlinks`, `orphans`, `open`, `dev:screenshot`, and `eval`.
 - `obsidian_cli_read` / `obsidian_cli_open`: read or open a note through Obsidian.
 - `obsidian_cli_backlinks`: list backlinks and parse JSON output when available.
-- `obsidian_cli_base_query`: query a Base, with a Windows CLI fallback for `base:query`.
+- `obsidian_cli_base_query`: query a Base through the Obsidian CLI and parse JSON output when requested.
 - `obsidian_cli_properties`, `obsidian_cli_property_read`, `obsidian_cli_property_set`, `obsidian_cli_property_remove`: inspect and edit Obsidian properties through the app.
 - `obsidian_cli_tasks`: list tasks, normalizing "No tasks found." to an empty list.
 - `obsidian_cli_screenshot`: take an app-backed screenshot.
