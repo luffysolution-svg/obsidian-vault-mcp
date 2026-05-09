@@ -879,7 +879,7 @@ def obsidian_mineru_extract(
     """Run optional MinerU CLI extraction and save output under the vault."""
     vault = _vault(vault_path)
     status = _mineru_cli_status(cli_command)
-    cli = cli_command or MINERU_CLI_COMMAND
+    cli = str(status.get("path") or cli_command or MINERU_CLI_COMMAND)
     input_arg, input_name = _mineru_input_argument(vault, input_path)
     output_full, output_rel = _mineru_output_path(vault, output_path, input_name)
     args = _mineru_command_args(
@@ -917,6 +917,9 @@ def obsidian_mineru_extract(
     if not status.get("available"):
         result["error"] = status.get("installHint") or "MinerU CLI is not available."
         return result
+    if not status.get("ok"):
+        result["error"] = status.get("error") or "MinerU CLI is available but its version check failed."
+        return result
     if dry_run:
         result["ok"] = True
         return result
@@ -925,7 +928,11 @@ def obsidian_mineru_extract(
         output_full.parent.mkdir(parents=True, exist_ok=True)
     else:
         output_full.mkdir(parents=True, exist_ok=True)
-    completed = subprocess.run(args, capture_output=True, text=True, timeout=max(1, timeout_seconds + 30), check=False)  # noqa: S603
+    try:
+        completed = subprocess.run(args, capture_output=True, text=True, timeout=max(1, timeout_seconds + 30), check=False)  # noqa: S603
+    except Exception as exc:
+        result["error"] = f"MinerU CLI failed to start: {exc}"
+        return result
     markdown_rel = _find_mineru_markdown(vault, output_full)
     result.update(
         {
@@ -1836,7 +1843,7 @@ def obsidian_apply_edit_plan(
     vault = _vault(vault_path)
     operations = _plan_operations(plan_json)
     previews = _preview_edit_plan(vault, operations)
-    txid = transaction_id.strip() or f"{_utc_now().replace(':', '').replace('-', '')}-{uuid.uuid4().hex[:8]}"
+    txid = _transaction_id(transaction_id)
     manifest_entries: list[dict[str, Any]] = []
     applied: list[dict[str, Any]] = []
 
@@ -1932,7 +1939,8 @@ def obsidian_cli(
 ) -> dict[str, Any]:
     """Call the local Obsidian CLI with parameter and flag JSON."""
     cli = os.environ.get("OBSIDIAN_CLI_COMMAND", "obsidian")
-    if shutil.which(cli) is None:
+    executable = shutil.which(cli)
+    if executable is None:
         return {"ok": False, "error": f"Obsidian CLI command not found on PATH: {cli}"}
     params = _json(params_json, {})
     flags = _json(flags_json, [])
@@ -1940,7 +1948,7 @@ def obsidian_cli(
         raise ValueError("params_json must decode to an object.")
     if not isinstance(flags, list):
         raise ValueError("flags_json must decode to an array.")
-    args = [cli]
+    args = [executable]
     if vault:
         args.append(f"vault={vault}")
     if command:
@@ -1959,23 +1967,9 @@ def obsidian_cli(
         errors="replace",
         timeout=max(1, timeout_seconds),
     )
-    fallback_command = ""
-    if command == "base:query" and os.name == "nt" and completed.returncode != 0 and not completed.stdout and not completed.stderr:
-        fallback_command = subprocess.list2cmdline(args)
-        completed = subprocess.run(
-            fallback_command,
-            cwd=run_cwd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=max(1, timeout_seconds),
-        )
     return {
         "ok": completed.returncode == 0,
         "command": args,
-        "fallbackCommand": fallback_command,
         "returnCode": completed.returncode,
         "stdout": completed.stdout,
         "stderr": completed.stderr,

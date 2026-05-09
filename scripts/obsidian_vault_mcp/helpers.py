@@ -280,12 +280,32 @@ def _write_many(vault: Path, writes: list[tuple[Path, str]], dry_run: bool = Fal
     }
 
 
+def _transaction_id(value: str = "") -> str:
+    raw = value.strip()
+    if not raw:
+        return f"{_utc_now().replace(':', '').replace('-', '')}-{uuid.uuid4().hex[:8]}"
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", raw):
+        raise ValueError("transaction_id may only contain letters, numbers, dots, underscores, and hyphens.")
+    return raw
+
+
 def _backup_path(vault: Path, transaction_id: str, rel_path: str) -> Path:
-    return vault / BACKUP_DIR / transaction_id / rel_path
+    root = (vault / BACKUP_DIR / transaction_id).resolve()
+    candidate = (root / rel_path).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"Backup path escapes transaction directory: {rel_path}") from exc
+    return candidate
 
 
 def _transaction_manifest_path(vault: Path, transaction_id: str) -> Path:
-    return vault / BACKUP_DIR / transaction_id / "manifest.json"
+    root = (vault / BACKUP_DIR / transaction_id).resolve()
+    try:
+        root.relative_to((vault / BACKUP_DIR).resolve())
+    except ValueError as exc:
+        raise ValueError(f"Transaction path escapes backup directory: {transaction_id}") from exc
+    return root / "manifest.json"
 
 
 def _split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
@@ -950,8 +970,8 @@ def _mineru_cli_status(cli_command: str = "") -> dict[str, Any]:
         status["installHint"] = "Install MinerU CLI with: npm install -g mineru-open-api"
         return status
     try:
-        completed = subprocess.run([cli, "version"], capture_output=True, text=True, timeout=20, check=False)  # noqa: S603
-        status["versionCommand"] = [cli, "version"]
+        completed = subprocess.run([executable, "version"], capture_output=True, text=True, timeout=20, check=False)  # noqa: S603
+        status["versionCommand"] = [executable, "version"]
         status["returnCode"] = completed.returncode
         status["stdout"] = completed.stdout.strip()
         status["stderr"] = completed.stderr.strip()

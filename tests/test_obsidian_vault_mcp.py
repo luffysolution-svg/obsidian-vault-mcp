@@ -363,6 +363,34 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(parsed["data"], [])
         self.assertNotIn("parseError", parsed)
 
+    def test_obsidian_cli_does_not_use_shell_fallback_on_windows(self):
+        calls = []
+
+        class Completed:
+            returncode = 1
+            stdout = ""
+            stderr = ""
+
+        def fake_run(args, **kwargs):
+            calls.append((args, kwargs))
+            return Completed()
+
+        original_which = self.module.shutil.which
+        original_run = self.module.subprocess.run
+        self.module.shutil.which = lambda command: "obsidian.CMD"
+        self.module.subprocess.run = fake_run
+        try:
+            result = self.module.obsidian_cli("base:query", params_json=json.dumps({"path": "A.md & bad"}))
+        finally:
+            self.module.shutil.which = original_which
+            self.module.subprocess.run = original_run
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn("fallbackCommand", result)
+        self.assertFalse(calls[0][1].get("shell", False))
+        self.assertEqual(calls[0][0][0], "obsidian.CMD")
+
     def test_edit_plan_preview_apply_and_rollback(self):
         self.write_note("A.md", "---\ntitle: A\ntags: [topic]\n---\n\n# A\nOld text.\n")
         plan = {
@@ -405,6 +433,16 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             self.module.obsidian_preview_edit_plan(json.dumps(duplicate_plan), str(self.vault))
         with self.assertRaises(ValueError):
             self.module.obsidian_preview_edit_plan(json.dumps(escape_plan), str(self.vault))
+
+    def test_edit_plan_rejects_unsafe_transaction_id(self):
+        plan = {"operations": [{"op": "write", "path": "A.md", "content": "created"}]}
+
+        with self.assertRaises(ValueError):
+            self.module.obsidian_apply_edit_plan(json.dumps(plan), str(self.vault), transaction_id="../escape")
+        with self.assertRaises(ValueError):
+            self.module.obsidian_rollback_edit_plan("../escape", str(self.vault))
+
+        self.assertFalse((self.vault.parent / "escape").exists())
 
     def test_zotero_wrappers_use_local_api_summaries(self):
         calls = []
@@ -700,6 +738,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("--token", result["command"])
         self.assertIn("***", result["command"])
         self.assertNotIn("secret-token", result["command"])
+        self.assertEqual(result["command"][0], "mineru-open-api")
         self.assertFalse((self.vault / "mineru-output").exists())
 
     def test_mineru_extract_and_ingest_uses_cli_output(self):
@@ -715,6 +754,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         def fake_run(args, capture_output=True, text=True, timeout=0, check=False):
             if args[1] == "version":
                 return Completed(0, "mineru-open-api version v0.test")
+            self.assertEqual(args[0], "C:\\tools\\mineru-open-api.CMD")
             output_path = self.module.Path(args[args.index("-o") + 1])
             output_path.mkdir(parents=True, exist_ok=True)
             (output_path / "paper.md").write_text("# MinerU Output\n\nExtracted by fake CLI.", encoding="utf-8")
@@ -722,7 +762,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
 
         original_which = self.module.shutil.which
         original_run = self.module.subprocess.run
-        self.module.shutil.which = lambda command: "mineru-open-api"
+        self.module.shutil.which = lambda command: "C:\\tools\\mineru-open-api.CMD"
         self.module.subprocess.run = fake_run
         try:
             result = self.module.obsidian_mineru_extract_and_ingest(
