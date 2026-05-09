@@ -211,6 +211,38 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn('FROM #equipment AND "equipment"', content)
         self.assertIn("TABLE tag_no, service, area, status, cost, vendor", content)
 
+    def test_create_note_can_apply_user_template(self):
+        (self.vault / ".obsidian" / "templates.json").write_text(json.dumps({"folder": "Templates"}), encoding="utf-8")
+        self.write_note("Templates/Literature.md", "Template for {{title}}\n\n{{body}}\n\nStatus: {{status}}\n")
+
+        templates = self.module.obsidian_list_user_templates(str(self.vault))
+        result = self.module.obsidian_create_note(
+            "notes/Templated",
+            body="Body text.",
+            properties_json=json.dumps({"status": "draft"}),
+            vault_path=str(self.vault),
+            template_name="Literature",
+        )
+
+        self.assertEqual(templates["templates"][0]["path"], "Templates/Literature.md")
+        self.assertEqual(result["template"], "Templates/Literature.md")
+        note = (self.vault / "notes" / "Templated.md").read_text(encoding="utf-8")
+        self.assertIn("Template for Templated", note)
+        self.assertIn("Status: draft", note)
+
+    def test_vault_config_overrides_default_output_folders(self):
+        (self.vault / ".obsidian-vault-mcp.json").write_text(
+            json.dumps({"literatureFolder": "01-literature", "zoteroAttachmentsFolder": "assets/zotero"}),
+            encoding="utf-8",
+        )
+        metadata = {"title": "Configured Folder Paper", "citekey": "configured2026"}
+
+        result = self.module.obsidian_ingest_reference(json.dumps(metadata), str(self.vault), overwrite=True)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["referencePath"], "01-literature/configured2026.md")
+        self.assertTrue((self.vault / "01-literature" / "configured2026.md").exists())
+
     def test_validate_vault_schema_reports_frontmatter_and_canvas_errors(self):
         self.write_note("sources/Bad.md", "---\ntype: source\ntags: source\n---\n\n# Bad\n")
         (self.vault / "bad.canvas").write_text(json.dumps({"nodes": [{"id": "a", "type": "file"}], "edges": []}), encoding="utf-8")
@@ -483,10 +515,64 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(len(result["attachmentErrors"]), 1)
         note = (self.vault / "zotero" / "ITEM1.md").read_text(encoding="utf-8")
         self.assertIn("zoteroKey: ITEM1", note)
+        self.assertIn("zoteroSelect: zotero://select/library/items/ITEM1", note)
+        self.assertIn("zotero://open-pdf/library/items/PDF1", note)
         self.assertIn("Imported note", note)
         self.assertIn("![[attachments/zotero/ITEM1/external.pdf]]", note)
         self.assertIn("![[attachments/zotero/ITEM1/supplement.pdf]]", note)
         self.assertIn("Attachment Import Warnings", note)
+
+    def test_zotero_attachment_naming_strategy_and_duplicate_detection(self):
+        pdf = self.vault / "Original Name.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+
+        def fake_api(path, params=None, api_base=""):
+            if path == "users/0/items/ITEM1":
+                return {
+                    "key": "ITEM1",
+                    "data": {
+                        "key": "ITEM1",
+                        "itemType": "journalArticle",
+                        "title": "Named Attachment Paper",
+                        "creators": [{"lastName": "Doe"}],
+                        "date": "2026",
+                        "DOI": "10.1000/named",
+                    },
+                }
+            if path == "users/0/items/ITEM1/children":
+                return [{"key": "PDF1", "data": {"key": "PDF1", "itemType": "attachment", "contentType": "application/pdf", "path": str(pdf)}}]
+            return []
+
+        original = self.module._tools._zotero_api
+        self.module._tools._zotero_api = fake_api
+        try:
+            result = self.module.obsidian_ingest_zotero_item(
+                "ITEM1",
+                str(self.vault),
+                copy_pdf_attachments=True,
+                attachment_name_strategy="zotero_key",
+                overwrite=True,
+            )
+            duplicate = self.module.obsidian_ingest_zotero_item("ITEM1", str(self.vault))
+        finally:
+            self.module._tools._zotero_api = original
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["linkedAttachments"], ["attachments/zotero/ITEM1/PDF1.pdf"])
+        self.assertTrue((self.vault / "attachments" / "zotero" / "ITEM1" / "PDF1.pdf").exists())
+        self.assertTrue(duplicate["duplicate"])
+        self.assertEqual(duplicate["matchedOn"], "zoteroKey")
+
+    def test_doctor_reports_vault_and_templates(self):
+        (self.vault / ".obsidian" / "templates.json").write_text(json.dumps({"folder": "Templates"}), encoding="utf-8")
+        self.write_note("Templates/Default.md", "# {{title}}\n")
+
+        result = self.module.obsidian_doctor(str(self.vault))
+
+        self.assertTrue(result["ok"])
+        names = {check["name"] for check in result["checks"]}
+        self.assertIn("vault", names)
+        self.assertIn("templates", names)
 
     def test_parse_bibtex_normalizes_reference_metadata(self):
         bibtex = """@article{smith2024example,

@@ -116,6 +116,127 @@ def _write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8", newline="\n")
 
 
+def _load_json_file(path: Path, default: Any) -> Any:
+    if not path.exists():
+        return default
+    try:
+        return json.loads(_read_text(path))
+    except Exception:
+        return default
+
+
+def _vault_config(vault: Path) -> dict[str, Any]:
+    config: dict[str, Any] = {}
+    for rel_path in [".obsidian-vault-mcp.json", ".obsidian/obsidian-vault-mcp.json"]:
+        loaded = _load_json_file(vault / rel_path, {})
+        if isinstance(loaded, dict):
+            config.update(loaded)
+    return config
+
+
+def _config_value(vault: Path, key: str, current: Any, default: Any) -> Any:
+    if current != default:
+        return current
+    return _vault_config(vault).get(key, current)
+
+
+def _configured_path(vault: Path, key: str, current: str, default: str) -> str:
+    return str(_config_value(vault, key, current, default) or default).strip("/")
+
+
+def _template_config(vault: Path) -> dict[str, Any]:
+    config = _vault_config(vault)
+    folders: list[str] = []
+    default_template = str(config.get("defaultTemplate") or "").strip()
+
+    templates_json = _load_json_file(vault / ".obsidian" / "templates.json", {})
+    if isinstance(templates_json, dict):
+        for key in ["folder", "templateFolder", "templateFolderPath", "folderPath"]:
+            value = str(templates_json.get(key) or "").strip()
+            if value:
+                folders.append(value)
+        default_template = default_template or str(templates_json.get("defaultTemplate") or "").strip()
+
+    templater_json = _load_json_file(vault / ".obsidian" / "plugins" / "templater-obsidian" / "data.json", {})
+    if isinstance(templater_json, dict):
+        for key in ["template_folder", "templateFolder", "templates_folder", "folder"]:
+            value = str(templater_json.get(key) or "").strip()
+            if value:
+                folders.append(value)
+        default_template = default_template or str(templater_json.get("default_template") or templater_json.get("defaultTemplate") or "").strip()
+
+    configured_folder = str(config.get("templateFolder") or "").strip()
+    if configured_folder:
+        folders.insert(0, configured_folder)
+
+    seen: set[str] = set()
+    unique_folders = []
+    for folder in folders:
+        normalized = folder.replace("\\", "/").strip("/")
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            unique_folders.append(normalized)
+    return {"folders": unique_folders, "defaultTemplate": default_template}
+
+
+def _list_user_templates(vault: Path) -> list[dict[str, Any]]:
+    templates: list[dict[str, Any]] = []
+    for folder in _template_config(vault)["folders"]:
+        root = _safe_path(vault, folder)
+        if not root.exists():
+            continue
+        for path in root.rglob("*.md"):
+            rel_path = _rel(vault, path)
+            templates.append({"path": rel_path, "name": path.stem, "folder": folder})
+    return sorted(templates, key=lambda item: item["path"].lower())
+
+
+def _find_user_template(vault: Path, template_path: str = "", template_name: str = "") -> tuple[str, str]:
+    if template_path.strip():
+        rel_path = _ensure_md_path(template_path.strip())
+        return rel_path, _read_text(_safe_path(vault, rel_path))
+    wanted = template_name.strip()
+    config = _template_config(vault)
+    if not wanted:
+        wanted = str(config.get("defaultTemplate") or "").strip()
+    if not wanted:
+        return "", ""
+    wanted_key = wanted.lower().removesuffix(".md")
+    for item in _list_user_templates(vault):
+        path_key = str(item["path"]).lower().removesuffix(".md")
+        name_key = str(item["name"]).lower()
+        if wanted_key in {path_key, name_key}:
+            rel_path = str(item["path"])
+            return rel_path, _read_text(_safe_path(vault, rel_path))
+    raise FileNotFoundError(f"Template not found: {wanted}")
+
+
+def _render_template(template: str, title: str, body: str, properties: dict[str, Any]) -> str:
+    rendered = template
+    replacements = {
+        "{{title}}": title,
+        "{{name}}": title,
+        "{{date}}": datetime.now().strftime("%Y-%m-%d"),
+        "{{time}}": datetime.now().strftime("%H:%M"),
+        "{{body}}": body,
+        "{{content}}": body,
+    }
+    for key, value in replacements.items():
+        rendered = rendered.replace(key, value)
+    for key, value in properties.items():
+        rendered = rendered.replace(f"{{{{{key}}}}}", str(value))
+    return rendered
+
+
+def _apply_note_template(vault: Path, title: str, body: str, properties: dict[str, Any], template_path: str = "", template_name: str = "", use_template: bool = False) -> tuple[str, str]:
+    config = _template_config(vault)
+    should_use = use_template or bool(template_path.strip() or template_name.strip() or config.get("defaultTemplate"))
+    if not should_use:
+        return body, ""
+    rel_path, template = _find_user_template(vault, template_path, template_name)
+    return _render_template(template, title, body, properties), rel_path
+
+
 def _diff_text(rel_path: str, before: str, after: str) -> str:
     if before == after:
         return ""
@@ -579,6 +700,51 @@ def _metadata_from_reference(item: dict[str, Any]) -> dict[str, Any]:
     return metadata
 
 
+def _zotero_select_uri(key: str) -> str:
+    return f"zotero://select/library/items/{key}" if key else ""
+
+
+def _zotero_pdf_uri(key: str) -> str:
+    return f"zotero://open-pdf/library/items/{key}" if key else ""
+
+
+def _zotero_links_for_item(key: str, pdf_keys: list[str] | None = None) -> dict[str, Any]:
+    links: dict[str, Any] = {}
+    select_uri = _zotero_select_uri(key)
+    if select_uri:
+        links["select"] = select_uri
+    pdf_uris = [_zotero_pdf_uri(pdf_key) for pdf_key in pdf_keys or [] if pdf_key]
+    if pdf_uris:
+        links["pdf"] = pdf_uris
+    return links
+
+
+def _find_existing_reference(vault: Path, metadata: dict[str, Any], folder: str = "") -> dict[str, Any]:
+    candidates = {
+        "zoteroKey": str(metadata.get("zoteroKey") or "").strip().lower(),
+        "doi": str(metadata.get("doi") or metadata.get("DOI") or "").strip().lower(),
+        "citekey": str(metadata.get("citekey") or metadata.get("citationKey") or "").strip().lower(),
+        "title": str(metadata.get("title") or "").strip().lower(),
+    }
+    root = _safe_path(vault, folder) if folder else vault
+    if not root.exists():
+        return {}
+    for path in root.rglob("*.md"):
+        if any(part in DEFAULT_EXCLUDES or part.startswith(".") for part in path.relative_to(vault).parts):
+            continue
+        props, _body = _split_frontmatter(_read_text(path))
+        checks = {
+            "zoteroKey": str(props.get("zoteroKey") or "").strip().lower(),
+            "doi": str(props.get("doi") or props.get("DOI") or "").strip().lower(),
+            "citekey": str(props.get("citekey") or props.get("citationKey") or "").strip().lower(),
+            "title": str(props.get("title") or "").strip().lower(),
+        }
+        for field, value in candidates.items():
+            if value and checks.get(field) == value:
+                return {"path": _rel(vault, path), "field": field, "value": value}
+    return {}
+
+
 def _reference_filename(metadata: dict[str, Any]) -> str:
     citekey = str(metadata.get("citekey") or metadata.get("citationKey") or metadata.get("key") or "").strip()
     if citekey:
@@ -591,6 +757,26 @@ def _reference_filename(metadata: dict[str, Any]) -> str:
         first_author = str(authors[0]).split(",")[0].split()[-1]
     pieces = [piece for piece in [first_author, year, title[:60]] if piece]
     return _slug_filename(" - ".join(pieces))
+
+
+def _attachment_filename(strategy: str, source_pdf: Path, parent_key: str, attachment: dict[str, Any], metadata: dict[str, Any], index: int = 1) -> str:
+    ext = source_pdf.suffix or ".pdf"
+    strategy_key = (strategy or "original").strip().lower().replace("-", "_")
+    if strategy_key == "zotero_key":
+        base = str(attachment.get("key") or parent_key or source_pdf.stem)
+    elif strategy_key in {"citekey", "citation_key"}:
+        base = str(metadata.get("citekey") or metadata.get("citationKey") or metadata.get("zoteroKey") or parent_key or source_pdf.stem)
+    elif strategy_key == "title_year":
+        pieces = [str(metadata.get("year") or "").strip(), str(metadata.get("title") or source_pdf.stem).strip()]
+        base = " - ".join(piece for piece in pieces if piece)
+    elif strategy_key == "parent_key":
+        base = f"{parent_key}-{index}"
+    else:
+        base = source_pdf.name
+    filename = _slug_filename(base)
+    if not filename.lower().endswith(ext.lower()):
+        filename = f"{filename}{ext}"
+    return filename
 
 
 def _reference_source_body(metadata: dict[str, Any], abstract: str = "", notes: str = "", content: str = "", attachment_path: str = "") -> str:
@@ -1309,6 +1495,46 @@ def _apply_operation_to_text(vault: Path, operation: dict[str, Any]) -> tuple[Pa
 
 def _clean_cli_params(params: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in params.items() if value not in ("", None, False)}
+
+
+def _doctor(vault_path: str = "") -> dict[str, Any]:
+    checks: list[dict[str, Any]] = []
+    try:
+        vault = _vault(vault_path)
+        checks.append({"name": "vault", "ok": True, "path": str(vault)})
+    except Exception as exc:
+        return {"ok": False, "checks": [{"name": "vault", "ok": False, "error": str(exc)}]}
+
+    checks.append({"name": "vault_config", "ok": True, "config": _vault_config(vault)})
+    checks.append({"name": "templates", "ok": True, "config": _template_config(vault), "count": len(_list_user_templates(vault))})
+    checks.append({"name": "obsidian_cli", "ok": shutil.which(os.environ.get("OBSIDIAN_CLI_COMMAND", "obsidian")) is not None})
+    try:
+        import yaml  # type: ignore  # noqa: F401
+
+        checks.append({"name": "pyyaml", "ok": True})
+    except Exception as exc:
+        checks.append({"name": "pyyaml", "ok": False, "error": str(exc)})
+    try:
+        import pypdf  # type: ignore  # noqa: F401
+
+        checks.append({"name": "pypdf", "ok": True})
+    except Exception:
+        try:
+            import PyPDF2  # type: ignore  # noqa: F401
+
+            checks.append({"name": "pypdf", "ok": True, "fallback": "PyPDF2"})
+        except Exception as exc:
+            checks.append({"name": "pypdf", "ok": False, "error": str(exc)})
+    mineru_status = _mineru_cli_status()
+    mineru_status["name"] = "mineru_cli"
+    checks.append(mineru_status)
+    try:
+        sample = _zotero_api("users/0/items", {"limit": 1, "format": "json"})
+        checks.append({"name": "zotero_api", "ok": True, "sampleCount": len(sample or [])})
+    except Exception as exc:
+        checks.append({"name": "zotero_api", "ok": False, "error": str(exc)})
+    optional = {"obsidian_cli", "zotero_api", "mineru_cli", "pypdf"}
+    return {"ok": all(item.get("ok", False) for item in checks if item.get("name") not in optional), "checks": checks}
 
 
 def _preview_edit_plan(vault: Path, operations: list[dict[str, Any]]) -> list[dict[str, Any]]:

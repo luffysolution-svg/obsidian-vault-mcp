@@ -11,6 +11,8 @@ Use the bundled `obsidian-vault` MCP tools for local vault operations, and combi
 
 The plugin reads `OBSIDIAN_VAULT_PATH` from `.mcp.json` when set. The default value is `auto`, which resolves the currently active Obsidian CLI vault. If `auto` cannot resolve a vault, pass `vault_path` explicitly to tools or set `OBSIDIAN_VAULT_PATH` to the vault root. The path should usually contain `.obsidian`.
 
+Vault-local defaults can be stored in `.obsidian-vault-mcp.json` or `.obsidian/obsidian-vault-mcp.json` for folders such as `literatureFolder`, `mineruSourceFolder`, `pdfSourceFolder`, `zoteroAttachmentsFolder`, `entitiesFolder`, `conceptsFolder`, plus `indexPath`, `logPath`, `templateFolder`, `defaultTemplate`, and `zoteroAttachmentNameStrategy`.
+
 If Obsidian Desktop 1.12.7 or newer is installed and running, the tool `obsidian_cli` can call the local `obsidian` command. The CLI is useful for app-backed actions such as opening notes, querying Bases, listing backlinks, setting properties through Obsidian, taking screenshots, and running developer commands.
 
 ## Core Workflow
@@ -53,14 +55,15 @@ routes for `mineru.net`, `mineru.oss-cn-shanghai.aliyuncs.com`,
 `cdn-mineru.openxlab.org.cn`, and `*.openxlab.org.cn`. VPN/proxy fake-IP DNS
 can break result downloads even when the main API is reachable.
 
-Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user to open Zotero Desktop and enable local API access. Once reachable, use `obsidian_zotero_search_items`, `obsidian_zotero_get_item`, `obsidian_zotero_get_children`, and `obsidian_ingest_zotero_item`.
+Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user to open Zotero Desktop and enable local API access. Once reachable, use `obsidian_zotero_search_items`, `obsidian_zotero_get_item`, `obsidian_zotero_get_children`, and `obsidian_ingest_zotero_item`. Imported Zotero notes include `zoteroKey`, `zoteroSelect`, `zoteroLinks`, and PDF links when PDF children exist. Attachment copy naming can use `original`, `zotero_key`, `citekey`, `title_year`, or `parent_key`.
 
 ## Tool Hints
 
 - `obsidian_list_files`: scan Markdown, Canvas, Bases, and attachments.
 - `obsidian_search`: search note contents with line snippets.
 - `obsidian_read_file` / `obsidian_write_file`: read or create any vault-relative file.
-- `obsidian_create_note`: create a Markdown note with title and frontmatter.
+- `obsidian_create_note`: create a Markdown note with title and frontmatter; can apply a user template by `template_path`, `template_name`, `use_template=true`, or configured `defaultTemplate`.
+- `obsidian_list_user_templates`: list Markdown templates discovered from Obsidian Templates, Templater, and plugin defaults.
 - `obsidian_update_properties`: merge, replace, or remove YAML properties.
 - `obsidian_preview_edit_plan`: preview a multi-file edit plan with unified diffs.
 - `obsidian_apply_edit_plan`: apply a multi-file edit plan and save backups under `.obsidian-vault-backups/<transaction_id>/`.
@@ -71,6 +74,7 @@ Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user 
 - `obsidian_suggest_graph_improvements`: suggest unresolved-note creation, reciprocal links, duplicate-page candidates, Markdown-link conversion, and attachment modeling.
 - `obsidian_validate_vault_schema`: validate Markdown frontmatter schemas plus Canvas JSON and Base YAML structure.
 - `obsidian_list_schema_presets`: list built-in note type schemas.
+- `obsidian_doctor`: report vault resolution, template discovery, dependencies, and optional integrations.
 - `obsidian_apply_schema_defaults`: preview or apply missing frontmatter defaults inferred from built-in/custom schemas.
 - `obsidian_update_wiki_index`: create or refresh a managed catalogue block in `index.md`.
 - `obsidian_append_wiki_log`: append timestamped maintenance, ingest, or query entries to `log.md`.

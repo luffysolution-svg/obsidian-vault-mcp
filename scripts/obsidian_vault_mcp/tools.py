@@ -138,10 +138,13 @@ def obsidian_create_note(
     body: str = "",
     properties_json: str = "{}",
     vault_path: str = "",
+    template_path: str = "",
+    template_name: str = "",
+    use_template: bool = False,
     overwrite: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Create a Markdown note with YAML properties."""
+    """Create a Markdown note with YAML properties, optionally applying a user template."""
     vault = _vault(vault_path)
     rel_path = path if path.lower().endswith(".md") else f"{path}.md"
     full = _safe_path(vault, rel_path)
@@ -153,6 +156,9 @@ def obsidian_create_note(
     note_title = title or properties.get("title") or _note_title_from_path(rel_path)
     properties.setdefault("title", note_title)
     content_body = body.strip()
+    template_used = ""
+    content_body, template_used = _apply_note_template(vault, note_title, content_body, properties, template_path, template_name, use_template)
+    content_body = content_body.strip()
     if content_body and not content_body.startswith("#"):
         content_body = f"# {note_title}\n\n{content_body}"
     elif not content_body:
@@ -160,7 +166,16 @@ def obsidian_create_note(
     content = _join_frontmatter(properties, content_body)
     result = _write_result(vault, full, content, dry_run)
     result["properties"] = properties
+    result["template"] = template_used
     return result
+
+
+@tool()
+def obsidian_list_user_templates(vault_path: str = "") -> dict[str, Any]:
+    """List Markdown templates discovered from Obsidian Templates/Templater settings and plugin config."""
+    vault = _vault(vault_path)
+    config = _template_config(vault)
+    return {"ok": True, "vaultPath": str(vault), "config": config, "templates": _list_user_templates(vault)}
 
 
 @tool()
@@ -556,6 +571,10 @@ def obsidian_ingest_source_note(
 ) -> dict[str, Any]:
     """Ingest a source note and link it to generated entity and concept pages."""
     vault = _vault(vault_path)
+    entities_folder = _configured_path(vault, "entitiesFolder", entities_folder, "entities")
+    concepts_folder = _configured_path(vault, "conceptsFolder", concepts_folder, "concepts")
+    index_path = _configured_path(vault, "indexPath", index_path, "index.md")
+    log_path = _configured_path(vault, "logPath", log_path, "log.md")
     source_rel = _ensure_md_path(source_path)
     source_full = _safe_path(vault, source_rel)
     if source_full.exists() and not overwrite:
@@ -686,12 +705,19 @@ def obsidian_ingest_reference(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Ingest one literature/reference metadata object as a linked source note."""
+    vault = _vault(vault_path)
+    source_folder = _configured_path(vault, "literatureFolder", source_folder, "literature")
+    index_path = _configured_path(vault, "indexPath", index_path, "index.md")
+    log_path = _configured_path(vault, "logPath", log_path, "log.md")
     metadata_raw = _json(metadata_json, {})
     if not isinstance(metadata_raw, dict):
         raise ValueError("metadata_json must decode to an object.")
     metadata = _metadata_from_reference(metadata_raw)
     title = str(metadata.get("title") or "Untitled Reference")
     rel_path = f"{source_folder.strip('/')}/{_reference_filename(metadata)}.md"
+    duplicate = _find_existing_reference(vault, metadata, source_folder)
+    if duplicate and not overwrite:
+        return {"ok": True, "duplicate": True, "existingPath": duplicate["path"], "matchedOn": duplicate["field"], "referencePath": rel_path, "metadata": metadata}
     tags = _merge_unique(metadata.get("tags"), ["source", "literature"])
     source_props = dict(metadata)
     source_props["type"] = "literature"
@@ -702,7 +728,7 @@ def obsidian_ingest_reference(
     result = obsidian_ingest_source_note(
         source_path=rel_path,
         content=body,
-        vault_path=vault_path,
+        vault_path=str(vault),
         title=title,
         summary=str(metadata.get("abstract") or abstract or "")[:800],
         metadata_json=json.dumps(source_props, ensure_ascii=False),
@@ -732,13 +758,17 @@ def obsidian_ingest_bibtex(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Ingest one or more BibTeX entries as literature source notes."""
+    vault = _vault(vault_path)
+    source_folder = _configured_path(vault, "literatureFolder", source_folder, "literature")
+    index_path = _configured_path(vault, "indexPath", index_path, "index.md")
+    log_path = _configured_path(vault, "logPath", log_path, "log.md")
     entries = _parse_bibtex_entries(bibtex)
     results: list[dict[str, Any]] = []
     for entry in entries:
         results.append(
             obsidian_ingest_reference(
                 metadata_json=json.dumps(entry, ensure_ascii=False),
-                vault_path=vault_path,
+                vault_path=str(vault),
                 source_folder=source_folder,
                 index_path=index_path,
                 log_path=log_path,
@@ -771,6 +801,9 @@ def obsidian_ingest_mineru_markdown(
 ) -> dict[str, Any]:
     """Ingest MinerU Markdown output and optional PDF attachment as a linked source note."""
     vault = _vault(vault_path)
+    source_root = _configured_path(vault, "mineruSourceFolder", "sources/mineru", "sources/mineru")
+    index_path = _configured_path(vault, "indexPath", index_path, "index.md")
+    log_path = _configured_path(vault, "logPath", log_path, "log.md")
     metadata = _json(metadata_json, {})
     if not isinstance(metadata, dict):
         raise ValueError("metadata_json must decode to an object.")
@@ -780,7 +813,7 @@ def obsidian_ingest_mineru_markdown(
     if not content.strip():
         raise ValueError("markdown_content or markdown_path is required.")
     source_title = title or str(metadata.get("title") or _note_title_from_path(markdown_path or "MinerU Extraction.md"))
-    rel_path = source_path.strip() or f"sources/mineru/{_slug_filename(source_title)}.md"
+    rel_path = source_path.strip() or f"{source_root}/{_slug_filename(source_title)}.md"
     props = dict(metadata)
     props["type"] = "mineru"
     props["tags"] = _merge_unique(props.get("tags"), ["source", "mineru"])
@@ -1023,6 +1056,9 @@ def obsidian_ingest_pdf_attachment(
 ) -> dict[str, Any]:
     """Create a source note for a PDF attachment that is already in the vault."""
     vault = _vault(vault_path)
+    source_root = _configured_path(vault, "pdfSourceFolder", "sources/pdf", "sources/pdf")
+    index_path = _configured_path(vault, "indexPath", index_path, "index.md")
+    log_path = _configured_path(vault, "logPath", log_path, "log.md")
     pdf_full = _safe_path(vault, pdf_attachment_path)
     if not pdf_full.exists() and not dry_run:
         raise FileNotFoundError(f"PDF attachment not found: {pdf_attachment_path}")
@@ -1030,7 +1066,7 @@ def obsidian_ingest_pdf_attachment(
     if not isinstance(metadata, dict):
         raise ValueError("metadata_json must decode to an object.")
     source_title = title or str(metadata.get("title") or _note_title_from_path(pdf_attachment_path))
-    rel_path = source_path.strip() or f"sources/pdf/{_slug_filename(source_title)}.md"
+    rel_path = source_path.strip() or f"{source_root}/{_slug_filename(source_title)}.md"
     props = dict(metadata)
     props["type"] = "pdf"
     props["tags"] = _merge_unique(props.get("tags"), ["source", "pdf"])
@@ -1157,6 +1193,7 @@ def obsidian_ingest_zotero_item(
     vault_path: str = "",
     source_folder: str = "literature",
     attachments_folder: str = "attachments/zotero",
+    attachment_name_strategy: str = "original",
     copy_pdf_attachments: bool = False,
     include_child_notes: bool = True,
     include_annotations: bool = True,
@@ -1172,10 +1209,16 @@ def obsidian_ingest_zotero_item(
 ) -> dict[str, Any]:
     """Fetch a Zotero item and ingest it as a literature note in the vault."""
     vault = _vault(vault_path)
+    source_folder = _configured_path(vault, "literatureFolder", source_folder, "literature")
+    attachments_folder = _configured_path(vault, "zoteroAttachmentsFolder", attachments_folder, "attachments/zotero")
+    attachment_name_strategy = str(_config_value(vault, "zoteroAttachmentNameStrategy", attachment_name_strategy, "original") or "original")
+    index_path = _configured_path(vault, "indexPath", index_path, "index.md")
+    log_path = _configured_path(vault, "logPath", log_path, "log.md")
     item = obsidian_zotero_get_item(key, api_base)
     children = obsidian_zotero_get_children(key, api_base)
     metadata = _metadata_from_reference(item)
     metadata["zoteroKey"] = key
+    metadata["zoteroSelect"] = _zotero_select_uri(key)
     metadata["tags"] = _merge_unique(metadata.get("tags"), ["source", "literature", "zotero"])
     notes_content = _zotero_notes_and_annotations(
         {
@@ -1189,16 +1232,20 @@ def obsidian_ingest_zotero_item(
     zotero_attachment_paths: list[str] = []
     attachment_errors: list[dict[str, str]] = []
     pdf_text_parts: list[str] = []
-    for attachment in children.get("attachments", []):
+    pdf_keys: list[str] = []
+    for attachment_index, attachment in enumerate(children.get("attachments", []), start=1):
         if attachment.get("contentType") != "application/pdf" and not str(attachment.get("attachmentPath") or "").lower().endswith(".pdf"):
             continue
+        if attachment.get("key"):
+            pdf_keys.append(str(attachment["key"]))
         try:
             source_pdf = _resolve_zotero_attachment_path(attachment)
         except Exception as exc:
             attachment_errors.append({"key": str(attachment.get("key") or ""), "title": str(attachment.get("title") or ""), "error": str(exc)})
             continue
         if copy_pdf_attachments:
-            dest_rel = f"{attachments_folder.strip('/')}/{key}/{_slug_filename(source_pdf.name)}"
+            filename = _attachment_filename(attachment_name_strategy, source_pdf, key, attachment, metadata, attachment_index)
+            dest_rel = f"{attachments_folder.strip('/')}/{key}/{filename}"
             dest = _safe_path(vault, dest_rel)
             if not dry_run:
                 dest.parent.mkdir(parents=True, exist_ok=True)
@@ -1220,6 +1267,12 @@ def obsidian_ingest_zotero_item(
                 pdf_text_parts.append(f"## PDF Text: {attachment.get('title') or source_pdf.name}\n\n{extracted['text']}")
             elif not extracted.get("ok"):
                 attachment_errors.append({"key": str(attachment.get("key") or ""), "title": str(attachment.get("title") or source_pdf.name), "error": str(extracted.get("error") or "PDF text extraction failed.")})
+    zotero_links = _zotero_links_for_item(key, pdf_keys)
+    if zotero_links:
+        metadata["zoteroLinks"] = zotero_links
+    if pdf_keys:
+        metadata["zoteroPdfKeys"] = pdf_keys
+        metadata["zoteroPdfLinks"] = [_zotero_pdf_uri(pdf_key) for pdf_key in pdf_keys]
     if linked_attachments:
         metadata["attachments"] = linked_attachments
     if zotero_attachment_paths:
@@ -1263,6 +1316,12 @@ def obsidian_ingest_zotero_item(
 def obsidian_list_schema_presets() -> dict[str, Any]:
     """List built-in frontmatter schema presets."""
     return dict(SCHEMA_PRESETS)
+
+
+@tool()
+def obsidian_doctor(vault_path: str = "") -> dict[str, Any]:
+    """Run a local readiness check for vault resolution, templates, dependencies, and optional integrations."""
+    return _doctor(vault_path)
 
 
 @tool()

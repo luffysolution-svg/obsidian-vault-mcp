@@ -43,6 +43,7 @@ with it when publishing or packaging the plugin.
 ```bash
 python -m pip install -r requirements.txt
 python -m unittest discover -s tests
+python scripts/obsidian_vault_mcp.py --doctor --vault path/to/test-vault
 ```
 
 4. Test with a clean temporary vault and with a real vault path that contains
@@ -76,6 +77,8 @@ git push -u origin main
 
 - `python -m unittest discover -s tests` passes.
 - `python -m py_compile scripts/obsidian_vault_mcp.py` passes.
+- `python scripts/obsidian_vault_mcp.py --doctor --vault path/to/test-vault`
+  reports the vault and template checks successfully.
 - `docs/PRIVACY.md` accurately describes local data access.
 - `LICENSE` is present.
 - No personal vault path, username, cache path, or Zotero storage path is

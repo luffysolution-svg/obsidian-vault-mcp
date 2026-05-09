@@ -14,6 +14,10 @@ It provides:
 - Karpathy-style wiki workflow tools for refreshing `index.md`, appending `log.md`, and ingesting source notes into linked source/entity/concept pages.
 - Literature and extraction ingestion from BibTeX/reference metadata, existing MinerU Markdown output, optional MinerU CLI extraction, and PDF attachments.
 - Direct Zotero Desktop local API integration for search, item metadata, child notes, annotations, PDF attachments, PDF text extraction, and one-step item ingestion.
+- Zotero round-trip metadata with `zotero://` select/PDF links, duplicate detection by Zotero key, DOI, citekey, or title, and configurable PDF attachment naming.
+- Optional user template discovery from Obsidian Templates, Templater, or plugin config when creating notes.
+- Vault-local defaults for output folders, index/log paths, template folders, and Zotero attachment naming.
+- A `--doctor` check for vault resolution, templates, dependencies, and optional integrations.
 - JSON Canvas creation for visual maps, including automatic graph-to-canvas layout from vault wikilinks with grid, radial, grouped, and layered layouts.
 - Obsidian Bases creation for table/card/list views, including built-in Base templates for literature, project tasks, equipment, utilities, economics, and sources.
 - Dataview note templates for the same literature, project task, equipment, utilities, economics, and sources workflows.
@@ -70,6 +74,57 @@ downloading `full.md` from `cdn-mineru.openxlab.org.cn` fails with TLS/EOF
 errors. In that case, check proxy/DNS rules before debugging this plugin.
 
 By default, paths must resolve to a folder containing `.obsidian`. Set `OBSIDIAN_ALLOW_NON_VAULT=true` only when intentionally using a plain Markdown folder.
+
+## Vault Defaults
+
+You can keep reusable defaults in `.obsidian-vault-mcp.json` at the vault root,
+or in `.obsidian/obsidian-vault-mcp.json`. Tool arguments still win when they
+are explicitly set away from their built-in defaults.
+
+```json
+{
+  "literatureFolder": "01-literature",
+  "mineruSourceFolder": "02-sources/mineru",
+  "pdfSourceFolder": "02-sources/pdf",
+  "entitiesFolder": "entities",
+  "conceptsFolder": "concepts",
+  "zoteroAttachmentsFolder": "assets/zotero",
+  "zoteroAttachmentNameStrategy": "zotero_key",
+  "indexPath": "index.md",
+  "logPath": "log.md",
+  "templateFolder": "Templates",
+  "defaultTemplate": "Literature"
+}
+```
+
+Zotero attachment naming strategies are `original`, `zotero_key`, `citekey`,
+`title_year`, and `parent_key`.
+
+## User Templates
+
+`obsidian_list_user_templates` discovers Markdown templates from:
+
+- the Obsidian Templates core plugin config at `.obsidian/templates.json`;
+- the Templater plugin config at `.obsidian/plugins/templater-obsidian/data.json`;
+- the optional `templateFolder` and `defaultTemplate` plugin defaults above.
+
+`obsidian_create_note` can apply a template with `template_path`,
+`template_name`, `use_template=true`, or a configured `defaultTemplate`. It
+performs safe text replacement for variables such as `{{title}}`, `{{body}}`,
+`{{date}}`, `{{time}}`, and frontmatter property names. It does not execute
+Templater JavaScript.
+
+## Doctor Check
+
+Run a local readiness check without starting the MCP server:
+
+```bash
+python scripts/obsidian_vault_mcp.py --doctor --vault /path/to/vault
+```
+
+Optional integrations such as Zotero Desktop, Obsidian CLI, MinerU, and PDF text
+extraction are reported as checks; they do not need to be available for the core
+vault tools to work.
 
 ## Install Dependencies
 

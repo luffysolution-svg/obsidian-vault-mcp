@@ -48,11 +48,44 @@ kept together.
 5. If `auto` cannot find your vault, set `OBSIDIAN_VAULT_PATH` locally to your
    vault root. Do not commit personal vault paths to the repository.
 
+## Vault Defaults and Templates
+
+Optional vault-local defaults can be stored in `.obsidian-vault-mcp.json` at the
+vault root, or `.obsidian/obsidian-vault-mcp.json`:
+
+```json
+{
+  "literatureFolder": "01-literature",
+  "zoteroAttachmentsFolder": "assets/zotero",
+  "zoteroAttachmentNameStrategy": "zotero_key",
+  "templateFolder": "Templates",
+  "defaultTemplate": "Literature"
+}
+```
+
+The plugin also discovers user templates from Obsidian Templates and Templater
+settings. `obsidian_create_note` can apply a template by path, by name, with
+`use_template=true`, or with a configured `defaultTemplate`. Template variables
+are replaced as text; Templater JavaScript is not executed.
+
+## Doctor
+
+Check the local setup without starting the MCP server:
+
+```bash
+python scripts/obsidian_vault_mcp.py --doctor --vault "path/to/vault"
+```
+
 ## Zotero
 
 Zotero tools use Zotero Desktop's local API at
 `http://127.0.0.1:23119/api`. Open Zotero before using Zotero-backed tools.
 Set `ZOTERO_LOCAL_API` only if your local Zotero API is exposed elsewhere.
+
+Imported Zotero notes include `zoteroKey`, `zoteroSelect`, `zoteroLinks`, and
+PDF attachment links when PDF child items are available. PDF copies default to
+`attachments/zotero/{zoteroKey}/{original-file-name}` and can be renamed with
+the `original`, `zotero_key`, `citekey`, `title_year`, or `parent_key` strategy.
 
 ## MinerU
 
