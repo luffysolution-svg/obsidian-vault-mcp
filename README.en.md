@@ -249,10 +249,10 @@ If `cdn-mineru.openxlab.org.cn` resolves to a fake-IP range such as
 `198.18.x.x`, configure your proxy/VPN DNS rules so MinerU/OpenXLab domains use
 a working route.
 
-## Deploy With Codex
+## AI-Assisted Setup
 
-You can ask Codex to install and configure this plugin for you. Copy this
-prompt into Codex:
+Paste this prompt into any AI coding assistant (Codex, Claude Code, OpenCode,
+etc.) to have it install and configure the plugin automatically:
 
 ```text
 Install and configure the open-source Obsidian Vault MCP plugin from
@@ -261,11 +261,28 @@ https://github.com/luffysolution-svg/obsidian-vault-mcp.
 Please:
 1. Clone the repository to a suitable local plugins folder.
 2. Install its Python dependencies with `python -m pip install -e .`.
-3. Register it as a local Codex plugin/MCP server using the checked-in `.mcp.json`.
-4. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me for my local Obsidian vault path and configure it only in my local MCP/plugin settings.
+3. Register it as a local MCP server. Use the method that matches the AI client
+   you are running in:
+   - Codex: register using the checked-in `.mcp.json` as a local Codex plugin.
+   - Claude Code: run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add
+     the server block from `.mcp.json` to `~/.claude/settings.json`.
+   - OpenCode: copy `.opencode.json` from the repository root to the project
+     directory, or merge its `mcp` block into `~/.opencode.json`.
+   - Trae: add the server block from `.mcp.json` to `.trae/mcp.json` in the
+     project root, or paste it in Trae's MCP settings UI.
+   - CodeBuddy: the checked-in `.mcp.json` is picked up automatically from the
+     project root; or paste the server block in CodeBuddy's MCP settings UI.
+   - Kimi Code: run `kimi mcp add --transport stdio obsidian-vault obsidian-vault-mcp`
+     and set env `OBSIDIAN_VAULT_PATH=auto`, or edit `~/.kimi/mcp.json` directly.
+   - Other MCP clients: register a stdio server with command
+     `obsidian-vault-mcp` and env `OBSIDIAN_VAULT_PATH=auto`.
+4. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me
+   for my local Obsidian vault path and configure it only in my local
+   MCP/plugin settings.
 5. Do not modify or publish my Obsidian vault contents.
 6. Verify the server can start, then run `python -m unittest discover -s tests`.
-7. Tell me how to restart/reload Codex so the new MCP tools become available.
+7. Tell me how to restart/reload the AI client so the new MCP tools become
+   available.
 
 Optional: if I want Zotero features, remind me to open Zotero Desktop so its
 local API at `http://127.0.0.1:23119/api` is reachable.

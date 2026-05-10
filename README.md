@@ -188,9 +188,9 @@ Resolve-DnsName cdn-mineru.openxlab.org.cn
 
 如果 `cdn-mineru.openxlab.org.cn` 解析到 `198.18.x.x` 等 fake-IP 地址，请配置代理/VPN DNS 规则，确保 MinerU/OpenXLab 域名使用可用路由。
 
-## 通过 Codex 部署
+## AI 辅助安装
 
-可以让 Codex 帮你安装和配置本插件。将以下提示词复制到 Codex：
+将以下提示词粘贴给任意 AI 编程助手（Codex、Claude Code、OpenCode 等），让它自动完成安装和配置：
 
 ```text
 Install and configure the open-source Obsidian Vault MCP plugin from
@@ -199,11 +199,28 @@ https://github.com/luffysolution-svg/obsidian-vault-mcp.
 Please:
 1. Clone the repository to a suitable local plugins folder.
 2. Install its Python dependencies with `python -m pip install -e .`.
-3. Register it as a local Codex plugin/MCP server using the checked-in `.mcp.json`.
-4. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me for my local Obsidian vault path and configure it only in my local MCP/plugin settings.
+3. Register it as a local MCP server. Use the method that matches the AI client
+   you are running in:
+   - Codex: register using the checked-in `.mcp.json` as a local Codex plugin.
+   - Claude Code: run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add
+     the server block from `.mcp.json` to `~/.claude/settings.json`.
+   - OpenCode: copy `.opencode.json` from the repository root to the project
+     directory, or merge its `mcp` block into `~/.opencode.json`.
+   - Trae: add the server block from `.mcp.json` to `.trae/mcp.json` in the
+     project root, or paste it in Trae's MCP settings UI.
+   - CodeBuddy: the checked-in `.mcp.json` is picked up automatically from the
+     project root; or paste the server block in CodeBuddy's MCP settings UI.
+   - Kimi Code: run `kimi mcp add --transport stdio obsidian-vault obsidian-vault-mcp`
+     and set env `OBSIDIAN_VAULT_PATH=auto`, or edit `~/.kimi/mcp.json` directly.
+   - Other MCP clients: register a stdio server with command
+     `obsidian-vault-mcp` and env `OBSIDIAN_VAULT_PATH=auto`.
+4. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me
+   for my local Obsidian vault path and configure it only in my local
+   MCP/plugin settings.
 5. Do not modify or publish my Obsidian vault contents.
 6. Verify the server can start, then run `python -m unittest discover -s tests`.
-7. Tell me how to restart/reload Codex so the new MCP tools become available.
+7. Tell me how to restart/reload the AI client so the new MCP tools become
+   available.
 
 Optional: if I want Zotero features, remind me to open Zotero Desktop so its
 local API at `http://127.0.0.1:23119/api` is reachable.
