@@ -31,7 +31,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
     def setUp(self):
         self.module = load_module()
         self.tempdir = tempfile.TemporaryDirectory(prefix="obsidian-vault-test-")
-        self.vault = Path(self.tempdir.name)
+        self.vault = Path(self.tempdir.name).resolve()
         (self.vault / ".obsidian").mkdir()
 
     def tearDown(self):
