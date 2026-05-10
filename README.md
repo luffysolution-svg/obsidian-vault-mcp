@@ -2,6 +2,23 @@
 
 Local Codex plugin for maintaining Obsidian vaults as persistent linked wikis.
 
+[中文 README](./README.zh-CN.md) | [中文文档站](./docs/index.md)
+
+## Quick Start
+
+For a detailed setup guide, see [Configuration Guide](./docs/CONFIGURATION.md).
+
+From the plugin directory:
+
+```bash
+python -m pip install -r requirements.txt
+python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path/to/your-vault
+```
+
+Register this folder as a local Codex plugin, then restart or reload your MCP
+client. Keep personal vault paths, Zotero storage paths, API tokens, and private
+note contents in local configuration only; do not commit them to the repository.
+
 It provides:
 
 - MCP tools for vault file listing, search, reading, writing, note creation, and YAML property updates.
@@ -40,7 +57,10 @@ See [References and Attribution](./docs/REFERENCES.md) for the fuller rationale.
 
 ## Configure
 
-Set `OBSIDIAN_VAULT_PATH` in `.mcp.json`, or pass `vault_path` to each tool call. The default value is `auto`, which asks the local Obsidian CLI for the currently active vault path and falls back to the process working directory if the CLI is unavailable.
+Set `OBSIDIAN_VAULT_PATH` in local MCP configuration, or pass `vault_path` to
+each tool call. The checked-in `.mcp.json` defaults to `auto`, which asks the
+local Obsidian CLI for the currently active vault path and falls back to the
+process working directory if the CLI is unavailable.
 
 ```json
 {
@@ -119,12 +139,13 @@ Templater JavaScript.
 Run a local readiness check without starting the MCP server:
 
 ```bash
-python scripts/obsidian_vault_mcp.py --doctor --vault /path/to/vault
+python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
 Optional integrations such as Zotero Desktop, Obsidian CLI, MinerU, and PDF text
 extraction are reported as checks; they do not need to be available for the core
-vault tools to work.
+vault tools to work. Omit `--doctor-format text` when you want JSON output for
+automation or bug reports.
 
 ## Batch Edit Plans
 
@@ -167,13 +188,13 @@ For editable development installs, use the package metadata in
 
 ```bash
 python -m pip install -e ".[dev]"
-obsidian-vault-mcp --doctor --vault /path/to/vault
+obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
 After opening Obsidian and Zotero Desktop, run the local smoke checks:
 
 ```bash
-python scripts/smoke_integrations.py --vault /path/to/vault
+python scripts/smoke_integrations.py --vault /path/to/your-vault
 ```
 
 The smoke script is intentionally read-only except for dry-run write previews.
@@ -182,7 +203,9 @@ the Obsidian CLI.
 
 `PyYAML` is used for full YAML compatibility. `pypdf` is used for Zotero PDF text extraction; the code can fall back to `PyPDF2` when it is already installed, but packaged installs should include `pypdf`.
 
-See [Install](./docs/INSTALL.md) for local plugin setup and Zotero notes.
+See [Install](./docs/INSTALL.md) for local plugin setup, or
+[Configuration Guide](./docs/CONFIGURATION.md) for a detailed walkthrough that
+covers plugin storage, Obsidian CLI, Codex skills, Zotero, and MinerU.
 
 ## Code Architecture
 
@@ -324,3 +347,8 @@ See [Deployment Guide](./docs/DEPLOYMENT.md) for a GitHub publishing flow.
 - Kepano's Obsidian skills split the domain into Markdown, Bases, Canvas, CLI, and extraction skills: https://github.com/kepano/obsidian-skills
 - Karpathy's LLM Wiki pattern frames Obsidian as an IDE for a persistent, LLM-maintained wiki: https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
 - Obsidian CLI documentation: https://help.obsidian.md/cli
+- Codex Skills documentation: https://developers.openai.com/codex/skills
+- Codex Plugins documentation: https://developers.openai.com/codex/plugins
+- Zotero local connector server documentation: https://www.zotero.org/support/dev/client_coding/connector_http_server
+- Zotero Web API v3 basics: https://www.zotero.org/support/dev/web_api/v3/basics
+- MinerU Open API CLI documentation: https://pkg.go.dev/github.com/opendatalab/MinerU-Ecosystem/cli

@@ -38,6 +38,19 @@ How this plugin adapts it:
 - Canvas files can visualize topic clusters.
 - Bases files can turn frontmatter and file metadata into filterable tables and cards.
 
+## Operational Documentation
+
+The setup and integration docs also rely on the following primary references:
+
+- Obsidian CLI: https://obsidian.md/help/cli
+- Codex Skills: https://developers.openai.com/codex/skills
+- Codex Plugins: https://developers.openai.com/codex/plugins
+- Codex plugin authoring: https://developers.openai.com/codex/plugins/build
+- Zotero connector HTTP server: https://www.zotero.org/support/dev/client_coding/connector_http_server
+- Zotero Web API v3 basics: https://www.zotero.org/support/dev/web_api/v3/basics
+- MinerU Open API CLI: https://pkg.go.dev/github.com/opendatalab/MinerU-Ecosystem/cli
+- MinerU Ecosystem: https://github.com/opendatalab/MinerU-Ecosystem
+
 ## Demo Screenshots
 
 Screenshots are intentionally not bundled until sanitized examples are created.

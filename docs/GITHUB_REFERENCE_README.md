@@ -92,6 +92,9 @@ obsidian-vault-mcp --doctor --vault "path/to/vault"
 6. Leave `.mcp.json` as `OBSIDIAN_VAULT_PATH=auto`, or set an explicit vault
    root in your own local configuration.
 
+See `docs/CONFIGURATION.md` for detailed Codex plugin placement, bundled skill
+layout, Obsidian CLI setup, Zotero local API setup, and MinerU CLI/token setup.
+
 ## Release Checks
 
 Before tagging or uploading a release:

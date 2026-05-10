@@ -1,0 +1,172 @@
+# 部署与发布指南
+
+本插件可以作为普通开源仓库发布。仓库根目录就是插件根目录。
+
+## 仓库结构
+
+```text
+obsidian-vault-mcp/
+  .codex-plugin/plugin.json
+  .mcp.json
+  .gitignore
+  LICENSE
+  pyproject.toml
+  README.md
+  README.zh-CN.md
+  requirements.txt
+  docs/
+  scripts/obsidian_vault_mcp.py
+  scripts/smoke_integrations.py
+  scripts/obsidian_vault_mcp/
+    __init__.py
+    cli.py
+    common.py
+    helpers.py
+    server.py
+    tools.py
+  skills/obsidian-vault/SKILL.md
+  tests/
+```
+
+不要发布本地 vault 文件、生成的备份、虚拟环境、`__pycache__` 或会写入真实 vault 的临时脚本。
+
+`scripts/obsidian_vault_mcp.py` 是 `.mcp.json` 使用的兼容入口。发布时必须保留它和旁边的 `scripts/obsidian_vault_mcp/` 实现包。
+
+`pyproject.toml` 用于 editable install 和 `obsidian-vault-mcp` 控制台命令。`scripts/smoke_integrations.py` 是发布前使用的只读集成检查脚本。
+
+## 本地插件放置
+
+开发时推荐把插件源目录放在：
+
+```text
+$REPO_ROOT/plugins/obsidian-vault
+```
+
+并通过：
+
+```text
+$REPO_ROOT/.agents/plugins/marketplace.json
+```
+
+暴露给 Codex。
+
+个人测试可放在：
+
+```text
+~/.codex/plugins/obsidian-vault
+```
+
+并通过：
+
+```text
+~/.agents/plugins/marketplace.json
+```
+
+暴露。
+
+Codex 会把 marketplace 插件安装到：
+
+```text
+~/.codex/plugins/cache/<marketplace>/<plugin>/<version>/
+```
+
+并加载缓存副本。修改插件后，需要更新 marketplace 指向的源目录并重启 Codex。
+
+只有 `plugin.json` 应放在 `.codex-plugin/` 下。`skills/`、`.mcp.json`、`docs/`、`scripts/` 和 assets 都应位于插件根目录。
+
+## 发布前检查
+
+1. 确认 `.codex-plugin/plugin.json` 中的 `repository`、`homepage`、`websiteURL`、`privacyPolicyURL`、`termsOfServiceURL` 正确。
+2. 保持 `.mcp.json` 可移植：使用 `${CLAUDE_PLUGIN_ROOT}`，默认 `OBSIDIAN_VAULT_PATH=auto`。
+3. 安装开发依赖并运行检查：
+
+```bash
+python -m pip install -e ".[dev]"
+python -m ruff check .
+python -m unittest discover -s tests
+python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py
+python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault path/to/test-vault
+```
+
+4. 使用干净临时 vault 和包含非 ASCII 字符路径的真实 vault 测试。
+5. 打开 Obsidian 和 Zotero Desktop 后运行：
+
+```bash
+python scripts/smoke_integrations.py --vault path/to/test-vault
+```
+
+Zotero 与 Obsidian CLI 失败会作为 warning。正式发布前，应在这些集成可用的环境中再跑一次。
+
+6. 构建 release zip：
+
+```powershell
+./scripts/build_release.ps1
+```
+
+## GitHub CLI 发布流程
+
+```powershell
+Set-Location "path/to/obsidian-vault-mcp"
+git init
+git add .
+git commit -m "publish obsidian vault mcp plugin"
+gh repo create obsidian-vault-mcp --public --source . --remote origin --push
+```
+
+如果 GitHub CLI 不可用，先在 GitHub 创建仓库，再运行：
+
+```powershell
+Set-Location "path/to/obsidian-vault-mcp"
+git init
+git add .
+git commit -m "publish obsidian vault mcp plugin"
+git branch -M main
+git remote add origin https://github.com/luffysolution-svg/obsidian-vault-mcp.git
+git push -u origin main
+```
+
+## GitHub Pages
+
+本仓库使用 `docs/` 作为 GitHub Pages 源目录。中文首页是：
+
+```text
+docs/index.md
+```
+
+启用 Pages：
+
+```powershell
+gh api -X POST repos/luffysolution-svg/obsidian-vault-mcp/pages `
+  -f source[branch]=main `
+  -f source[path]=/docs
+```
+
+如果 Pages 已存在，用：
+
+```powershell
+gh api -X PUT repos/luffysolution-svg/obsidian-vault-mcp/pages `
+  -f source[branch]=main `
+  -f source[path]=/docs
+```
+
+发布后访问：
+
+```text
+https://luffysolution-svg.github.io/obsidian-vault-mcp/
+```
+
+## 发布检查清单
+
+- `python -m ruff check .` 通过。
+- `python -m unittest discover -s tests` 通过。
+- `python -m py_compile ...` 通过。
+- `python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault path/to/test-vault` 通过核心检查。
+- `python scripts/smoke_integrations.py --vault path/to/test-vault` 没有必需检查失败。
+- `./scripts/build_release.ps1` 生成 release zip，并包含 `pyproject.toml`、兼容入口、实现包、smoke 脚本、docs、tests、skill。
+- `docs/PRIVACY.zh-CN.md` 与 `docs/PRIVACY.md` 描述一致。
+- `docs/CONFIGURATION.zh-CN.md` 覆盖 Obsidian CLI、Codex skill/plugin、Zotero、MinerU。
+- `LICENSE` 存在。
+- 没有提交个人 vault 路径、用户名、缓存路径、Zotero 存储路径或 API token。
+- 示例截图经过脱敏。
+- fresh clone 可以执行 `python -m pip install -e ".[dev]"`。
+- MinerU 测试保持 mock，不要求真实 MinerU token。

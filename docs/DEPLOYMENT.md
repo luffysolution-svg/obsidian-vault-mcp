@@ -39,6 +39,22 @@ with it when publishing or packaging the plugin.
 `obsidian-vault-mcp` console command. `scripts/smoke_integrations.py` is the
 read-only local integration smoke checker used before release.
 
+## Local Plugin Placement
+
+During development, keep the source plugin folder under a repository path such
+as `$REPO_ROOT/plugins/obsidian-vault` and expose it through
+`$REPO_ROOT/.agents/plugins/marketplace.json`. For personal-only testing, keep
+the plugin under `~/.codex/plugins/obsidian-vault` and expose it through
+`~/.agents/plugins/marketplace.json`.
+
+Codex installs marketplace plugins into
+`~/.codex/plugins/cache/<marketplace>/<plugin>/<version>/` and loads the
+installed copy from that cache. After changing plugin files, refresh the source
+directory used by the marketplace and restart Codex.
+
+Only `.codex-plugin/plugin.json` belongs under `.codex-plugin/`. Keep
+`skills/`, `.mcp.json`, `docs/`, `scripts/`, and assets at the plugin root.
+
 ## Before Publishing
 
 1. Confirm `.codex-plugin/plugin.json` has the correct `repository`,
@@ -109,6 +125,8 @@ git push -u origin main
   archive contains `pyproject.toml`, `scripts/smoke_integrations.py`, and the
   `scripts/obsidian_vault_mcp/` package.
 - `docs/PRIVACY.md` accurately describes local data access.
+- `docs/CONFIGURATION.md` stays current with Obsidian CLI, Codex plugin/skill,
+  Zotero, and MinerU setup details.
 - `LICENSE` is present.
 - No personal vault path, username, cache path, or Zotero storage path is
   committed.
