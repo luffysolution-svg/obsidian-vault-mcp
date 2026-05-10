@@ -24,12 +24,4 @@
 OBSIDIAN_ALLOW_NON_VAULT=true
 ```
 
-导入已有 MinerU Markdown 或使用 `flash-extract` 不需要 MinerU token。精确解析 `extract` 可能使用本地 CLI 配置、环境变量或显式工具参数中的 token。不要把 token 提交到仓库。
-
-## 发布注意事项
-
-- 不要提交私有 vault 内容。
-- 不要提交 `.obsidian-vault-backups/`。
-- 不要提交 Zotero storage 路径或 PDF 原文。
-- 不要提交 MinerU token、Zotero 私有信息或本地 API 地址覆盖。
-- 示例截图应脱敏，不展示私有笔记。
+导入已有 MinerU Markdown 或使用 `flash-extract` 不需要 MinerU token。精确解析 `extract` 可能使用本地 CLI 配置、环境变量或显式工具参数中的 token。

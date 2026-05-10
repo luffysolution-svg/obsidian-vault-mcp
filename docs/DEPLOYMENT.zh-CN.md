@@ -97,7 +97,7 @@ python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault path/
 python scripts/smoke_integrations.py --vault path/to/test-vault
 ```
 
-Zotero 与 Obsidian CLI 失败会作为 warning。建议在这些集成可用的环境中完整跑一次再发布。
+Zotero 与 Obsidian CLI 失败会作为 warning。建议在这些集成可用的环境中完整执行一次集成检查后再发布。
 
 6. 构建 release zip：
 
@@ -161,7 +161,7 @@ https://luffysolution-svg.github.io/obsidian-vault-mcp/
 
 - `python -m ruff check .` 通过。
 - `python -m unittest discover -s tests` 通过。
-- `python -m py_compile ...` 通过。
+- `python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py` 通过。
 - `python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault path/to/test-vault` 通过核心检查。
 - `python scripts/smoke_integrations.py --vault path/to/test-vault` 没有必需检查失败。
 - `./scripts/build_release.ps1` 生成 release zip，并包含 `pyproject.toml`、兼容入口、实现包、smoke 脚本、docs、tests、skill。
@@ -170,5 +170,5 @@ https://luffysolution-svg.github.io/obsidian-vault-mcp/
 - `LICENSE` 存在。
 - 没有提交个人 vault 路径、用户名、缓存路径、Zotero 存储路径或 API token。
 - 示例截图经过脱敏。
-- fresh clone 可以执行 `python -m pip install -e ".[dev]"`。
-- MinerU 测试保持 mock，不要求真实 MinerU token。
+- 从零克隆后可直接执行 `python -m pip install -e ".[dev]"`。
+- MinerU 相关测试使用模拟（mock），无需真实的 MinerU API token。

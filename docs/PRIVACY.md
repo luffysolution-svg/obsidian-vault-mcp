@@ -32,5 +32,4 @@ Non-vault folders are rejected by default unless the user explicitly sets
 
 MinerU tokens are not required for Markdown ingestion or `flash-extract`.
 Precision MinerU extraction may use a token from the user's local CLI
-configuration, environment, or explicit tool call. Do not commit tokens to this
-repository.
+configuration, environment, or explicit tool call.

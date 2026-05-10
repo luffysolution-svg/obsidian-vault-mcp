@@ -41,13 +41,13 @@ connect without extra setup.
 `scripts/obsidian_vault_mcp.py` is a compatibility entrypoint kept alongside
 the implementation package. `pyproject.toml` is required for editable installs
 and the `obsidian-vault-mcp` console command. `scripts/smoke_integrations.py`
-is the read-only local integration smoke checker used before release.
+is a read-only integration smoke test script intended to be run before each release.
 
 ## Local Plugin Placement
 
 During development, keep the source plugin folder under a repository path such
 as `$REPO_ROOT/plugins/obsidian-vault` and expose it through
-`$REPO_ROOT/.agents/plugins/marketplace.json`. For personal-only testing, keep
+`$REPO_ROOT/.agents/plugins/marketplace.json`. For testing outside a shared repository, keep
 the plugin under `~/.codex/plugins/obsidian-vault` and expose it through
 `~/.agents/plugins/marketplace.json`.
 
@@ -64,7 +64,7 @@ Only `.codex-plugin/plugin.json` belongs under `.codex-plugin/`. Keep
 1. Confirm `.codex-plugin/plugin.json` has the correct `repository`,
    `homepage`, `websiteURL`, `privacyPolicyURL`, and `termsOfServiceURL`.
    Confirm `plugin.json` at the root has matching values for Claude Code.
-2. Keep `.mcp.json` portable. It uses the `obsidian-vault-mcp` entry point
+2. Ensure `.mcp.json` remains portable. It uses the `obsidian-vault-mcp` entry point
    and `OBSIDIAN_VAULT_PATH=auto`. Users must run `pip install -e .` before
    connecting any MCP client.
 3. Install in editable mode and run the full local verification set:
@@ -126,12 +126,12 @@ git push -u origin main
 - `python scripts/obsidian_vault_mcp.py --doctor --vault path/to/test-vault`
   reports the vault and template checks successfully.
 - `python scripts/smoke_integrations.py --vault path/to/test-vault` has no
-  required-check failures; optional integration warnings are understood.
+  required-check failures; optional integration warnings are expected and can be ignored.
 - `./scripts/build_release.ps1` creates `dist/obsidian-vault-mcp-*.zip` and the
   archive contains `pyproject.toml`, `scripts/smoke_integrations.py`, and the
   `scripts/obsidian_vault_mcp/` package.
 - `docs/PRIVACY.md` accurately describes local data access.
-- `docs/TECHNICAL_GUIDE.md` stays current with Obsidian CLI, Codex plugin/skill,
+- `docs/TECHNICAL_GUIDE.md` is up to date with Obsidian CLI, Codex plugin/skill,
   Claude Code plugin, OpenCode MCP, Zotero, and MinerU setup details.
 - `LICENSE` is present.
 - No personal vault path, username, cache path, or Zotero storage path is
