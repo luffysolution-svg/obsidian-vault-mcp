@@ -164,7 +164,7 @@ https://luffysolution-svg.github.io/obsidian-vault-mcp/
 - `python scripts/smoke_integrations.py --vault path/to/test-vault` 没有必需检查失败。
 - `./scripts/build_release.ps1` 生成 release zip，并包含 `pyproject.toml`、兼容入口、实现包、smoke 脚本、docs、tests、skill。
 - `docs/PRIVACY.zh-CN.md` 与 `docs/PRIVACY.md` 描述一致。
-- `docs/CONFIGURATION.zh-CN.md` 覆盖 Obsidian CLI、Codex skill/plugin、Zotero、MinerU。
+- `docs/TECHNICAL_GUIDE.md` 覆盖 Obsidian CLI、Codex skill/plugin、Zotero、MinerU 配置细节。
 - `LICENSE` 存在。
 - 没有提交个人 vault 路径、用户名、缓存路径、Zotero 存储路径或 API token。
 - 示例截图经过脱敏。

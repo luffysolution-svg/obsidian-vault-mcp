@@ -125,7 +125,7 @@ git push -u origin main
   archive contains `pyproject.toml`, `scripts/smoke_integrations.py`, and the
   `scripts/obsidian_vault_mcp/` package.
 - `docs/PRIVACY.md` accurately describes local data access.
-- `docs/CONFIGURATION.md` stays current with Obsidian CLI, Codex plugin/skill,
+- `docs/TECHNICAL_GUIDE.md` stays current with Obsidian CLI, Codex plugin/skill,
   Zotero, and MinerU setup details.
 - `LICENSE` is present.
 - No personal vault path, username, cache path, or Zotero storage path is

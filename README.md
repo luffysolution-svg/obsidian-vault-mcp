@@ -6,7 +6,7 @@ Local Codex plugin for maintaining Obsidian vaults as persistent linked wikis.
 
 ## Quick Start
 
-For a detailed setup guide, see [Configuration Guide](./docs/CONFIGURATION.md).
+For a detailed setup guide, see [Technical Guide](./docs/TECHNICAL_GUIDE.md).
 
 From the plugin directory:
 
@@ -202,9 +202,7 @@ the Obsidian CLI.
 
 `PyYAML` is used for full YAML compatibility. `pypdf` is used for Zotero PDF text extraction; the code can fall back to `PyPDF2` when it is already installed, but packaged installs should include `pypdf`.
 
-See [Install](./docs/INSTALL.md) for local plugin setup, or
-[Configuration Guide](./docs/CONFIGURATION.md) for a detailed walkthrough that
-covers plugin storage, Obsidian CLI, Codex skills, Zotero, and MinerU.
+See [Technical Guide](./docs/TECHNICAL_GUIDE.md) for local plugin setup, or the full installation and configuration walkthrough.
 
 ## Code Architecture
 

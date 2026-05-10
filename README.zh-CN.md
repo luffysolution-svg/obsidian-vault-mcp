@@ -6,7 +6,7 @@
 
 ## 快速开始
 
-详细配置请看 [配置指南](./docs/CONFIGURATION.zh-CN.md)。
+详细配置请看 [技术文档](./docs/TECHNICAL_GUIDE.md)。
 
 在插件目录中运行：
 
@@ -78,8 +78,7 @@ obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 
 更多细节：
 
-- [安装指南](./docs/INSTALL.zh-CN.md)
-- [配置指南](./docs/CONFIGURATION.zh-CN.md)
+- [技术文档 / Technical Guide](./docs/TECHNICAL_GUIDE.md)
 - [部署指南](./docs/DEPLOYMENT.zh-CN.md)
 - [隐私说明](./docs/PRIVACY.zh-CN.md)
 - [参考与致谢](./docs/REFERENCES.zh-CN.md)
