@@ -729,6 +729,24 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["checks"][0]["name"], "vault")
 
+    def test_compat_entrypoint_runs_doctor_text_format(self):
+        completed = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--doctor", "--doctor-format", "text", "--vault", str(self.vault)],
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+
+        stdout = completed.stdout.decode("utf-8", errors="replace")
+        stderr = completed.stderr.decode("utf-8", errors="replace")
+        self.assertEqual(completed.returncode, 0, stderr)
+        self.assertIn("Obsidian Vault doctor", stdout)
+        self.assertIn("Overall: OK", stdout)
+        self.assertIn("[OK] vault", stdout)
+        self.assertIn(str(self.vault), stdout)
+        self.assertNotIn('"checks"', stdout)
+        self.assertNotIn("command", stdout.lower())
+
     def test_smoke_integrations_reports_success_without_writing(self):
         smoke = load_smoke_module()
         calls = []
