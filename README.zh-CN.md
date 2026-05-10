@@ -15,7 +15,7 @@ python -m pip install -r requirements.txt
 python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
-然后把本目录注册为 Codex 本地插件，或通过 Codex 本地 marketplace 暴露给 Codex。不要把个人 vault 路径、Zotero 存储路径、API token 或私有笔记内容提交到仓库。
+然后把本目录注册为 Codex 本地插件，或通过 Codex 本地 marketplace 暴露给 Codex。
 
 ## 功能概览
 
@@ -140,19 +140,19 @@ python scripts/smoke_integrations.py --vault /path/to/your-vault
 
 ## 常用提示词
 
-- “Show me the structure of this Obsidian vault.”
-- “Create a linked wiki note with YAML properties.”
-- “Add wikilinks between these notes and report orphans.”
-- “Preview and apply a batch edit plan, then rollback if needed.”
-- “Lint this vault and show unresolved links, dead ends, and missing index/log files.”
-- “Ingest this BibTeX entry or MinerU extraction into the literature wiki.”
-- “Search Zotero and ingest this Zotero item into Obsidian.”
-- “Create a Canvas knowledge map from this vault's wikilinks.”
-- “Use the Obsidian CLI to read backlinks or query a Base.”
+- “展示这个 Obsidian vault 的结构。”
+- “创建一条带 YAML properties 的双链笔记。”
+- “在这些笔记之间添加 wikilinks，并报告孤立笔记。”
+- “预览并应用批量编辑计划，如有需要可回滚。”
+- “检查这个 vault，显示未解析链接、死端笔记和缺失的 index/log 文件。”
+- “把这条 BibTeX 条目或 MinerU 提取结果导入文献知识库。”
+- “搜索 Zotero 并把该条目导入 Obsidian。”
+- “从这个 vault 的 wikilinks 生成 Canvas 知识图谱。”
+- “用 Obsidian CLI 读取 backlinks 或查询 Base。”
 
 ## 官方参考
 
-- Obsidian CLI: https://obsidian.md/help/cli
+- Obsidian CLI: https://help.obsidian.md/cli
 - Codex Skills: https://developers.openai.com/codex/skills
 - Codex Plugins: https://developers.openai.com/codex/plugins
 - Zotero Connector HTTP Server: https://www.zotero.org/support/dev/client_coding/connector_http_server

@@ -43,8 +43,7 @@ It provides:
 
 ## Demo Assets
 
-No screenshots are bundled in the public package yet. Add only sanitized demo
-images that do not reveal private vault contents.
+Screenshots are not included in this release. Sanitized demo images may be added in a future release.
 
 ## Design References
 
@@ -304,18 +303,9 @@ configuration is portable by default:
 - Obsidian CLI features require Obsidian Desktop to be running. Direct file tools still work when the CLI is unavailable if `OBSIDIAN_VAULT_PATH` is set.
 - `.mcp.json` uses `${CLAUDE_PLUGIN_ROOT}` because that is the plugin-root variable supported by current local plugin examples. If your host uses a different variable, update the script path before publishing.
 
-## Publish Checklist
+## Contributing and Publishing
 
-Before sharing this plugin with other people:
-
-- Confirm `.codex-plugin/plugin.json` points at the repository you will publish.
-- Test on a clean machine with `OBSIDIAN_VAULT_PATH=auto` and with an explicit vault path containing non-ASCII characters.
-- Confirm Obsidian 1.12.7+ and the `bases`, `canvas`, and `properties` core plugins are enabled when testing app-backed features.
-- Run `python -m ruff check .` before tagging a release.
-- Run `python -m unittest discover -s tests` before tagging a release.
-- With Obsidian and Zotero open, run `python scripts/smoke_integrations.py --vault /path/to/vault` before tagging a release.
-
-See [Deployment Guide](./docs/DEPLOYMENT.md) for a GitHub publishing flow.
+See [Deployment Guide](./docs/DEPLOYMENT.md) for the full release checklist and GitHub publishing flow.
 
 ## Useful Prompts
 

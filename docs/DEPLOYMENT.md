@@ -80,9 +80,9 @@ python scripts/smoke_integrations.py --vault path/to/test-vault
 ```
 
 Zotero and Obsidian CLI failures are warnings in the smoke script so the core
-vault checks can still pass when optional apps are closed. Before publishing a
-release, run the smoke script in an environment where those integrations are
-expected to be available.
+vault checks can still pass when optional apps are closed. Run the smoke script
+in an environment where those integrations are available before publishing a
+release.
 6. Build the release zip and confirm it contains the modular package files:
 
 ```powershell

@@ -27,7 +27,7 @@ Windows 找不到 `python` 时，安装 Python 并启用 “Add Python to PATH�
 
 请区分两个位置：
 
-- 源码 checkout：你编辑这个仓库的地方，例如 `F:/chemical-design/plugins/obsidian-vault`。
+- 源码 checkout：你编辑这个仓库的地方，例如 `C:/path/to/plugins/obsidian-vault`。
 - Codex 安装后的插件副本：Codex 从 marketplace 安装后实际加载的副本，通常在 `~/.codex/plugins/cache/<marketplace>/<plugin>/<version>/`。
 
 本地开发推荐使用 repo-scoped marketplace：

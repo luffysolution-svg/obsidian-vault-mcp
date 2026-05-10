@@ -42,7 +42,7 @@ How this plugin adapts it:
 
 The setup and integration docs also rely on the following primary references:
 
-- Obsidian CLI: https://obsidian.md/help/cli
+- Obsidian CLI: https://help.obsidian.md/cli
 - Codex Skills: https://developers.openai.com/codex/skills
 - Codex Plugins: https://developers.openai.com/codex/plugins
 - Codex plugin authoring: https://developers.openai.com/codex/plugins/build
@@ -53,4 +53,4 @@ The setup and integration docs also rely on the following primary references:
 
 ## Demo Screenshots
 
-Screenshots are intentionally not bundled until sanitized examples are created.
+Screenshots are not included in this release. Sanitized demo images may be added in a future release.

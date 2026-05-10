@@ -81,20 +81,17 @@ obsidian-vault-mcp --doctor --doctor-format text --vault "path/to/vault"
 
 之后将本目录注册为 Codex 本地插件，或通过 Codex 本地 marketplace 暴露。默认保持 `.mcp.json` 的 `OBSIDIAN_VAULT_PATH=auto`。
 
-## 发布检查
+## 验证安装
 
 ```bash
-python -m ruff check .
-python -m unittest discover -s tests
-python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py
 python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault "path/to/vault"
-python scripts/smoke_integrations.py --vault "path/to/vault"
+python -m unittest discover -s tests
 ```
 
-构建 release zip：
+打开 Obsidian 和 Zotero Desktop 后，可运行只读集成检查：
 
-```powershell
-./scripts/build_release.ps1
+```bash
+python scripts/smoke_integrations.py --vault "path/to/vault"
 ```
 
 ## 可移植性说明

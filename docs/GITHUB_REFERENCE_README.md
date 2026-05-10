@@ -30,8 +30,7 @@ persistent linked wikis.
 
 ## Demo Screenshots
 
-No screenshots are bundled in the public package yet. Add only sanitized demo
-images that do not reveal private vault contents.
+Screenshots are not included in this release. Sanitized demo images may be added in a future release.
 
 ## Design References
 
@@ -95,27 +94,18 @@ obsidian-vault-mcp --doctor --vault "path/to/vault"
 See `docs/CONFIGURATION.md` for detailed Codex plugin placement, bundled skill
 layout, Obsidian CLI setup, Zotero local API setup, and MinerU CLI/token setup.
 
-## Release Checks
-
-Before tagging or uploading a release:
+## Verify Installation
 
 ```bash
-python -m ruff check .
+python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault "path/to/vault"
 python -m unittest discover -s tests
-python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py
-python scripts/obsidian_vault_mcp.py --doctor --vault "path/to/vault"
+```
+
+With Obsidian and Zotero Desktop open, run the optional read-only integration checks:
+
+```bash
 python scripts/smoke_integrations.py --vault "path/to/vault"
 ```
-
-Build the portable plugin archive with:
-
-```powershell
-./scripts/build_release.ps1
-```
-
-The release zip should include `pyproject.toml`, the compatibility entrypoint,
-the modular `scripts/obsidian_vault_mcp/` package, `scripts/smoke_integrations.py`,
-docs, tests, and `skills/obsidian-vault/SKILL.md`.
 
 ## Portability Notes
 

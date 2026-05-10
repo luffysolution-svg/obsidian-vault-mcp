@@ -95,7 +95,7 @@ python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault path/
 python scripts/smoke_integrations.py --vault path/to/test-vault
 ```
 
-Zotero 与 Obsidian CLI 失败会作为 warning。正式发布前，应在这些集成可用的环境中再跑一次。
+Zotero 与 Obsidian CLI 失败会作为 warning。建议在这些集成可用的环境中完整跑一次再发布。
 
 6. 构建 release zip：
 

@@ -40,7 +40,7 @@
 
 安装、配置和集成文档依赖以下官方资料：
 
-- Obsidian CLI: https://obsidian.md/help/cli
+- Obsidian CLI: https://help.obsidian.md/cli
 - Codex Skills: https://developers.openai.com/codex/skills
 - Codex Plugins: https://developers.openai.com/codex/plugins
 - Codex plugin authoring: https://developers.openai.com/codex/plugins/build
@@ -51,4 +51,4 @@
 
 ## 演示截图
 
-公开包暂不内置截图。后续如添加截图，必须先脱敏，不能泄露私有 vault 内容。
+本版本暂不内置截图，后续版本可能会添加。
