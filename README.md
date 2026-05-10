@@ -1,6 +1,6 @@
 # Obsidian Vault
 
-面向 Codex 的本地 MCP 插件，将本地 Obsidian vault 维护成可持续增长的双链知识库。
+面向 Codex、Claude Code 和 OpenCode 的本地 MCP 插件，将本地 Obsidian vault 维护成可持续增长的双链知识库。
 
 [English README](./README.en.md) | [技术文档](./docs/TECHNICAL_GUIDE.md) | [文档站](./docs/index.md)
 
@@ -13,7 +13,7 @@ python -m pip install -r requirements.txt
 python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
-将本目录注册为 Codex 本地插件，然后重启或重新加载 MCP 客户端。个人 vault 路径、Zotero 存储路径、API token 和私有笔记内容只保存在本地配置中，不要提交到仓库。
+将本目录注册为 Codex 本地插件，或将 MCP server 添加到 Claude Code 或 OpenCode，然后重启或重新加载 MCP 客户端。个人 vault 路径、Zotero 存储路径、API token 和私有笔记内容只保存在本地配置中，不要提交到仓库。
 
 ## 功能概览
 
@@ -198,13 +198,12 @@ https://github.com/luffysolution-svg/obsidian-vault-mcp.
 
 Please:
 1. Clone the repository to a suitable local plugins folder.
-2. Install its Python dependencies with `python -m pip install -r requirements.txt`.
+2. Install its Python dependencies with `python -m pip install -e .`.
 3. Register it as a local Codex plugin/MCP server using the checked-in `.mcp.json`.
-4. Keep the portable `${CLAUDE_PLUGIN_ROOT}` script path; do not hard-code the repository path into files that will be committed.
-5. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me for my local Obsidian vault path and configure it only in my local MCP/plugin settings.
-6. Do not modify or publish my Obsidian vault contents.
-7. Verify the server can start, then run `python -m unittest discover -s tests`.
-8. Tell me how to restart/reload Codex so the new MCP tools become available.
+4. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me for my local Obsidian vault path and configure it only in my local MCP/plugin settings.
+5. Do not modify or publish my Obsidian vault contents.
+6. Verify the server can start, then run `python -m unittest discover -s tests`.
+7. Tell me how to restart/reload Codex so the new MCP tools become available.
 
 Optional: if I want Zotero features, remind me to open Zotero Desktop so its
 local API at `http://127.0.0.1:23119/api` is reachable.
@@ -216,11 +215,58 @@ have a token, and use precision `extract` only when I have configured MinerU
 authentication locally.
 ```
 
+## 通过 Claude Code 部署
+
+安装包后，用 Claude Code CLI 添加 MCP server：
+
+```bash
+python -m pip install -e .
+claude mcp add obsidian-vault obsidian-vault-mcp
+```
+
+或手动添加到 Claude Code 配置（`~/.claude/settings.json`）：
+
+```json
+{
+  "mcpServers": {
+    "obsidian-vault": {
+      "type": "stdio",
+      "command": "obsidian-vault-mcp",
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "auto",
+        "OBSIDIAN_CLI_COMMAND": "obsidian"
+      }
+    }
+  }
+}
+```
+
+根目录的 `plugin.json` 是供 Claude Code 插件系统使用的清单文件。
+
+## 通过 OpenCode 部署
+
+安装包后，将仓库根目录的 `.opencode.json` 复制到你的项目目录，或将 `mcp` 块合并到全局 `~/.opencode.json`：
+
+```json
+{
+  "mcp": {
+    "obsidian-vault": {
+      "type": "local",
+      "command": ["obsidian-vault-mcp"],
+      "environment": {
+        "OBSIDIAN_VAULT_PATH": "auto",
+        "OBSIDIAN_CLI_COMMAND": "obsidian"
+      }
+    }
+  }
+}
+```
+
 ## 发布安全说明
 
 本仓库设计为可被其他用户复用，默认配置具有可移植性：
 
-- `.mcp.json` 使用 `${CLAUDE_PLUGIN_ROOT}` 而非绝对脚本路径。
+- `.mcp.json` 使用已安装的 `obsidian-vault-mcp` 入口命令，而非绝对脚本路径。用户执行一次 `pip install -e .`，三个客户端即可共用同一命令。
 - `OBSIDIAN_VAULT_PATH` 默认 `auto`，用户可在本地设置自己的 vault 路径而无需提交。
 - Zotero 集成指向用户自己的本地 Zotero Desktop API。
 - 文件工具默认拒绝非 vault 文件夹，除非用户显式设置 `OBSIDIAN_ALLOW_NON_VAULT=true`。
@@ -233,7 +279,7 @@ authentication locally.
 - 现有文件不会被覆盖，除非工具调用传入 `overwrite=true`。
 - 写入工具支持 `dry_run=true`，返回 unified diff 而不修改文件。
 - Wiki 工作流工具将生成内容保存在标记注释内，手写笔记内容可保留在托管块之外。
-- Obsidian CLI 功能需要 Obsidian Desktop 正在运行。设置了 `OBSIDIAN_VAULT_PATH` 时，直接文件工具在 CLI 不可用时仍可正常工作。
+- `.mcp.json` 使用已安装的 `obsidian-vault-mcp` 入口命令。连接任何 MCP 客户端前需先执行 `pip install -e .`。
 
 ## 贡献与发布
 
@@ -269,6 +315,8 @@ authentication locally.
 - Obsidian CLI 文档：https://help.obsidian.md/cli
 - Codex Skills 文档：https://developers.openai.com/codex/skills
 - Codex Plugins 文档：https://developers.openai.com/codex/plugins
+- OpenCode MCP 文档：https://docs.opencode.ai/docs/mcp-servers
+- OpenCode 配置参考：https://opencode-ai-opencode.mintlify.app/core-concepts/configuration
 - Zotero 本地连接器 HTTP 服务器文档：https://www.zotero.org/support/dev/client_coding/connector_http_server
 - Zotero Web API v3 基础：https://www.zotero.org/support/dev/web_api/v3/basics
 - MinerU Open API CLI 文档：https://pkg.go.dev/github.com/opendatalab/MinerU-Ecosystem/cli

@@ -1,6 +1,6 @@
 # Obsidian Vault
 
-Local Codex plugin for maintaining Obsidian vaults as persistent linked wikis.
+Local MCP plugin for Codex, Claude Code, and OpenCode — maintain Obsidian vaults as persistent linked wikis.
 
 [中文 README](./README.md) | [中文文档站](./docs/index.md)
 
@@ -15,8 +15,8 @@ python -m pip install -r requirements.txt
 python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
-Register this folder as a local Codex plugin, then restart or reload your MCP
-client. Keep personal vault paths, Zotero storage paths, API tokens, and private
+Register this folder as a local Codex plugin, or add the MCP server to Claude
+Code or OpenCode, then restart or reload your MCP client. Keep personal vault paths, Zotero storage paths, API tokens, and private
 note contents in local configuration only; do not commit them to the repository.
 
 It provides:
@@ -260,13 +260,12 @@ https://github.com/luffysolution-svg/obsidian-vault-mcp.
 
 Please:
 1. Clone the repository to a suitable local plugins folder.
-2. Install its Python dependencies with `python -m pip install -r requirements.txt`.
+2. Install its Python dependencies with `python -m pip install -e .`.
 3. Register it as a local Codex plugin/MCP server using the checked-in `.mcp.json`.
-4. Keep the portable `${CLAUDE_PLUGIN_ROOT}` script path; do not hard-code the repository path into files that will be committed.
-5. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me for my local Obsidian vault path and configure it only in my local MCP/plugin settings.
-6. Do not modify or publish my Obsidian vault contents.
-7. Verify the server can start, then run `python -m unittest discover -s tests`.
-8. Tell me how to restart/reload Codex so the new MCP tools become available.
+4. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me for my local Obsidian vault path and configure it only in my local MCP/plugin settings.
+5. Do not modify or publish my Obsidian vault contents.
+6. Verify the server can start, then run `python -m unittest discover -s tests`.
+7. Tell me how to restart/reload Codex so the new MCP tools become available.
 
 Optional: if I want Zotero features, remind me to open Zotero Desktop so its
 local API at `http://127.0.0.1:23119/api` is reachable.
@@ -278,12 +277,63 @@ have a token, and use precision `extract` only when I have configured MinerU
 authentication locally.
 ```
 
+## Deploy With Claude Code
+
+Install the package, then add the MCP server with the Claude Code CLI:
+
+```bash
+python -m pip install -e .
+claude mcp add obsidian-vault obsidian-vault-mcp
+```
+
+Or add it manually to your Claude Code settings (`~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "obsidian-vault": {
+      "type": "stdio",
+      "command": "obsidian-vault-mcp",
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "auto",
+        "OBSIDIAN_CLI_COMMAND": "obsidian"
+      }
+    }
+  }
+}
+```
+
+The root-level `plugin.json` declares this plugin for Claude Code's plugin system.
+
+## Deploy With OpenCode
+
+Install the package, then copy `.opencode.json` from the repository root to
+your project directory, or merge the `mcp` block into your global
+`~/.opencode.json`:
+
+```json
+{
+  "mcp": {
+    "obsidian-vault": {
+      "type": "local",
+      "command": ["obsidian-vault-mcp"],
+      "environment": {
+        "OBSIDIAN_VAULT_PATH": "auto",
+        "OBSIDIAN_CLI_COMMAND": "obsidian"
+      }
+    }
+  }
+}
+```
+
 ## Public Release Safety
 
 This repository is intended to be reusable by other users. The checked-in
 configuration is portable by default:
 
-- `.mcp.json` uses `${CLAUDE_PLUGIN_ROOT}` instead of an absolute script path.
+- `.mcp.json` uses the installed `obsidian-vault-mcp` entry point instead of
+  an absolute script path. Users install the package with `pip install -e .`
+  once; all three clients then share the same command.
 - `OBSIDIAN_VAULT_PATH` defaults to `auto`; users can set their own local vault
   path without committing it.
 - Zotero integration points at the user's own local Zotero Desktop API.
@@ -299,7 +349,8 @@ configuration is portable by default:
 - Write tools support `dry_run=true` to return a unified diff without modifying files.
 - Wiki workflow tools keep generated sections inside marker comments so hand-written note content can stay outside the managed block.
 - Obsidian CLI features require Obsidian Desktop to be running. Direct file tools still work when the CLI is unavailable if `OBSIDIAN_VAULT_PATH` is set.
-- `.mcp.json` uses `${CLAUDE_PLUGIN_ROOT}` because that is the plugin-root variable supported by current local plugin examples. If your host uses a different variable, update the script path before publishing.
+- `.mcp.json` uses the installed `obsidian-vault-mcp` entry point. Install the
+  package with `pip install -e .` before starting any MCP client.
 
 ## Contributing and Publishing
 
@@ -337,6 +388,8 @@ See [Deployment Guide](./docs/DEPLOYMENT.md) for the full release checklist and 
 - Obsidian CLI documentation: https://help.obsidian.md/cli
 - Codex Skills documentation: https://developers.openai.com/codex/skills
 - Codex Plugins documentation: https://developers.openai.com/codex/plugins
+- OpenCode MCP documentation: https://docs.opencode.ai/docs/mcp-servers
+- OpenCode configuration reference: https://opencode-ai-opencode.mintlify.app/core-concepts/configuration
 - Zotero local connector server documentation: https://www.zotero.org/support/dev/client_coding/connector_http_server
 - Zotero Web API v3 basics: https://www.zotero.org/support/dev/web_api/v3/basics
 - MinerU Open API CLI documentation: https://pkg.go.dev/github.com/opendatalab/MinerU-Ecosystem/cli

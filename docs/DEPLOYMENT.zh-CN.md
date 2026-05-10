@@ -8,8 +8,10 @@
 obsidian-vault-mcp/
   .codex-plugin/plugin.json
   .mcp.json
+  .opencode.json
   .gitignore
   LICENSE
+  plugin.json
   pyproject.toml
   README.md
   README.zh-CN.md
@@ -30,9 +32,9 @@ obsidian-vault-mcp/
 
 不要发布本地 vault 文件、生成的备份、虚拟环境、`__pycache__` 或会写入真实 vault 的临时脚本。
 
-`scripts/obsidian_vault_mcp.py` 是 `.mcp.json` 使用的兼容入口。发布时必须保留它和旁边的 `scripts/obsidian_vault_mcp/` 实现包。
+`.codex-plugin/plugin.json` 是 Codex 插件清单。根目录的 `plugin.json` 是 Claude Code 插件清单。`.opencode.json` 是 OpenCode 的 MCP server 配置。三个文件都应提交，方便各客户端用户直接连接。
 
-`pyproject.toml` 用于 editable install 和 `obsidian-vault-mcp` 控制台命令。`scripts/smoke_integrations.py` 是发布前使用的只读集成检查脚本。
+`scripts/obsidian_vault_mcp.py` 是保留的兼容入口，与实现包并列存放。`pyproject.toml` 用于 editable install 和 `obsidian-vault-mcp` 控制台命令。`scripts/smoke_integrations.py` 是发布前使用的只读集成检查脚本。
 
 ## 本地插件放置
 
@@ -76,8 +78,8 @@ Codex 会把 marketplace 插件安装到：
 
 ## 发布前检查
 
-1. 确认 `.codex-plugin/plugin.json` 中的 `repository`、`homepage`、`websiteURL`、`privacyPolicyURL`、`termsOfServiceURL` 正确。
-2. 保持 `.mcp.json` 可移植：使用 `${CLAUDE_PLUGIN_ROOT}`，默认 `OBSIDIAN_VAULT_PATH=auto`。
+1. 确认 `.codex-plugin/plugin.json` 中的 `repository`、`homepage`、`websiteURL`、`privacyPolicyURL`、`termsOfServiceURL` 正确。确认根目录 `plugin.json` 中的对应字段与之一致（供 Claude Code 使用）。
+2. 保持 `.mcp.json` 可移植：使用 `obsidian-vault-mcp` 入口命令，默认 `OBSIDIAN_VAULT_PATH=auto`。用户需先执行 `pip install -e .` 再连接任何 MCP 客户端。
 3. 安装开发依赖并运行检查：
 
 ```bash
@@ -164,7 +166,7 @@ https://luffysolution-svg.github.io/obsidian-vault-mcp/
 - `python scripts/smoke_integrations.py --vault path/to/test-vault` 没有必需检查失败。
 - `./scripts/build_release.ps1` 生成 release zip，并包含 `pyproject.toml`、兼容入口、实现包、smoke 脚本、docs、tests、skill。
 - `docs/PRIVACY.zh-CN.md` 与 `docs/PRIVACY.md` 描述一致。
-- `docs/TECHNICAL_GUIDE.md` 覆盖 Obsidian CLI、Codex skill/plugin、Zotero、MinerU 配置细节。
+- `docs/TECHNICAL_GUIDE.md` 覆盖 Obsidian CLI、Codex skill/plugin、Claude Code plugin、OpenCode MCP、Zotero、MinerU 配置细节。
 - `LICENSE` 存在。
 - 没有提交个人 vault 路径、用户名、缓存路径、Zotero 存储路径或 API token。
 - 示例截图经过脱敏。

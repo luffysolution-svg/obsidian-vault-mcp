@@ -2,10 +2,8 @@
   "mcpServers": {
     "obsidian-vault": {
       "type": "stdio",
-      "command": "python",
-      "args": [
-        "${CLAUDE_PLUGIN_ROOT}/scripts/obsidian_vault_mcp.py"
-      ],
+      "command": "obsidian-vault-mcp",
+      "args": [],
       "env": {
         "OBSIDIAN_VAULT_PATH": "auto",
         "OBSIDIAN_CLI_COMMAND": "obsidian"
