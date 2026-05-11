@@ -1155,9 +1155,10 @@ def obsidian_zotero_get_children(
     api_base: str = "",
 ) -> dict[str, list[dict[str, Any]]]:
     """Get notes, annotations, attachments, and other child items for one Zotero item."""
-    children = [_zotero_item_summary(item) for item in _zotero_api(f"users/0/items/{parent_key}/children", {"format": "json", "limit": 100}, api_base) or []]
-    grouped = {"notes": [], "annotations": [], "attachments": [], "other": []}
-    for child in children:
+    direct = [_zotero_item_summary(item) for item in _zotero_api(f"users/0/items/{parent_key}/children", {"format": "json", "limit": 100}, api_base) or []]
+    grouped: dict[str, list[dict[str, Any]]] = {"notes": [], "annotations": [], "attachments": [], "other": []}
+    pdf_keys: list[str] = []
+    for child in direct:
         item_type = child.get("itemType")
         if item_type == "note":
             grouped["notes"].append(child)
@@ -1165,8 +1166,20 @@ def obsidian_zotero_get_children(
             grouped["annotations"].append(child)
         elif item_type == "attachment":
             grouped["attachments"].append(child)
+            if child.get("key"):
+                pdf_keys.append(str(child["key"]))
         else:
             grouped["other"].append(child)
+
+    # Zotero stores annotations as children of the PDF attachment, but the
+    # Better BibTeX local API does not expose them via /items/{pdf_key}/children.
+    # Fall back to a global annotation search filtered by parentItem.
+    if not grouped["annotations"] and pdf_keys:
+        all_annots = _zotero_api("users/0/items", {"format": "json", "itemType": "annotation", "limit": 100}, api_base) or []
+        for item in all_annots:
+            if item.get("data", {}).get("parentItem") in pdf_keys:
+                grouped["annotations"].append(_zotero_item_summary(item))
+
     return grouped
 
 
