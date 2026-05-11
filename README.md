@@ -170,21 +170,32 @@ MCP 入口保持在 `scripts/obsidian_vault_mcp.py`，确保现有 `.mcp.json` �
 
 ### 可选外部工具
 
-- Zotero Desktop：仅在使用 Zotero 文库搜索/导入时需要。
-- Obsidian CLI：仅在使用 app-backed read/open/backlinks/Base/property/task/截图操作时需要。
-- MinerU CLI（`mineru-open-api`）：仅在使用 `obsidian_mineru_extract` 和 `obsidian_mineru_extract_and_ingest` 时需要。
-- MinerU MCP：可选伴随服务器。Codex 可用 MinerU MCP 解析文档，再用本插件导入生成的 Markdown。本插件不在内部调用 MinerU MCP。
+- **Zotero Desktop**（[下载](https://www.zotero.org/download/)，当前版本 9.x）：仅在使用 Zotero 文库搜索/导入时需要。
+- **Obsidian CLI**：Obsidian 1.12.7+ 内置，在 设置 → 高级 → 启用 Obsidian CLI 中开启，仅在使用 app-backed read/open/backlinks/Base/property/task/截图操作时需要。
+- **MinerU**（[GitHub](https://github.com/opendatalab/MinerU)）：仅在使用 `obsidian_mineru_extract` 和 `obsidian_mineru_extract_and_ingest` 时需要。安装命令：`pip install -U "mineru[full]"`。已有 MinerU Markdown 可直接导入，无需安装。
+- **MinerU MCP**：可选伴随服务器。Codex 可用 MinerU MCP 解析文档，再用本插件导入生成的 Markdown。本插件不在内部调用 MinerU MCP。
 
 ### Zotero 插件依赖
 
-使用 Zotero 集成时，以下 Zotero 插件可增强功能：
+> 以下插件均支持 Zotero 8 / 9。从 Releases 页面下载 `.xpi` 文件，在 Zotero 中通过 工具 → 附加组件 → 从文件安装 完成安装。
 
-| 插件 | 作用 | 必要性 |
-|------|------|--------|
-| [Better BibTeX for Zotero](https://retorque.re/zotero-better-bibtex/) | 为每条文献生成稳定的 `citekey`（如 `chenLowvalence2024`），用于笔记命名、去重和 PDF 附件命名策略 `citekey` | 强烈推荐；缺少时回退到 Zotero key |
-| [Ethereal Style (ZoteroStyle)](https://github.com/MuiseDestiny/zotero-style) | 为标注颜色设置自定义中文名称（如背景/实验/结果/方法），导入 Obsidian 后 callout 标签显示用户定义名称 | 可选；缺少时显示英文颜色名（yellow/red/green…） |
+| 插件 | 作用 | 必要性 | 安装地址 |
+|------|------|--------|----------|
+| **Better BibTeX for Zotero** | 为每条文献生成稳定的 `citekey`（如 `chenLowvalence2024`），用于笔记命名、去重和 PDF 附件命名策略 `citekey` | 强烈推荐；缺少时回退到 Zotero key | [GitHub Releases](https://github.com/retorquere/zotero-better-bibtex/releases) |
+| **Ethereal Style (ZoteroStyle)** | 为标注颜色设置自定义名称（如背景/实验/结果/方法），导入 Obsidian 后 callout 标签显示用户定义名称 | 可选；缺少时显示英文颜色名 | [GitHub Releases](https://github.com/MuiseDestiny/zotero-style/releases) |
+| **Zotero PDF Translate** | 自动翻译 PDF 标注内容，翻译结果写入 `annotationComment`，本插件会将其导入 Obsidian 笔记的 **Note:** 字段 | 可选；有翻译需求时推荐 | [GitHub Releases](https://github.com/windingwind/zotero-pdf-translate/releases) |
 
 Zotero Desktop 本身的本地 HTTP 服务（端口 `23119`）是内置功能，无需额外插件即可使用。
+
+### Obsidian 插件推荐
+
+以下 Obsidian 社区插件与本 MCP 插件的工作流配合使用效果更佳，均可在 Obsidian 设置 → 社区插件中搜索安装：
+
+| 插件 | 作用 | GitHub |
+|------|------|--------|
+| **Dataview** | 查询 vault 中的 frontmatter 属性，本插件可生成 Dataview 查询笔记 | [GitHub](https://github.com/blacksmithgu/obsidian-dataview) |
+| **Templater** | 高级模板引擎，本插件支持发现并应用 Templater 模板 | [GitHub](https://github.com/SilentVoid13/Templater) |
+| **Zotero Integration** | 在 Obsidian 内直接从 Zotero 导入文献笔记（与本插件功能互补，可并行使用） | [GitHub](https://github.com/mgmeyers/obsidian-zotero-integration) |
 
 CLI 封装的可选 `vault` 参数是 Obsidian 已知的 vault 名称，不是文件系统路径。省略时 CLI 使用当前活动 vault。`obsidian_read_file`、`obsidian_create_note` 等直接文件工具仍接受 `vault_path` 文件系统路径。
 

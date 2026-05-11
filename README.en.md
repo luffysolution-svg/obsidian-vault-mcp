@@ -226,21 +226,32 @@ line server script as the project grows.
 
 ### Optional External Tools
 
-- Zotero Desktop: required only for direct Zotero library search/import.
-- Obsidian CLI: required only for app-backed read/open/backlinks/Base/property/task/screenshot operations.
-- MinerU CLI (`mineru-open-api`): required only for `obsidian_mineru_extract` and `obsidian_mineru_extract_and_ingest`.
-- MinerU MCP: optional companion server. Codex can use MinerU MCP to parse a document, then use this plugin to ingest the generated Markdown. This plugin does not call MinerU MCP internally.
+- **Zotero Desktop** ([Download](https://www.zotero.org/download/), current version 9.x): required only for direct Zotero library search/import.
+- **Obsidian CLI**: built into Obsidian 1.12.7+, enable at Settings → General → Enable Obsidian CLI; required only for app-backed read/open/backlinks/Base/property/task/screenshot operations.
+- **MinerU** ([GitHub](https://github.com/opendatalab/MinerU)): required only for `obsidian_mineru_extract` and `obsidian_mineru_extract_and_ingest`. Install with `pip install -U "mineru[full]"`. Existing MinerU Markdown can be ingested without installing MinerU.
+- **MinerU MCP**: optional companion server. Codex can use MinerU MCP to parse a document, then use this plugin to ingest the generated Markdown. This plugin does not call MinerU MCP internally.
 
 ### Zotero Plugin Dependencies
 
-When using Zotero integration, the following Zotero plugins enhance functionality:
+> All plugins below support Zotero 8 / 9. Download the `.xpi` file from the Releases page and install via Zotero → Tools → Add-ons → Install Add-on From File.
 
-| Plugin | Purpose | Required? |
-|--------|---------|-----------|
-| [Better BibTeX for Zotero](https://retorque.re/zotero-better-bibtex/) | Generates stable `citekey` values (e.g. `chenLowvalence2024`) used for note naming, duplicate detection, and the `citekey` PDF attachment naming strategy | Strongly recommended; falls back to Zotero key if absent |
-| [Ethereal Style (ZoteroStyle)](https://github.com/MuiseDestiny/zotero-style) | Assigns custom names to annotation colors (e.g. 背景/实验/结果/方法); those names appear in Obsidian callout labels after import | Optional; falls back to English color names (yellow/red/green…) |
+| Plugin | Purpose | Required? | Install |
+|--------|---------|-----------|---------|
+| **Better BibTeX for Zotero** | Generates stable `citekey` values (e.g. `chenLowvalence2024`) used for note naming, duplicate detection, and the `citekey` PDF attachment naming strategy | Strongly recommended; falls back to Zotero key if absent | [GitHub Releases](https://github.com/retorquere/zotero-better-bibtex/releases) |
+| **Ethereal Style (ZoteroStyle)** | Assigns custom names to annotation colors (e.g. 背景/实验/结果/方法); those names appear in Obsidian callout labels after import | Optional; falls back to English color names (yellow/red/green…) | [GitHub Releases](https://github.com/MuiseDestiny/zotero-style/releases) |
+| **Zotero PDF Translate** | Auto-translates PDF annotation text; the translation is written to `annotationComment` and imported into the **Note:** field in Obsidian | Optional; recommended if you need bilingual annotations | [GitHub Releases](https://github.com/windingwind/zotero-pdf-translate/releases) |
 
 Zotero Desktop's local HTTP service on port `23119` is built-in and requires no extra plugins.
+
+### Recommended Obsidian Plugins
+
+The following Obsidian community plugins work well alongside this MCP plugin. Install them from Obsidian Settings → Community Plugins:
+
+| Plugin | Purpose | GitHub |
+|--------|---------|--------|
+| **Dataview** | Query vault frontmatter properties; this plugin can generate Dataview query notes | [GitHub](https://github.com/blacksmithgu/obsidian-dataview) |
+| **Templater** | Advanced template engine; this plugin discovers and applies Templater templates | [GitHub](https://github.com/SilentVoid13/Templater) |
+| **Zotero Integration** | Import literature notes directly from Zotero inside Obsidian (complementary to this plugin, can be used in parallel) | [GitHub](https://github.com/mgmeyers/obsidian-zotero-integration) |
 
 For structured Obsidian CLI wrappers, the optional `vault` argument is the
 Obsidian vault name known to the app, not a filesystem path. If omitted, the CLI
