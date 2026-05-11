@@ -111,6 +111,11 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8-sig")
 
 
+def _s(value: Any, default: str = "") -> str:
+    """Return value as str, replacing None with default."""
+    return default if value is None else str(value)
+
+
 def _write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8", newline="\n")
@@ -192,10 +197,10 @@ def _list_user_templates(vault: Path) -> list[dict[str, Any]]:
 
 
 def _find_user_template(vault: Path, template_path: str = "", template_name: str = "") -> tuple[str, str]:
-    if template_path.strip():
-        rel_path = _ensure_md_path(template_path.strip())
+    if _s(template_path).strip():
+        rel_path = _ensure_md_path(_s(template_path).strip())
         return rel_path, _read_text(_safe_path(vault, rel_path))
-    wanted = template_name.strip()
+    wanted = _s(template_name).strip()
     config = _template_config(vault)
     if not wanted:
         wanted = str(config.get("defaultTemplate") or "").strip()
@@ -274,7 +279,7 @@ def _render_template(template: str, title: str, body: str, properties: dict[str,
 
 def _apply_note_template(vault: Path, title: str, body: str, properties: dict[str, Any], template_path: str = "", template_name: str = "", use_template: bool = False) -> tuple[str, str, dict[str, Any]]:
     config = _template_config(vault)
-    should_use = use_template or bool(template_path.strip() or template_name.strip() or config.get("defaultTemplate"))
+    should_use = use_template or bool(_s(template_path).strip() or _s(template_name).strip() or config.get("defaultTemplate"))
     if not should_use:
         return body, "", properties
     rel_path, template = _find_user_template(vault, template_path, template_name)
@@ -333,7 +338,7 @@ def _write_many(vault: Path, writes: list[tuple[Path, str]], dry_run: bool = Fal
 
 
 def _transaction_id(value: str = "") -> str:
-    raw = value.strip()
+    raw = _s(value).strip()
     if not raw:
         return f"{_utc_now().replace(':', '').replace('-', '')}-{uuid.uuid4().hex[:8]}"
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", raw):
@@ -556,7 +561,7 @@ def _wikilink_target(rel_path: str) -> str:
 
 def _wikilink(rel_path: str, label: str = "") -> str:
     target = _wikilink_target(rel_path)
-    clean_label = label.strip()
+    clean_label = _s(label).strip()
     return f"[[{target}|{clean_label}]]" if clean_label and clean_label != target else f"[[{target}]]"
 
 
@@ -669,7 +674,7 @@ def _dataview_from_clause(folder: str = "", tag: str = "") -> str:
     if tag:
         parts.append(f"#{tag.lstrip('#')}")
     if folder:
-        parts.append(f'"{folder.strip("/")}"')
+        parts.append(f'"{_s(folder).strip("/")}"')
     return "FROM " + " AND ".join(parts) if parts else ""
 
 
@@ -1166,11 +1171,11 @@ def _reference_source_body(metadata: dict[str, Any], abstract: str = "", notes: 
                 lines.append(f"- {att}")
         lines.append("")
     if abstract:
-        lines.extend(["## Abstract", "", abstract.strip(), ""])
+        lines.extend(["## Abstract", "", _s(abstract).strip(), ""])
     if notes:
-        lines.extend([notes.strip(), ""])
+        lines.extend([_s(notes).strip(), ""])
     if content:
-        lines.extend(["## Extracted Content", "", content.strip(), ""])
+        lines.extend(["## Extracted Content", "", _s(content).strip(), ""])
     return "\n".join(lines).strip() + "\n"
 
 

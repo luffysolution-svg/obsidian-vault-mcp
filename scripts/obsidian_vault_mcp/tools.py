@@ -155,7 +155,7 @@ def obsidian_create_note(
         raise ValueError("properties_json must decode to an object.")
     note_title = title or properties.get("title") or _note_title_from_path(rel_path)
     properties.setdefault("title", note_title)
-    content_body = body.strip()
+    content_body = _s(body).strip()
     template_used = ""
     content_body, template_used, properties = _apply_note_template(vault, note_title, content_body, properties, template_path, template_name, use_template)
     content_body = content_body.strip()
@@ -616,8 +616,8 @@ def obsidian_ingest_source_note(
         source_props["concepts"] = concept_paths
 
     body_lines = [f"# {source_title}", ""]
-    if summary.strip():
-        body_lines.extend(["## Summary", "", summary.strip(), ""])
+    if _s(summary).strip():
+        body_lines.extend(["## Summary", "", _s(summary).strip(), ""])
     if entity_items or concept_items:
         body_lines.extend(["## Linked Pages", ""])
         if entity_items:
@@ -841,13 +841,13 @@ def obsidian_ingest_mineru_markdown(
     metadata = _json(metadata_json, {})
     if not isinstance(metadata, dict):
         raise ValueError("metadata_json must decode to an object.")
-    content = markdown_content
+    content = _s(markdown_content)
     if markdown_path:
         content = _read_text(_safe_path(vault, markdown_path))
     if not content.strip():
         raise ValueError("markdown_content or markdown_path is required.")
-    source_title = title or str(metadata.get("title") or _note_title_from_path(markdown_path or "MinerU Extraction.md"))
-    rel_path = source_path.strip() or f"{source_root}/{_slug_filename(source_title)}.md"
+    source_title = title or str(metadata.get("title") or _note_title_from_path(_s(markdown_path) or "MinerU Extraction.md"))
+    rel_path = _s(source_path).strip() or f"{source_root}/{_slug_filename(source_title)}.md"
     props = dict(metadata)
     props["type"] = "mineru"
     props["tags"] = _merge_unique(props.get("tags"), ["source", "mineru"])
@@ -922,7 +922,7 @@ def obsidian_mineru_extract(
     # Resolve token: explicit param wins, then env vars
     resolved_token = token or os.environ.get("MINERU_TOKEN") or os.environ.get("MINERU_API_TOKEN") or ""
     # Resolve mode: explicit param wins, then auto-select based on token availability
-    resolved_mode = mode.strip() or ("extract" if resolved_token else "flash-extract")
+    resolved_mode = _s(mode).strip() or ("extract" if resolved_token else "flash-extract")
     token_source = "param" if token else ("env" if resolved_token else "none")
     status = _mineru_cli_status(cli_command)
     cli = str(status.get("path") or cli_command or MINERU_CLI_COMMAND)
@@ -1124,7 +1124,7 @@ def obsidian_ingest_pdf_attachment(
     if not isinstance(metadata, dict):
         raise ValueError("metadata_json must decode to an object.")
     source_title = title or str(metadata.get("title") or _note_title_from_path(pdf_attachment_path))
-    rel_path = source_path.strip() or f"{source_root}/{_slug_filename(source_title)}.md"
+    rel_path = _s(source_path).strip() or f"{source_root}/{_slug_filename(source_title)}.md"
     props = dict(metadata)
     props["type"] = "pdf"
     props["tags"] = _merge_unique(props.get("tags"), ["source", "pdf"])
@@ -1861,7 +1861,7 @@ def obsidian_suggest_graph_improvements(
     attachment_exts = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".xlsx", ".docx", ".pptx"}
     for path in _collect_markdown(vault):
         rel_path = _rel(vault, path)
-        if folder and not rel_path.startswith(folder.strip("/")):
+        if folder and not rel_path.startswith(_s(folder).strip("/")):
             continue
         body = _split_frontmatter(_read_text(path))[1]
         for match in MARKDOWN_LINK_RE.finditer(body):
@@ -1955,7 +1955,7 @@ def obsidian_create_canvas_from_graph(
     if group_mode not in {"tag", "folder"}:
         raise ValueError("group_by must be tag or folder.")
     _default_layer_order = ["source", "entity", "concept", "task", "equipment", "economics", "literature", "utility"]
-    if layer_order_json.strip():
+    if _s(layer_order_json).strip():
         parsed_order = _json(layer_order_json, _default_layer_order)
         if not isinstance(parsed_order, list) or not all(isinstance(item, str) for item in parsed_order):
             raise ValueError("layer_order_json must be a JSON array of tag name strings.")
@@ -1964,7 +1964,7 @@ def obsidian_create_canvas_from_graph(
         layer_order = _default_layer_order
 
     graph = obsidian_build_graph(vault_path=str(vault), folder=folder, include_tags=True)
-    selected_tag = tag.strip().lstrip("#")
+    selected_tag = _s(tag).strip().lstrip("#")
     node_by_id = {str(node["id"]): node for node in graph["nodes"]}
     selected_ids: list[str] = []
     for node in sorted(graph["nodes"], key=lambda item: str(item["id"]).lower()):
@@ -2134,9 +2134,9 @@ def obsidian_create_base_template(
     options = _json(options_json, {})
     if not isinstance(options, dict):
         raise ValueError("options_json must decode to an object.")
-    template_key = template.strip().lower().replace("-", "_")
+    template_key = _s(template).strip().lower().replace("-", "_")
     base = _base_template(template_key, options)
-    rel_path = path.strip() if path.strip() else f"bases/{template_key}.base"
+    rel_path = _s(path).strip() if _s(path).strip() else f"bases/{template_key}.base"
     rel_path = rel_path if rel_path.lower().endswith(".base") else f"{rel_path}.base"
     full = _safe_path(vault, rel_path)
     if full.exists() and not overwrite:
@@ -2168,9 +2168,9 @@ def obsidian_create_dataview_note(
     options = _json(options_json, {})
     if not isinstance(options, dict):
         raise ValueError("options_json must decode to an object.")
-    template_key = template.strip().lower().replace("-", "_")
+    template_key = _s(template).strip().lower().replace("-", "_")
     content = _dataview_template(template_key, options)
-    rel_path = path.strip() if path.strip() else f"views/{template_key}-dataview.md"
+    rel_path = _s(path).strip() if _s(path).strip() else f"views/{template_key}-dataview.md"
     rel_path = _ensure_md_path(rel_path)
     full = _safe_path(vault, rel_path)
     if full.exists() and not overwrite:
