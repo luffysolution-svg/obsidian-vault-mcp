@@ -982,6 +982,13 @@ def _metadata_from_reference(item: dict[str, Any]) -> dict[str, Any]:
         year_match = re.search(r"\d{4}", str(metadata["date"]))
         if year_match:
             metadata["year"] = int(year_match.group(0))
+    # Promote extra bibliographic fields from rawData if not already set at top level
+    raw = metadata.get("rawData") or {}
+    for field in ("volume", "issue", "pages", "publisher", "ISBN", "journalAbbreviation"):
+        if not metadata.get(field):
+            value = raw.get(field)
+            if value:
+                metadata[field] = value
     return metadata
 
 
@@ -1125,6 +1132,14 @@ def _zotero_item_summary(item: dict[str, Any]) -> dict[str, Any]:
     data = item.get("data", {})
     links = item.get("links", {})
     enclosure_href = links.get("enclosure", {}).get("href")
+    # Extract related item keys from relations.dc:relation (list of zotero://... URIs)
+    relations_raw = data.get("relations", {})
+    related_uris: list[str] = []
+    if isinstance(relations_raw, dict):
+        dc_rel = relations_raw.get("dc:relation", [])
+        if isinstance(dc_rel, str):
+            dc_rel = [dc_rel]
+        related_uris = [str(u) for u in dc_rel if u]
     return {
         "key": item.get("key") or data.get("key"),
         "version": item.get("version") or data.get("version"),
@@ -1137,6 +1152,14 @@ def _zotero_item_summary(item: dict[str, Any]) -> dict[str, Any]:
         "url": data.get("url"),
         "abstract": data.get("abstractNote"),
         "tags": [tag.get("tag") for tag in data.get("tags", []) if tag.get("tag")],
+        "collections": data.get("collections", []),
+        "relations": related_uris,
+        "volume": data.get("volume"),
+        "issue": data.get("issue"),
+        "pages": data.get("pages"),
+        "publisher": data.get("publisher"),
+        "ISBN": data.get("ISBN"),
+        "journalAbbreviation": data.get("journalAbbreviation"),
         "parentItem": data.get("parentItem"),
         "note": _plain_note(data.get("note")) if data.get("itemType") == "note" else "",
         "annotationText": data.get("annotationText"),
@@ -1200,7 +1223,7 @@ def _load_ethereal_color_labels() -> dict[str, str]:
     global _ethereal_color_labels
     if _ethereal_color_labels is not None:
         return _ethereal_color_labels
-    _ethereal_color_labels = {}
+    result: dict[str, str] = {}
     try:
         import glob as _glob
         import sys as _sys
@@ -1222,7 +1245,8 @@ def _load_ethereal_color_labels() -> dict[str, str]:
             if prefs_files:
                 break
         if not prefs_files:
-            return _ethereal_color_labels
+            # Don't cache on miss — prefs.js may not exist yet at startup
+            return result
         with open(prefs_files[0], "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         import re as _re
@@ -1235,10 +1259,13 @@ def _load_ethereal_color_labels() -> dict[str, str]:
             raw = m.group(1).replace('\\"', '"')
             pairs = json.loads(raw)
             for name, hex_color in pairs:
-                _ethereal_color_labels[hex_color.lower()] = name
+                result[hex_color.lower()] = name
     except Exception:
         pass
-    return _ethereal_color_labels
+    # Only cache when we successfully loaded at least one entry
+    if result:
+        _ethereal_color_labels = result
+    return result
 
 
 def _annotation_color_label(color: str | None) -> str:

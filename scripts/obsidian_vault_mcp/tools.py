@@ -1225,6 +1225,8 @@ def obsidian_ingest_zotero_item(
     include_annotations: bool = True,
     include_pdf_text: bool = False,
     max_pdf_pages: int = 5,
+    folder_by_collection: bool = False,
+    folder_by_type: bool = False,
     entities_json: str = "[]",
     concepts_json: str = "[]",
     index_path: str = "index.md",
@@ -1233,7 +1235,12 @@ def obsidian_ingest_zotero_item(
     dry_run: bool = False,
     api_base: str = "",
 ) -> dict[str, Any]:
-    """Fetch a Zotero item and ingest it as a literature note in the vault."""
+    """Fetch a Zotero item and ingest it as a literature note in the vault.
+
+    folder_by_type: place items in sub-folders by itemType (e.g. literature/journalArticle/).
+    folder_by_collection: place items in sub-folders named after their first Zotero collection.
+    When both are set, collection takes precedence.
+    """
     vault = _vault(vault_path)
     source_folder = _configured_path(vault, "literatureFolder", source_folder, "literature")
     attachments_folder = _configured_path(vault, "zoteroAttachmentsFolder", attachments_folder, "attachments/zotero")
@@ -1247,6 +1254,26 @@ def obsidian_ingest_zotero_item(
     metadata["zoteroVersion"] = item.get("version")
     metadata["zoteroSelect"] = _zotero_select_uri(key)
     metadata["tags"] = _merge_unique(metadata.get("tags"), ["source", "literature", "zotero"])
+
+    # Resolve sub-folder: collection name takes precedence over item type
+    if folder_by_collection or folder_by_type:
+        subfolder = ""
+        if folder_by_collection:
+            collection_keys = item.get("collections") or []
+            if collection_keys:
+                try:
+                    col_data = _zotero_api(f"users/0/collections/{collection_keys[0]}", {"format": "json"}, api_base) or {}
+                    col_name = col_data.get("data", {}).get("name") or ""
+                    if col_name:
+                        subfolder = _slug_filename(col_name)
+                except Exception:
+                    pass
+        if not subfolder and folder_by_type:
+            item_type = str(item.get("itemType") or "")
+            if item_type:
+                subfolder = item_type
+        if subfolder:
+            source_folder = f"{source_folder.rstrip('/')}/{subfolder}"
 
     # Version-based update detection: if the note exists and version matches, skip.
     # If version has changed, force overwrite. If version is unavailable, fall through
@@ -1320,21 +1347,44 @@ def obsidian_ingest_zotero_item(
         metadata["attachments"] = linked_attachments
     if zotero_attachment_paths:
         metadata["zoteroAttachmentPaths"] = zotero_attachment_paths
+
+    # Build relations section: resolve related Zotero item keys to vault note wikilinks
+    relations_content = ""
+    related_uris = item.get("relations") or []
+    if related_uris:
+        # Extract item keys from zotero://select/library/items/{KEY} URIs
+        related_keys = []
+        for uri in related_uris:
+            m = re.search(r"/items/([A-Z0-9]+)$", str(uri))
+            if m:
+                related_keys.append(m.group(1))
+        if related_keys:
+            rel_lines = ["## Related", ""]
+            for rel_key in related_keys:
+                # Try to find an existing vault note for this key
+                existing_rel = _find_existing_reference(vault, {"zoteroKey": rel_key}, source_folder)
+                if existing_rel:
+                    note_stem = Path(existing_rel["path"]).stem
+                    rel_lines.append(f"- [[{note_stem}]]")
+                else:
+                    rel_lines.append(f"- zotero://select/library/items/{rel_key}")
+            relations_content = "\n".join(rel_lines)
+
     attachment_content = ""
     if attachment_errors:
         lines = ["## Attachment Import Warnings", ""]
-        for item in attachment_errors:
-            title = item.get("title") or item.get("key") or "attachment"
-            lines.append(f"- {title}: {item.get('error')}")
+        for err_item in attachment_errors:
+            title = err_item.get("title") or err_item.get("key") or "attachment"
+            lines.append(f"- {title}: {err_item.get('error')}")
         attachment_content = "\n".join(lines)
-    content = "\n\n".join(part for part in [notes_content, attachment_content, *pdf_text_parts] if part)
+    content = "\n\n".join(part for part in [notes_content, relations_content, attachment_content, *pdf_text_parts] if part)
     result = obsidian_ingest_reference(
         metadata_json=json.dumps(metadata, ensure_ascii=False),
         vault_path=str(vault),
         source_folder=source_folder,
         abstract=str(item.get("abstract") or ""),
         notes=notes_content,
-        content="\n\n".join(part for part in [attachment_content, *pdf_text_parts] if part),
+        content="\n\n".join(part for part in [relations_content, attachment_content, *pdf_text_parts] if part),
         attachment_path=attachment_path,
         entities_json=entities_json,
         concepts_json=concepts_json,
@@ -1370,6 +1420,8 @@ def obsidian_ingest_zotero_collection(
     include_annotations: bool = True,
     include_pdf_text: bool = False,
     max_pdf_pages: int = 5,
+    folder_by_collection: bool = False,
+    folder_by_type: bool = False,
     index_path: str = "index.md",
     log_path: str = "log.md",
     overwrite: bool = False,
@@ -1384,6 +1436,7 @@ def obsidian_ingest_zotero_collection(
     (at least one of collection_key / tag / item_type / query is required).
     Items whose zoteroVersion matches the stored value are skipped unless
     skip_up_to_date=False or overwrite=True.
+    folder_by_collection / folder_by_type are forwarded to obsidian_ingest_zotero_item.
     """
     if not any([collection_key, tag, item_type, query]):
         raise ValueError("Provide at least one of: collection_key, tag, item_type, query.")
@@ -1428,6 +1481,8 @@ def obsidian_ingest_zotero_collection(
                 include_annotations=include_annotations,
                 include_pdf_text=include_pdf_text,
                 max_pdf_pages=max_pdf_pages,
+                folder_by_collection=folder_by_collection,
+                folder_by_type=folder_by_type,
                 index_path=index_path,
                 log_path=log_path,
                 overwrite=overwrite,
