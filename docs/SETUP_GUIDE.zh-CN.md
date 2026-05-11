@@ -315,7 +315,33 @@ Obsidian CLI 内置于 Obsidian 1.12.7+，需要在 Obsidian 中手动开启：*
 
 ### 颜色标签不显示用户自定义名称
 
-确认已安装 Ethereal Style (ZoteroStyle) 插件，并在插件设置中配置了颜色名称。修改颜色名称后需要重启 MCP server（重启 MCP 客户端）才能刷新缓存。
+确认已安装 Ethereal Style (ZoteroStyle) 插件，并在插件设置的 **Annotation Colors** 界面配置了颜色名称。
+
+插件识别颜色标签的优先级：
+1. **精确匹配** ZoteroStyle 配置的 hex 值 → 显示用户定义名称
+2. **最近色匹配** ZoteroStyle 配置（RGB 距离 ≤ 15）→ 处理色值舍入误差
+3. **回退** Zotero 原生英文名（yellow / red / green …）
+
+修改颜色名称（不改 hex 值）后，插件会在下次调用时自动检测 `prefs.js` 变化并重新加载，**无需重启 MCP server**。
+
+### 修改颜色 hex 值后旧标注识别不到
+
+ZoteroStyle 的颜色 hex 值建议与 Zotero 官方 8 种标准色保持一致：
+
+| 标准色 | Hex |
+|--------|-----|
+| 黄 yellow | `#ffd400` |
+| 红 red | `#ff6666` |
+| 绿 green | `#5fb236` |
+| 蓝 blue | `#2ea8e5` |
+| 紫 purple | `#a28ae5` |
+| 品红 magenta | `#e56eee` |
+| 橙 orange | `#f19837` |
+| 灰 gray | `#aaaaaa` |
+
+如果修改了 hex 值，旧标注仍存储旧 hex，需要手动更新 Zotero 数据库（`zotero.sqlite` 的 `itemAnnotations` 表）将旧 hex 替换为新值。**操作前必须关闭 Zotero。**
+
+如需修改插件内置的标准色回退映射，编辑 `scripts/obsidian_vault_mcp/helpers.py` 中的 `_ANNOTATION_COLOR_NAMES` 字典（第 1206 行附近）。
 
 ### Windows 上 Python 命令找不到
 

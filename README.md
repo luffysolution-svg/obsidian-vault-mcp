@@ -182,7 +182,7 @@ MCP 入口保持在 `scripts/obsidian_vault_mcp.py`，确保现有 `.mcp.json` �
 | 插件 | 作用 | 必要性 | 安装地址 |
 |------|------|--------|----------|
 | **Better BibTeX for Zotero** | 为每条文献生成稳定的 `citekey`（如 `chenLowvalence2024`），用于笔记命名、去重和 PDF 附件命名策略 `citekey` | 强烈推荐；缺少时回退到 Zotero key | [GitHub Releases](https://github.com/retorquere/zotero-better-bibtex/releases) |
-| **Ethereal Style (ZoteroStyle)** | 为标注颜色设置自定义名称（如背景/实验/结果/方法），导入 Obsidian 后 callout 标签显示用户定义名称 | 可选；缺少时显示英文颜色名 | [GitHub Releases](https://github.com/MuiseDestiny/zotero-style/releases) |
+| **Ethereal Style (ZoteroStyle)** | 为标注颜色设置自定义名称（如背景/实验/结论），导入 Obsidian 后 callout 标签显示用户定义名称。插件优先精确匹配 ZoteroStyle 配置的 hex 值，其次按 RGB 距离最近色匹配（容差 ≤ 15），最后回退英文颜色名。建议颜色 hex 与 Zotero 8 种标准色保持一致以避免旧标注识别问题。 | 可选；缺少时显示英文颜色名 | [GitHub Releases](https://github.com/MuiseDestiny/zotero-style/releases) |
 | **Zotero PDF Translate** | 自动翻译 PDF 标注内容，翻译结果写入 `annotationComment`，本插件会将其导入 Obsidian 笔记的 **Note:** 字段 | 可选；有翻译需求时推荐 | [GitHub Releases](https://github.com/windingwind/zotero-pdf-translate/releases) |
 
 Zotero Desktop 本身的本地 HTTP 服务（端口 `23119`）是内置功能，无需额外插件即可使用。

@@ -1215,42 +1215,42 @@ _ANNOTATION_COLOR_NAMES: dict[str, str] = {
 }
 
 # Cache for Ethereal Style color labels loaded from prefs.js
-_ethereal_color_labels: dict[str, str] | None = None
+_ethereal_color_labels: dict[str, str] = {}
+_ethereal_color_labels_mtime: float = 0.0
 
 
 def _load_ethereal_color_labels() -> dict[str, str]:
     """Load annotation color name mappings from Ethereal Style (ZoteroStyle) plugin prefs.js."""
-    global _ethereal_color_labels
-    if _ethereal_color_labels is not None:
+    global _ethereal_color_labels, _ethereal_color_labels_mtime
+    import glob as _glob
+    import sys as _sys
+    if _sys.platform == "win32":
+        candidates = ["~/AppData/Roaming/Zotero/Zotero/Profiles/*/prefs.js"]
+    elif _sys.platform == "darwin":
+        candidates = ["~/Library/Application Support/Zotero/Profiles/*/prefs.js"]
+    else:
+        xdg = os.environ.get("XDG_DATA_HOME", "")
+        candidates = [os.path.join(xdg, "zotero/Profiles/*/prefs.js")] if xdg else ["~/.zotero/zotero/Profiles/*/prefs.js"]
+    prefs_files: list[str] = []
+    for pattern in candidates:
+        prefs_files = _glob.glob(os.path.expanduser(pattern))
+        if prefs_files:
+            break
+    if not prefs_files:
+        return _ethereal_color_labels
+    prefs_path = prefs_files[0]
+    try:
+        mtime = os.path.getmtime(prefs_path)
+    except OSError:
+        return _ethereal_color_labels
+    # Return cached result if file hasn't changed
+    if mtime == _ethereal_color_labels_mtime and _ethereal_color_labels:
         return _ethereal_color_labels
     result: dict[str, str] = {}
     try:
-        import glob as _glob
-        import sys as _sys
-        # Zotero profile paths differ by platform
-        if _sys.platform == "win32":
-            candidates = ["~/AppData/Roaming/Zotero/Zotero/Profiles/*/prefs.js"]
-        elif _sys.platform == "darwin":
-            candidates = ["~/Library/Application Support/Zotero/Profiles/*/prefs.js"]
-        else:
-            # Linux: XDG_DATA_HOME or ~/.zotero
-            xdg = os.environ.get("XDG_DATA_HOME", "")
-            if xdg:
-                candidates = [os.path.join(xdg, "zotero/Profiles/*/prefs.js")]
-            else:
-                candidates = ["~/.zotero/zotero/Profiles/*/prefs.js"]
-        prefs_files: list[str] = []
-        for pattern in candidates:
-            prefs_files = _glob.glob(os.path.expanduser(pattern))
-            if prefs_files:
-                break
-        if not prefs_files:
-            # Don't cache on miss — prefs.js may not exist yet at startup
-            return result
-        with open(prefs_files[0], "r", encoding="utf-8", errors="replace") as f:
+        with open(prefs_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         import re as _re
-        # extensions.zotero.zoterostyle.annotationColors = [["name","#hex"],...]
         m = _re.search(
             r'user_pref\("extensions\.zotero\.zoterostyle\.annotationColors",\s*"(.+?)"\)',
             content,
@@ -1262,19 +1262,48 @@ def _load_ethereal_color_labels() -> dict[str, str]:
                 result[hex_color.lower()] = name
     except Exception:
         pass
-    # Only cache when we successfully loaded at least one entry
     if result:
         _ethereal_color_labels = result
-    return result
+        _ethereal_color_labels_mtime = mtime
+    return _ethereal_color_labels
+
+
+def _hex_to_rgb(hex_color: str) -> tuple[int, int, int] | None:
+    h = hex_color.lstrip("#")
+    if len(h) != 6:
+        return None
+    try:
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    except ValueError:
+        return None
+
+
+def _color_distance(a: str, b: str) -> float:
+    ra = _hex_to_rgb(a)
+    rb = _hex_to_rgb(b)
+    if ra is None or rb is None:
+        return float("inf")
+    return ((ra[0]-rb[0])**2 + (ra[1]-rb[1])**2 + (ra[2]-rb[2])**2) ** 0.5
 
 
 def _annotation_color_label(color: str | None) -> str:
     if not color:
         return ""
     key = color.lower()
-    # Prefer user-defined Ethereal Style label over built-in English name
     labels = _load_ethereal_color_labels()
-    return labels.get(key) or _ANNOTATION_COLOR_NAMES.get(key, color)
+    # 1. Exact match against zoterostyle config
+    if key in labels:
+        return labels[key]
+    # 2. Nearest-color match within zoterostyle config (threshold: RGB distance ≤ 15)
+    if labels:
+        nearest_label, nearest_dist = min(
+            ((lbl, _color_distance(key, cfg_hex)) for cfg_hex, lbl in labels.items()),
+            key=lambda x: x[1],
+        )
+        if nearest_dist <= 15:
+            return nearest_label
+    # 3. Fallback to built-in Zotero standard English names
+    return _ANNOTATION_COLOR_NAMES.get(key, color)
 
 
 def _zotero_notes_and_annotations(children: dict[str, list[dict[str, Any]]]) -> str:

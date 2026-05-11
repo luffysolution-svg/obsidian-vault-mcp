@@ -360,6 +360,35 @@ Zotero 7+: enable local API access in **Zotero → Edit → Preferences → Adva
 
 Imported notes include `zoteroKey`, `zoteroSelect`, `zoteroLinks`, and PDF attachment links.
 
+### Annotation Color Label Resolution
+
+When importing Zotero annotations, the plugin resolves each annotation's hex color to a human-readable label using a three-step priority chain (implemented in `helpers.py: _annotation_color_label`):
+
+1. **Exact match** against the user's Ethereal Style (ZoteroStyle) config read from `prefs.js` (`extensions.zotero.zoterostyle.annotationColors`).
+2. **Nearest-color match** within the ZoteroStyle config using RGB Euclidean distance (threshold ≤ 15). This handles minor hex rounding introduced by the ZoteroStyle color picker UI.
+3. **Fallback** to the built-in Zotero standard English color names (`_ANNOTATION_COLOR_NAMES` in `helpers.py`).
+
+The `prefs.js` is re-read automatically whenever its modification time changes — no MCP server restart needed after renaming labels.
+
+**Changing label names** (keeping hex values): safe, takes effect on the next tool call.
+
+**Changing hex values**: old annotations in `itemAnnotations` still store the old hex. The nearest-color match (step 2) covers small deviations (≤ 15 RGB distance). For larger changes, update the `color` column in `zotero.sqlite → itemAnnotations` to the new hex value before re-importing. Zotero must be closed during any direct database edits.
+
+**Recommended hex values** — use Zotero's 8 native standard colors to avoid mismatches:
+
+| Color | Hex |
+|-------|-----|
+| yellow | `#ffd400` |
+| red | `#ff6666` |
+| green | `#5fb236` |
+| blue | `#2ea8e5` |
+| purple | `#a28ae5` |
+| magenta | `#e56eee` |
+| orange | `#f19837` |
+| gray | `#aaaaaa` |
+
+To modify the built-in fallback English names, edit `_ANNOTATION_COLOR_NAMES` in `scripts/obsidian_vault_mcp/helpers.py`.
+
 ### MinerU Document Extraction
 
 Optional. Install only when you need direct PDF/document parsing.
