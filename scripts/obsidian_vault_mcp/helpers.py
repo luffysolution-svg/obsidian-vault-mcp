@@ -1063,7 +1063,7 @@ def _attachment_filename(strategy: str, source_pdf: Path, parent_key: str, attac
 
 
 def _reference_source_body(metadata: dict[str, Any], abstract: str = "", notes: str = "", content: str = "", attachment_path: str = "") -> str:
-    lines = [f"# {metadata.get('title') or 'Untitled Reference'}", ""]
+    lines: list[str] = []
     authors = _listify(metadata.get("authors"))
     if authors:
         lines.extend(["## Citation", "", f"- Authors: {', '.join(str(author) for author in authors)}"])

@@ -723,6 +723,7 @@ def obsidian_ingest_reference(
         "parentItem", "note", "annotationText", "annotationComment",
         "attachmentPath", "contentType", "links", "rawData",
         "creators", "zoteroLinks",
+        "key", "version", "date",
     }}
     source_props["type"] = "literature"
     source_props["tags"] = tags
@@ -734,7 +735,7 @@ def obsidian_ingest_reference(
         content=body,
         vault_path=str(vault),
         title=title,
-        summary=str(metadata.get("abstract") or abstract or "")[:800],
+        summary="",
         metadata_json=json.dumps(source_props, ensure_ascii=False),
         entities_json=entities_json,
         concepts_json=concepts_json,
