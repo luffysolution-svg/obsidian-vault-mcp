@@ -1156,6 +1156,31 @@ def obsidian_zotero_search_items(
 
 
 @tool()
+def obsidian_zotero_list_collections(
+    api_base: str = "",
+) -> list[dict[str, Any]]:
+    """List all Zotero collections with their key, name, parent, and item count.
+
+    Returns a flat list sorted by name. Use the key field with
+    obsidian_ingest_zotero_collection to batch-import by collection name.
+    """
+    raw = _zotero_api("users/0/collections", {"limit": 100, "format": "json"}, api_base) or []
+    result = []
+    for col in raw:
+        data = col.get("data", {})
+        meta = col.get("meta", {})
+        parent = data.get("parentCollection") or ""
+        result.append({
+            "key": col.get("key", ""),
+            "name": data.get("name", ""),
+            "parentKey": parent if parent else None,
+            "numItems": meta.get("numItems", 0),
+        })
+    result.sort(key=lambda c: c["name"].lower())
+    return result
+
+
+@tool()
 def obsidian_zotero_get_item(
     key: str,
     api_base: str = "",

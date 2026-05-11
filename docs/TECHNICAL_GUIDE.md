@@ -142,11 +142,12 @@ obsidian-vault/
 | `obsidian_mineru_extract` | Run MinerU extraction and save Markdown to vault |
 | `obsidian_mineru_extract_and_ingest` | Extract with MinerU then ingest result in one pass |
 
-### Zotero Integration (6 tools)
+### Zotero Integration (7 tools)
 
 | Tool | Description |
 |------|-------------|
 | `obsidian_zotero_ping` | Check Zotero Desktop local API reachability |
+| `obsidian_zotero_list_collections` | List all Zotero collections with key, name, parent, and item count |
 | `obsidian_zotero_search_items` | Search local Zotero library |
 | `obsidian_zotero_get_item` | Fetch Zotero item metadata by key |
 | `obsidian_zotero_get_children` | Fetch child notes, annotations, attachments |
