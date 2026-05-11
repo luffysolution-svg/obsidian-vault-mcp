@@ -895,7 +895,7 @@ def obsidian_mineru_extract(
     input_path: str,
     vault_path: str = "",
     output_path: str = "",
-    mode: str = "flash-extract",
+    mode: str = "",
     output_format: str = "md",
     language: str = "ch",
     pages: str = "",
@@ -910,15 +910,27 @@ def obsidian_mineru_extract(
     verbose: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Run optional MinerU CLI extraction and save output under the vault."""
+    """Run MinerU CLI extraction and save output under the vault.
+
+    Mode selection (auto when mode is empty):
+    - If a token is available (param or MINERU_TOKEN / MINERU_API_TOKEN env var),
+      defaults to 'extract' (precise, up to 600 pages).
+    - Otherwise defaults to 'flash-extract' (free, up to 20 pages).
+    Pass mode='flash-extract' explicitly to force flash even when a token is set.
+    """
     vault = _vault(vault_path)
+    # Resolve token: explicit param wins, then env vars
+    resolved_token = token or os.environ.get("MINERU_TOKEN") or os.environ.get("MINERU_API_TOKEN") or ""
+    # Resolve mode: explicit param wins, then auto-select based on token availability
+    resolved_mode = mode.strip() or ("extract" if resolved_token else "flash-extract")
+    token_source = "param" if token else ("env" if resolved_token else "none")
     status = _mineru_cli_status(cli_command)
     cli = str(status.get("path") or cli_command or MINERU_CLI_COMMAND)
     input_arg, input_name = _mineru_input_argument(vault, input_path)
     output_full, output_rel = _mineru_output_path(vault, output_path, input_name)
     args = _mineru_command_args(
         cli=cli,
-        mode=mode,
+        mode=resolved_mode,
         input_arg=input_arg,
         output_full=output_full,
         output_format=output_format,
@@ -928,13 +940,13 @@ def obsidian_mineru_extract(
         ocr=ocr,
         table=table,
         formula=formula,
-        token=token,
+        token=resolved_token,
         base_url=base_url,
         verbose=verbose,
         timeout_seconds=timeout_seconds,
     )
     redacted_args = list(args)
-    if token and "--token" in redacted_args:
+    if resolved_token and "--token" in redacted_args:
         token_index = redacted_args.index("--token") + 1
         if token_index < len(redacted_args):
             redacted_args[token_index] = "***"
@@ -944,7 +956,8 @@ def obsidian_mineru_extract(
         "vaultPath": str(vault),
         "input": input_path,
         "outputPath": output_rel,
-        "mode": mode,
+        "mode": resolved_mode,
+        "tokenSource": token_source,
         "command": redacted_args,
         "mineru": status,
     }
@@ -991,7 +1004,7 @@ def obsidian_mineru_extract_and_ingest(
     output_path: str = "",
     source_path: str = "",
     title: str = "",
-    mode: str = "flash-extract",
+    mode: str = "",
     output_format: str = "md",
     language: str = "ch",
     pages: str = "",
@@ -1014,7 +1027,11 @@ def obsidian_mineru_extract_and_ingest(
     verbose: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Extract a document with optional MinerU CLI, then ingest the Markdown output."""
+    """Extract a document with MinerU CLI, then ingest the Markdown output.
+
+    Mode and token follow the same auto-resolution as obsidian_mineru_extract:
+    precise 'extract' mode is used automatically when a token is available.
+    """
     vault = _vault(vault_path)
     extraction = obsidian_mineru_extract(
         input_path=input_path,

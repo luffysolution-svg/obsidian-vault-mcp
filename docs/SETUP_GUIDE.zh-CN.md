@@ -213,27 +213,42 @@ MinerU 用于将 PDF/Word/PPT 等文档解析为 Markdown 后导入 Obsidian。
 pip install -U "mineru[full]"
 ```
 
-### 6.2 Flash 模式（免费，无需 token）
+### 6.2 模式自动选择
 
-安装后即可直接使用 flash-extract 模式，无需注册或配置 token：
+插件会根据 token 是否可用自动选择解析模式，无需手动指定：
 
-```
-用 MinerU flash-extract 解析这个 PDF 并导入 Obsidian：/path/to/paper.pdf
-```
+| 条件 | 自动使用的模式 | 说明 |
+|------|--------------|------|
+| 无 token | `flash-extract` | 免费，最多 20 页 |
+| 有 token（环境变量或参数） | `extract` | 精准，最多 600 页 |
 
-### 6.3 精确模式（需要 MinerU token）
+如需强制使用 flash 模式（即使有 token），可在调用时显式传入 `mode="flash-extract"`。
 
-如需更高精度（支持最多 600 页），在 [mineru.net](https://mineru.net) 注册并获取 token，然后在本地环境变量中设置：
+### 6.3 精确模式：获取并配置 API Token
+
+前往 [mineru.net](https://mineru.net) 注册账号并获取 API Token，然后设置为本地环境变量：
 
 ```bash
-# Windows
+# Windows（命令提示符，仅当前会话）
 set MINERU_API_TOKEN=your_token_here
 
-# macOS/Linux
+# Windows（永久生效，推荐）
+setx MINERU_API_TOKEN your_token_here
+
+# macOS / Linux
 export MINERU_API_TOKEN=your_token_here
+# 永久生效请写入 ~/.bashrc 或 ~/.zshrc
 ```
 
-> **注意：** 不要将 token 提交到 Git 仓库。
+设置后，插件会自动检测环境变量并切换到精准模式，无需任何额外配置。
+
+也可以在调用工具时直接传入 token 参数，插件同样会自动使用精准模式：
+
+```
+用 MinerU 解析这个 PDF 并导入 Obsidian：/path/to/paper.pdf，token=your_token_here
+```
+
+> **注意：** 不要将 token 提交到 Git 仓库，也不要写入 `.obsidian-vault-mcp.json`。
 
 ### 6.4 Windows 连通性检查
 

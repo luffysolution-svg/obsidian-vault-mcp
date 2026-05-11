@@ -302,7 +302,8 @@ Do **not** replace `${CLAUDE_PLUGIN_ROOT}` with a personal absolute path in comm
 | `OBSIDIAN_ALLOW_NON_VAULT` | `false` | Allow plain Markdown folders without `.obsidian` |
 | `ZOTERO_LOCAL_API` | `http://127.0.0.1:23119/api` | Zotero Desktop local API base URL |
 | `ZOTERO_STORAGE_DIR` | `~/Zotero/storage` | Zotero attachment storage directory |
-| `MINERU_TOKEN` | — | MinerU API token for precision extraction |
+| `MINERU_TOKEN` | — | MinerU API token — auto-enables precise `extract` mode (get one at [mineru.net](https://mineru.net/apiManage/token)) |
+| `MINERU_API_TOKEN` | — | Alias for `MINERU_TOKEN` (either name is accepted) |
 | `MINERU_CLI_COMMAND` | `mineru-open-api` | MinerU CLI executable name |
 
 ### Vault-Local Defaults
@@ -703,7 +704,8 @@ python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path
 | `OBSIDIAN_ALLOW_NON_VAULT` | `false` | 允许不含 `.obsidian` 的普通 Markdown 文件夹 |
 | `ZOTERO_LOCAL_API` | `http://127.0.0.1:23119/api` | Zotero Desktop 本地 API 基础 URL |
 | `ZOTERO_STORAGE_DIR` | `~/Zotero/storage` | Zotero 附件存储目录 |
-| `MINERU_TOKEN` | — | MinerU API token（精确提取模式） |
+| `MINERU_TOKEN` | — | MinerU API token — 自动启用精准 `extract` 模式（在 [mineru.net](https://mineru.net/apiManage/token) 获取） |
+| `MINERU_API_TOKEN` | — | `MINERU_TOKEN` 的别名，两者均可使用 |
 | `MINERU_CLI_COMMAND` | `mineru-open-api` | MinerU CLI 可执行文件名 |
 
 ### Vault 内配置文件
