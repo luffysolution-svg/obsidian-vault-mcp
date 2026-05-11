@@ -273,14 +273,17 @@ def obsidian_build_graph(
 ) -> dict[str, Any]:
     """Build graph data from Markdown wikilinks, embeds, frontmatter tags, and backlinks."""
     vault = _vault(vault_path)
+    if not write_json_path:
+        cached = _graph_cache_get(vault, folder, include_tags)
+        if cached is not None:
+            return cached
     md_files = [path for path in _iter_files(vault, folder) if path.suffix.lower() == ".md"]
     known_by_key: dict[str, set[str]] = {}
-    file_cache: dict[str, tuple[Path, str, dict[str, Any], str]] = {}
+    file_cache: dict[str, tuple[Path, dict[str, Any], str]] = {}
     for path in md_files:
         rel_path = _rel(vault, path)
-        text = _read_text(path)
-        props, body = _split_frontmatter(text)
-        file_cache[rel_path] = (path, text, props, body)
+        props, body = _split_frontmatter(_read_text(path))
+        file_cache[rel_path] = (path, props, body)
         _add_note_key(known_by_key, rel_path, rel_path)
         _add_note_key(known_by_key, path.stem, rel_path)
         if props.get("title"):
@@ -296,7 +299,18 @@ def obsidian_build_graph(
     incoming: dict[str, set[str]] = {}
     tag_counts: dict[str, int] = {}
 
-    for rel_path, (path, text, props, body) in file_cache.items():
+    def _add_edge(source: str, raw_target: str, kind: str) -> None:
+        target_rel, ambiguous_targets = _resolve_note_key(known_by_key, raw_target)
+        if target_rel and target_rel != source:
+            edges.append({"source": source, "target": target_rel, "kind": kind})
+            outgoing[source].add(target_rel)
+            incoming.setdefault(target_rel, set()).add(source)
+        elif ambiguous_targets:
+            ambiguous.setdefault(raw_target, []).append({"source": source, "matches": ambiguous_targets})
+        else:
+            unresolved.setdefault(raw_target, []).append(source)
+
+    for rel_path, (path, props, body) in file_cache.items():
         tags = sorted(set(_frontmatter_tags(props) + _inline_tags(body)))
         aliases = _frontmatter_aliases(props)
         nodes[rel_path] = {
@@ -311,17 +325,13 @@ def obsidian_build_graph(
         for tag in tags:
             tag_counts[tag] = tag_counts.get(tag, 0) + 1
         for regex, kind in [(WIKILINK_RE, "wikilink"), (EMBED_RE, "embed")]:
-            for match in regex.finditer(text):
-                raw_target = _target_from_link(match.group(1))
-                target_rel, ambiguous_targets = _resolve_note_key(known_by_key, raw_target)
-                if target_rel:
-                    edges.append({"source": rel_path, "target": target_rel, "kind": kind})
-                    outgoing[rel_path].add(target_rel)
-                    incoming.setdefault(target_rel, set()).add(rel_path)
-                elif ambiguous_targets:
-                    ambiguous.setdefault(raw_target, []).append({"source": rel_path, "matches": ambiguous_targets})
-                else:
-                    unresolved.setdefault(raw_target, []).append(rel_path)
+            for match in regex.finditer(body):
+                _add_edge(rel_path, _target_from_link(match.group(1)), kind)
+        for field in CITATION_LINK_FIELDS:
+            for value in _listify(props.get(field)):
+                raw_target = _frontmatter_link_target(str(value))
+                if raw_target:
+                    _add_edge(rel_path, raw_target, field)
 
     orphans = sorted([node_id for node_id in nodes if not incoming.get(node_id)])
     dead_ends = sorted([node_id for node_id in nodes if not outgoing.get(node_id)])
@@ -342,6 +352,8 @@ def obsidian_build_graph(
     }
     if include_tags:
         result["tags"] = [{"tag": tag, "count": count} for tag, count in sorted(tag_counts.items())]
+    if not write_json_path:
+        _graph_cache_set(vault, folder, include_tags, result)
     if write_json_path:
         output = _safe_path(vault, write_json_path)
         _write_text(output, json.dumps(result, ensure_ascii=False, indent=2))
@@ -1776,11 +1788,13 @@ def obsidian_suggest_graph_improvements(
     vault_path: str = "",
     folder: str = "",
     max_suggestions: int = 50,
+    max_reciprocal: int = 10,
 ) -> dict[str, Any]:
     """Suggest graph improvements such as creating unresolved notes, reciprocal links, and merging similar pages."""
     vault = _vault(vault_path)
     graph = obsidian_build_graph(vault_path=str(vault), folder=folder, include_tags=True)
     limit = max(1, max_suggestions)
+    reciprocal_limit = max(0, max_reciprocal)
     suggestions: list[dict[str, Any]] = []
 
     for target, sources in sorted(graph["unresolved"].items(), key=lambda item: (-len(item[1]), item[0].lower())):
@@ -1795,7 +1809,10 @@ def obsidian_suggest_graph_improvements(
         )
 
     existing_edges = {(edge["source"], edge["target"]) for edge in graph["edges"]}
+    reciprocal_count = 0
     for edge in graph["edges"]:
+        if reciprocal_count >= reciprocal_limit:
+            break
         reverse = (edge["target"], edge["source"])
         if reverse not in existing_edges:
             suggestions.append(
@@ -1807,12 +1824,15 @@ def obsidian_suggest_graph_improvements(
                     "message": "Consider adding a contextual backlink when the relationship should be navigable both ways.",
                 }
             )
+            reciprocal_count += 1
             if len(suggestions) >= limit:
                 break
 
     normalized_titles: dict[str, list[str]] = {}
     for node in graph["nodes"]:
-        title_key = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", str(node.get("title") or node["id"]).lower())
+        raw = str(node.get("title") or node["id"]).lower().strip()
+        title_key = re.sub(r"[-_\s]+", " ", raw)
+        title_key = re.sub(r"[^a-z0-9\u4e00-\u9fff\s]+", "", title_key).strip()
         if title_key:
             normalized_titles.setdefault(title_key, []).append(str(node["id"]))
     for title_key, paths in sorted(normalized_titles.items()):
@@ -1901,6 +1921,7 @@ def obsidian_create_canvas_from_graph(
     include_summary: bool = True,
     group_nodes: bool = False,
     group_by: str = "tag",
+    layer_order_json: str = "",
     overwrite: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
@@ -1916,6 +1937,14 @@ def obsidian_create_canvas_from_graph(
     group_mode = group_by.strip().lower()
     if group_mode not in {"tag", "folder"}:
         raise ValueError("group_by must be tag or folder.")
+    _default_layer_order = ["source", "entity", "concept", "task", "equipment", "economics", "literature", "utility"]
+    if layer_order_json.strip():
+        parsed_order = _json(layer_order_json, _default_layer_order)
+        if not isinstance(parsed_order, list) or not all(isinstance(item, str) for item in parsed_order):
+            raise ValueError("layer_order_json must be a JSON array of tag name strings.")
+        layer_order = [str(item).strip() for item in parsed_order if str(item).strip()]
+    else:
+        layer_order = _default_layer_order
 
     graph = obsidian_build_graph(vault_path=str(vault), folder=folder, include_tags=True)
     selected_tag = tag.strip().lstrip("#")
@@ -1956,7 +1985,6 @@ def obsidian_create_canvas_from_graph(
         node = node_by_id[node_id]
         if layout_key == "layered":
             tags = [str(value) for value in node.get("tags", [])]
-            layer_order = ["source", "entity", "concept", "task", "equipment", "economics", "literature", "utility"]
             layer = next((layer_order.index(tag) for tag in layer_order if tag in tags), len(layer_order))
             same_layer_before = sum(
                 1

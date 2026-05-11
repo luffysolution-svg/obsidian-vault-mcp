@@ -2067,6 +2067,60 @@ def _validate_base_filter(rel_path: str, value: Any, field: str = "filters") -> 
     return issues
 
 
+CITATION_LINK_FIELDS = ("related", "cites", "references", "entities", "concepts", "sources")
+
+_WIKILINK_VALUE_RE = re.compile(r"^\[\[([^\]\n]+)\]\]$")
+
+
+def _frontmatter_link_target(value: str) -> str:
+    """Return the note key from a frontmatter value that is a path or a [[wikilink]]."""
+    stripped = str(value).strip()
+    m = _WIKILINK_VALUE_RE.match(stripped)
+    if m:
+        return _target_from_link(m.group(1))
+    return _target_from_link(stripped)
+
+
+_graph_cache: dict[tuple[str, str, bool], tuple[float, dict[str, Any]]] = {}
+
+
+def _graph_cache_get(vault: Path, folder: str, include_tags: bool) -> dict[str, Any] | None:
+    key = (str(vault), folder, include_tags)
+    if key not in _graph_cache:
+        return None
+    cached_mtime, cached_result = _graph_cache[key]
+    for path in _iter_files(vault, folder):
+        if path.suffix.lower() == ".md":
+            try:
+                if path.stat().st_mtime > cached_mtime:
+                    _graph_cache.pop(key, None)
+                    return None
+            except OSError:
+                _graph_cache.pop(key, None)
+                return None
+    return cached_result
+
+
+def _graph_cache_set(vault: Path, folder: str, include_tags: bool, result: dict[str, Any]) -> None:
+    key = (str(vault), folder, include_tags)
+    max_mtime = 0.0
+    for path in _iter_files(vault, folder):
+        if path.suffix.lower() == ".md":
+            try:
+                mtime = path.stat().st_mtime
+                if mtime > max_mtime:
+                    max_mtime = mtime
+            except OSError:
+                pass
+    _graph_cache[key] = (max_mtime, result)
+
+
+def _graph_cache_invalidate(vault: Path, folder: str = "") -> None:
+    keys_to_remove = [k for k in _graph_cache if k[0] == str(vault) and (not folder or k[1] == folder)]
+    for k in keys_to_remove:
+        _graph_cache.pop(k, None)
+
+
 def _validate_base_payload(rel_path: str, payload: Any) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     if not isinstance(payload, dict):

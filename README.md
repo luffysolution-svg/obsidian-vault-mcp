@@ -21,9 +21,11 @@ python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path
 - 写入前提供 `dry_run=true` unified diff 预览。
 - 批量编辑计划支持多文件预览、应用、vault 内备份和回滚。
 - 自动添加 wikilink，并基于别名、标签、未解析链接和歧义链接构建图谱。
+- 图谱构建仅扫描正文 wikilink/embed，frontmatter 中的 `related`、`cites`、`references`、`entities`、`concepts`、`sources` 字段单独提取为带类型标签的引用边，不与正文链接混淆。
+- 图谱结果基于文件 mtime 缓存，vault 无变更时重复调用直接返回缓存，大型文献库性能显著提升。
 - 检查孤立笔记、死链、重复 key、空笔记、缺失标题和 frontmatter 一致性。
 - 校验 Markdown frontmatter、Canvas JSON 和 Base YAML 格式。
-- 建议未解析链接、互链、可能重复页面、Markdown 链接和附件嵌入的图谱改进。
+- 建议未解析链接、互链（可通过 `max_reciprocal` 限制数量）、可能重复页面（词边界感知，避免 "My Note" 与 "MyNote" 误判）、Markdown 链接和附件嵌入的图谱改进。
 - Karpathy 风格 wiki 工作流：刷新 `index.md`、追加 `log.md`、将来源整理进 source/entity/concept 页面。
 - 从 BibTeX、参考文献元数据、MinerU Markdown、PDF 附件和 Zotero 条目导入文献。
 - 可选调用 MinerU Open API CLI 直接解析 PDF/文档后导入。
@@ -33,7 +35,7 @@ python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path
 - 从 Obsidian Templates、Templater 和插件配置发现用户模板。
 - vault 内 `.obsidian-vault-mcp.json` 支持输出目录、模板目录、索引/日志路径和 Zotero 附件命名默认值。
 - `--doctor` 就绪检查和只读 smoke 检查脚本。
-- JSON Canvas 创建，包括从 vault wikilink 自动生成 grid、radial、grouped、layered 布局。
+- JSON Canvas 创建，包括从 vault wikilink 自动生成 grid、radial、grouped、layered 布局；layered 布局支持通过 `layer_order_json` 传入自定义层级顺序。
 - Obsidian Bases 创建，内置文献、项目任务、设备、公用工程、经济性和来源材料模板。
 - Dataview 查询笔记模板。
 - 封装本地官方 `obsidian` CLI，提供 read/open、backlinks、Base query、properties、tasks、截图、plugin reload、move/rename dry-run 等结构化工具。

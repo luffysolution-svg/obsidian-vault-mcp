@@ -1024,6 +1024,105 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("mineru_markdown: mineru-output/paper/paper.md", note)
         self.assertIn("![[attachments/paper.pdf]]", note)
 
+    def test_build_graph_scans_body_not_frontmatter(self):
+        # Wikilink inside a YAML value should NOT create an edge
+        self.write_note("A.md", "---\ntitle: A\nrelated: '[[B]]'\n---\n\n# A\nNo body links.\n")
+        self.write_note("B.md", "---\ntitle: B\n---\n\n# B\n")
+
+        graph = self.module.obsidian_build_graph(str(self.vault))
+
+        # related field is a citation edge, not a wikilink edge
+        wikilink_edges = [e for e in graph["edges"] if e["kind"] == "wikilink"]
+        self.assertEqual(len(wikilink_edges), 0)
+
+    def test_build_graph_extracts_citation_edges(self):
+        self.write_note("A.md", "---\ntitle: A\nentities:\n  - entities/E.md\ncites:\n  - '[[B]]'\n---\n\n# A\n")
+        self.write_note("B.md", "---\ntitle: B\n---\n\n# B\n")
+        self.write_note("entities/E.md", "---\ntitle: E\n---\n\n# E\n")
+
+        graph = self.module.obsidian_build_graph(str(self.vault))
+
+        kinds = {e["kind"] for e in graph["edges"]}
+        self.assertIn("entities", kinds)
+        self.assertIn("cites", kinds)
+        entity_edge = next(e for e in graph["edges"] if e["kind"] == "entities")
+        self.assertEqual(entity_edge["source"], "A.md")
+        self.assertEqual(entity_edge["target"], "entities/E.md")
+
+    def test_build_graph_cache_returns_same_result(self):
+        self.write_note("A.md", "---\ntitle: A\n---\n\n# A\nSee [[B]].\n")
+        self.write_note("B.md", "---\ntitle: B\n---\n\n# B\n")
+
+        result1 = self.module.obsidian_build_graph(str(self.vault))
+        result2 = self.module.obsidian_build_graph(str(self.vault))
+
+        self.assertIs(result1, result2)
+
+    def test_build_graph_cache_invalidates_on_file_change(self):
+        self.write_note("A.md", "---\ntitle: A\n---\n\n# A\n")
+
+        result1 = self.module.obsidian_build_graph(str(self.vault))
+        import time
+        time.sleep(0.01)
+        self.write_note("B.md", "---\ntitle: B\n---\n\n# B\n")
+        result2 = self.module.obsidian_build_graph(str(self.vault))
+
+        self.assertIsNot(result1, result2)
+        self.assertEqual(result2["nodeCount"], 2)
+
+    def test_suggest_improvements_max_reciprocal(self):
+        # Create a chain A→B→C→D so there are 3 one-directional edges
+        self.write_note("A.md", "---\ntitle: A\n---\n\n# A\nSee [[B]].\n")
+        self.write_note("B.md", "---\ntitle: B\n---\n\n# B\nSee [[C]].\n")
+        self.write_note("C.md", "---\ntitle: C\n---\n\n# C\nSee [[D]].\n")
+        self.write_note("D.md", "---\ntitle: D\n---\n\n# D\n")
+
+        result_limited = self.module.obsidian_suggest_graph_improvements(str(self.vault), max_reciprocal=1)
+        result_zero = self.module.obsidian_suggest_graph_improvements(str(self.vault), max_reciprocal=0)
+
+        reciprocal_limited = [s for s in result_limited["suggestions"] if s["kind"] == "consider_reciprocal_link"]
+        reciprocal_zero = [s for s in result_zero["suggestions"] if s["kind"] == "consider_reciprocal_link"]
+        self.assertLessEqual(len(reciprocal_limited), 1)
+        self.assertEqual(len(reciprocal_zero), 0)
+
+    def test_suggest_improvements_no_false_positive_duplicate_titles(self):
+        # "My Note" and "MyNote" should NOT be flagged as duplicates
+        self.write_note("My Note.md", "---\ntitle: My Note\n---\n\n# My Note\n")
+        self.write_note("MyNote.md", "---\ntitle: MyNote\n---\n\n# MyNote\n")
+
+        result = self.module.obsidian_suggest_graph_improvements(str(self.vault))
+        duplicates = [s for s in result["suggestions"] if s["kind"] == "possible_duplicate"]
+
+        self.assertEqual(len(duplicates), 0)
+
+    def test_suggest_improvements_detects_hyphen_space_duplicates(self):
+        # "My-Note" and "My Note" SHOULD be flagged as duplicates (same words)
+        self.write_note("My-Note.md", "---\ntitle: My-Note\n---\n\n# My-Note\n")
+        self.write_note("My Note.md", "---\ntitle: My Note\n---\n\n# My Note\n")
+
+        result = self.module.obsidian_suggest_graph_improvements(str(self.vault))
+        duplicates = [s for s in result["suggestions"] if s["kind"] == "possible_duplicate"]
+
+        self.assertEqual(len(duplicates), 1)
+
+    def test_canvas_from_graph_custom_layer_order(self):
+        import json as _json
+        self.write_note("A.md", "---\ntitle: A\ntags: [literature]\n---\n\n# A\n")
+        self.write_note("B.md", "---\ntitle: B\ntags: [entity]\n---\n\n# B\n")
+
+        result = self.module.obsidian_create_canvas_from_graph(
+            "maps/layered.canvas",
+            str(self.vault),
+            layout="layered",
+            layer_order_json='["entity", "literature"]',
+        )
+
+        self.assertTrue(result["ok"])
+        payload = _json.loads((self.vault / "maps" / "layered.canvas").read_text(encoding="utf-8"))
+        file_nodes = {n["file"]: n for n in payload["nodes"] if n["type"] == "file"}
+        # entity is layer 0, literature is layer 1 → entity.x < literature.x
+        self.assertLess(file_nodes["B.md"]["x"], file_nodes["A.md"]["x"])
+
 
 if __name__ == "__main__":
     unittest.main()

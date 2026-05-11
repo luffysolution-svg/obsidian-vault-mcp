@@ -24,10 +24,12 @@ It provides:
 - MCP tools for vault file listing, search, reading, writing, note creation, and YAML property updates.
 - Dry-run diff previews for write operations before changing vault files.
 - Batch edit transactions with multi-file preview, apply, vault-local backups, and rollback.
-- Wikilink helpers for adding related links and building backlink-aware graph data with aliases, tags, ambiguous links, and unresolved links.
+- Wikilink helpers for adding related links and building backlink-aware graph data with aliases, tags, ambiguous links, and unresolved links. Graph scanning is body-only — wikilinks inside YAML frontmatter values are not counted as edges.
+- Frontmatter citation fields (`related`, `cites`, `references`, `entities`, `concepts`, `sources`) are extracted as typed edges distinct from body wikilinks, enabling richer literature citation graphs.
+- Graph results are mtime-cached per vault/folder; repeated calls return the cached result until a file changes, significantly improving performance on large literature vaults.
 - Vault lint checks for orphan notes, dead ends, missing wiki helper files, duplicate keys, and frontmatter consistency.
 - Schema and format validation for Markdown frontmatter, Canvas JSON, and Base YAML files.
-- Graph improvement suggestions for unresolved links, reciprocal links, possible duplicate pages, Markdown links, and attachment embeds.
+- Graph improvement suggestions for unresolved links, reciprocal links (capped via `max_reciprocal` to avoid noise), possible duplicate pages (word-boundary-aware, so "My Note" and "MyNote" are not false positives), Markdown links, and attachment embeds.
 - Karpathy-style wiki workflow tools for refreshing `index.md`, appending `log.md`, and ingesting source notes into linked source/entity/concept pages.
 - Literature and extraction ingestion from BibTeX/reference metadata, existing MinerU Markdown output, optional MinerU CLI extraction, and PDF attachments.
 - Direct Zotero Desktop local API integration for collection listing, search, item metadata, child notes, annotations, PDF attachments, PDF text extraction, and one-step item ingestion.
@@ -36,7 +38,7 @@ It provides:
 - Optional user template discovery from Obsidian Templates, Templater, or plugin config when creating notes.
 - Vault-local defaults for output folders, index/log paths, template folders, and Zotero attachment naming.
 - A `--doctor` check for vault resolution, templates, dependencies, and optional integrations.
-- JSON Canvas creation for visual maps, including automatic graph-to-canvas layout from vault wikilinks with grid, radial, grouped, and layered layouts.
+- JSON Canvas creation for visual maps, including automatic graph-to-canvas layout from vault wikilinks with grid, radial, grouped, and layered layouts; layered layout supports a custom `layer_order_json` parameter.
 - Obsidian Bases creation for table/card/list views, including built-in Base templates for literature, project tasks, equipment, utilities, economics, and sources.
 - Dataview note templates for the same literature, project task, equipment, utilities, economics, and sources workflows.
 - A safe wrapper around the local `obsidian` CLI plus structured helpers for read/open, backlinks, Base queries, properties, tasks, screenshots, plugin reloads, and move/rename dry-runs.
