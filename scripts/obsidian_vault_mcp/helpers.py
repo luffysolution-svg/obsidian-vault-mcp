@@ -1272,7 +1272,7 @@ def _zotero_notes_and_annotations(children: dict[str, list[dict[str, Any]]]) -> 
                     lines.append(f"> [!quote]{meta}")
                     lines.append(f"> {text}")
                     if comment:
-                        lines.append(f"> ")
+                        lines.append("> ")
                         lines.append(f"> **Note:** {comment}")
                     lines.append("")
                 elif comment:
