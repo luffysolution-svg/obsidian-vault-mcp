@@ -721,6 +721,7 @@ def obsidian_ingest_reference(
     tags = _merge_unique(metadata.get("tags"), ["source", "literature"])
     source_props = {k: v for k, v in metadata.items() if k not in {
         "parentItem", "note", "annotationText", "annotationComment",
+        "annotationType", "annotationColor", "annotationPageLabel",
         "attachmentPath", "contentType", "links", "rawData",
         "creators", "zoteroLinks",
         "key", "version", "date",
