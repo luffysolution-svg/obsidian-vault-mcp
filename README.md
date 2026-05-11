@@ -2,7 +2,7 @@
 
 面向 Codex、Claude Code 和 OpenCode 的本地 MCP 插件，将本地 Obsidian vault 维护成可持续增长的双链知识库。
 
-[English README](./README.en.md) | [技术文档](./docs/TECHNICAL_GUIDE.md) | [文档站](./docs/index.md)
+[English README](./README.en.md) | [安装配置教程](./docs/SETUP_GUIDE.zh-CN.md) | [技术文档](./docs/TECHNICAL_GUIDE.md) | [文档站](./docs/index.md)
 
 ## 快速开始
 

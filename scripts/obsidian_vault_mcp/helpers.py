@@ -1203,10 +1203,24 @@ def _load_ethereal_color_labels() -> dict[str, str]:
     _ethereal_color_labels = {}
     try:
         import glob as _glob
-        prefs_pattern = os.path.expanduser(
-            "~/AppData/Roaming/Zotero/Zotero/Profiles/*/prefs.js"
-        )
-        prefs_files = _glob.glob(prefs_pattern)
+        import sys as _sys
+        # Zotero profile paths differ by platform
+        if _sys.platform == "win32":
+            candidates = ["~/AppData/Roaming/Zotero/Zotero/Profiles/*/prefs.js"]
+        elif _sys.platform == "darwin":
+            candidates = ["~/Library/Application Support/Zotero/Profiles/*/prefs.js"]
+        else:
+            # Linux: XDG_DATA_HOME or ~/.zotero
+            xdg = os.environ.get("XDG_DATA_HOME", "")
+            if xdg:
+                candidates = [os.path.join(xdg, "zotero/Profiles/*/prefs.js")]
+            else:
+                candidates = ["~/.zotero/zotero/Profiles/*/prefs.js"]
+        prefs_files: list[str] = []
+        for pattern in candidates:
+            prefs_files = _glob.glob(os.path.expanduser(pattern))
+            if prefs_files:
+                break
         if not prefs_files:
             return _ethereal_color_labels
         with open(prefs_files[0], "r", encoding="utf-8", errors="replace") as f:
