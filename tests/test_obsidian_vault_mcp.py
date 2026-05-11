@@ -992,7 +992,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
                 self.stdout = stdout
                 self.stderr = stderr
 
-        def fake_run(args, capture_output=True, text=True, timeout=0, check=False):
+        def fake_run(args, capture_output=True, text=True, timeout=0, check=False, **kwargs):
             if args[1] == "version":
                 return Completed(0, "mineru-open-api version v0.test")
             self.assertEqual(args[0], "C:\\tools\\mineru-open-api.CMD")
