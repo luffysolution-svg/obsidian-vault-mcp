@@ -855,7 +855,7 @@ def obsidian_ingest_mineru_markdown(
     source_title = title or str(metadata.get("title") or _note_title_from_path(_s(markdown_path) or "MinerU Extraction.md"))
     rel_path = _s(source_path).strip() or f"{source_root}/{_slug_filename(source_title)}.md"
 
-    # Smart merge: if target note exists with zoteroKey, preserve Zotero fields
+    # Smart update: if target note exists with zoteroKey, only add mineru_markdown to frontmatter
     if smart_update:
         target_full = _safe_path(vault, rel_path)
         if target_full.exists():
@@ -864,18 +864,13 @@ def obsidian_ingest_mineru_markdown(
                 merged_props = dict(existing_props)
                 if markdown_path:
                     merged_props["mineru_markdown"] = markdown_path
-                if pdf_attachment_path:
-                    merged_props["attachment"] = pdf_attachment_path
-                merged_props["tags"] = _merge_unique(existing_props.get("tags"), ["mineru"])
-                new_body = _replace_mineru_section(existing_body, content.strip())
                 if not dry_run:
-                    target_full.write_text(_join_frontmatter(merged_props, new_body), encoding="utf-8")
+                    target_full.write_text(_join_frontmatter(merged_props, existing_body), encoding="utf-8")
                 return {
                     "ok": True,
-                    "smartMerged": True,
+                    "smartUpdated": True,
                     "path": rel_path,
                     "markdownPath": markdown_path,
-                    "pdfAttachmentPath": pdf_attachment_path,
                     "dryRun": dry_run,
                 }
 
