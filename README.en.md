@@ -231,6 +231,17 @@ line server script as the project grows.
 - MinerU CLI (`mineru-open-api`): required only for `obsidian_mineru_extract` and `obsidian_mineru_extract_and_ingest`.
 - MinerU MCP: optional companion server. Codex can use MinerU MCP to parse a document, then use this plugin to ingest the generated Markdown. This plugin does not call MinerU MCP internally.
 
+### Zotero Plugin Dependencies
+
+When using Zotero integration, the following Zotero plugins enhance functionality:
+
+| Plugin | Purpose | Required? |
+|--------|---------|-----------|
+| [Better BibTeX for Zotero](https://retorque.re/zotero-better-bibtex/) | Generates stable `citekey` values (e.g. `chenLowvalence2024`) used for note naming, duplicate detection, and the `citekey` PDF attachment naming strategy | Strongly recommended; falls back to Zotero key if absent |
+| [Ethereal Style (ZoteroStyle)](https://github.com/MuiseDestiny/zotero-style) | Assigns custom names to annotation colors (e.g. 背景/实验/结果/方法); those names appear in Obsidian callout labels after import | Optional; falls back to English color names (yellow/red/green…) |
+
+Zotero Desktop's local HTTP service on port `23119` is built-in and requires no extra plugins.
+
 For structured Obsidian CLI wrappers, the optional `vault` argument is the
 Obsidian vault name known to the app, not a filesystem path. If omitted, the CLI
 uses the active Obsidian vault. Direct file tools such as `obsidian_read_file`
@@ -285,7 +296,10 @@ Please:
    available.
 
 Optional: if I want Zotero features, remind me to open Zotero Desktop so its
-local API at `http://127.0.0.1:23119/api` is reachable.
+local API at `http://127.0.0.1:23119/api` is reachable. For best results,
+also install Better BibTeX for Zotero (https://retorque.re/zotero-better-bibtex/)
+to enable stable citekeys. If I use Ethereal Style (ZoteroStyle) to assign
+custom color labels to annotations, those labels will be picked up automatically.
 
 Optional: if I want MinerU document parsing, check whether `mineru-open-api`
 is installed. If it is not installed, tell me how to install it. Do not store

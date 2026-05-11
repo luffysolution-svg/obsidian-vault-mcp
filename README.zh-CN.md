@@ -90,6 +90,17 @@ obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 - MinerU Open API CLI：只有希望本插件直接解析 PDF/文档时需要。已有 MinerU Markdown 可以直接导入，不需要 CLI。
 - MinerU MCP：可作为独立伴随服务使用。本插件不会在内部调用另一个 MCP server，但 Codex 可以先用 MinerU MCP 解析，再用本插件导入 Markdown。
 
+### Zotero 插件依赖
+
+使用 Zotero 集成时，以下 Zotero 插件可增强功能：
+
+| 插件 | 作用 | 必要性 |
+|------|------|--------|
+| [Better BibTeX for Zotero](https://retorque.re/zotero-better-bibtex/) | 为每条文献生成稳定的 `citekey`，用于笔记命名、去重和 PDF 附件命名策略 `citekey` | 强烈推荐；缺少时回退到 Zotero key |
+| [Ethereal Style (ZoteroStyle)](https://github.com/MuiseDestiny/zotero-style) | 为标注颜色设置自定义中文名称（如背景/实验/结果/方法），导入后 callout 标签显示用户定义名称 | 可选；缺少时显示英文颜色名 |
+
+Zotero Desktop 本身的本地 HTTP 服务（端口 `23119`）是内置功能，无需额外插件即可使用。
+
 ## Vault 内默认配置
 
 可以在 vault 根目录放：

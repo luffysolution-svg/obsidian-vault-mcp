@@ -175,6 +175,17 @@ MCP 入口保持在 `scripts/obsidian_vault_mcp.py`，确保现有 `.mcp.json` �
 - MinerU CLI（`mineru-open-api`）：仅在使用 `obsidian_mineru_extract` 和 `obsidian_mineru_extract_and_ingest` 时需要。
 - MinerU MCP：可选伴随服务器。Codex 可用 MinerU MCP 解析文档，再用本插件导入生成的 Markdown。本插件不在内部调用 MinerU MCP。
 
+### Zotero 插件依赖
+
+使用 Zotero 集成时，以下 Zotero 插件可增强功能：
+
+| 插件 | 作用 | 必要性 |
+|------|------|--------|
+| [Better BibTeX for Zotero](https://retorque.re/zotero-better-bibtex/) | 为每条文献生成稳定的 `citekey`（如 `chenLowvalence2024`），用于笔记命名、去重和 PDF 附件命名策略 `citekey` | 强烈推荐；缺少时回退到 Zotero key |
+| [Ethereal Style (ZoteroStyle)](https://github.com/MuiseDestiny/zotero-style) | 为标注颜色设置自定义中文名称（如背景/实验/结果/方法），导入 Obsidian 后 callout 标签显示用户定义名称 | 可选；缺少时显示英文颜色名（yellow/red/green…） |
+
+Zotero Desktop 本身的本地 HTTP 服务（端口 `23119`）是内置功能，无需额外插件即可使用。
+
 CLI 封装的可选 `vault` 参数是 Obsidian 已知的 vault 名称，不是文件系统路径。省略时 CLI 使用当前活动 vault。`obsidian_read_file`、`obsidian_create_note` 等直接文件工具仍接受 `vault_path` 文件系统路径。
 
 Windows MinerU 连通性快速检查：
@@ -223,7 +234,10 @@ Please:
    available.
 
 Optional: if I want Zotero features, remind me to open Zotero Desktop so its
-local API at `http://127.0.0.1:23119/api` is reachable.
+local API at `http://127.0.0.1:23119/api` is reachable. For best results,
+also install Better BibTeX for Zotero (https://retorque.re/zotero-better-bibtex/)
+to enable stable citekeys. If I use Ethereal Style (ZoteroStyle) to assign
+custom color labels to annotations, those labels will be picked up automatically.
 
 Optional: if I want MinerU document parsing, check whether `mineru-open-api`
 is installed. If it is not installed, tell me how to install it. Do not store
