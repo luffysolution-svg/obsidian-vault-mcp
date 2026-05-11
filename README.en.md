@@ -32,6 +32,7 @@ It provides:
 - Literature and extraction ingestion from BibTeX/reference metadata, existing MinerU Markdown output, optional MinerU CLI extraction, and PDF attachments.
 - Direct Zotero Desktop local API integration for search, item metadata, child notes, annotations, PDF attachments, PDF text extraction, and one-step item ingestion.
 - Zotero round-trip metadata with `zotero://` select/PDF links, duplicate detection by Zotero key, DOI, citekey, or title, and configurable PDF attachment naming.
+- Collection names resolved to human-readable labels at import time (`collections` stores names like `苯乙烯优化`, not raw keys like `HXSD675W`); type-specific fields omitted from frontmatter when empty.
 - Optional user template discovery from Obsidian Templates, Templater, or plugin config when creating notes.
 - Vault-local defaults for output folders, index/log paths, template folders, and Zotero attachment naming.
 - A `--doctor` check for vault resolution, templates, dependencies, and optional integrations.

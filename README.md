@@ -29,6 +29,7 @@ python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path
 - 可选调用 MinerU Open API CLI 直接解析 PDF/文档后导入。
 - 直接访问 Zotero Desktop 本地 API：搜索、元数据、子笔记、标注、PDF 附件、PDF 文本提取和一步导入。
 - Zotero `zotero://` 链接、重复检测（key/DOI/citekey/标题）和可配置 PDF 附件命名策略。
+- 导入时自动解析 Zotero 集合名称（`collections` 字段存储可读名称而非内部 key），仅写入有值的类型专用字段，空字段不写入 frontmatter。
 - 从 Obsidian Templates、Templater 和插件配置发现用户模板。
 - vault 内 `.obsidian-vault-mcp.json` 支持输出目录、模板目录、索引/日志路径和 Zotero 附件命名默认值。
 - `--doctor` 就绪检查和只读 smoke 检查脚本。

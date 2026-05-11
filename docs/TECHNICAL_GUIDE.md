@@ -360,6 +360,14 @@ Zotero 7+: enable local API access in **Zotero → Edit → Preferences → Adva
 
 Imported notes include `zoteroKey`, `zoteroSelect`, `zoteroLinks`, and PDF attachment links.
 
+#### Frontmatter Field Behavior
+
+Only fields with actual values are written to YAML frontmatter. Type-specific fields (`university`, `thesisType`, `patentNumber`, `assignee`, `country`, `journalAbbreviation`, `conferenceName`, `proceedingsTitle`, `bookTitle`, `reportNumber`, `institution`, `place`, `edition`, `numPages`, `series`, `repository`, `doi`, `publisher`, `ISBN`) are omitted when empty, so a patent note will not contain `university: null` and a thesis note will not contain `patentNumber: null`.
+
+The `collections` field stores human-readable Zotero collection names (e.g. `苯乙烯优化`) resolved from the Zotero API at import time, not raw internal keys (e.g. `HXSD675W`). Collection names are refreshed on every smart update.
+
+`relations` and `annotationPosition` are never written to literature note frontmatter.
+
 ### Annotation Color Label Resolution
 
 When importing Zotero annotations, the plugin resolves each annotation's hex color to a human-readable label using a three-step priority chain (implemented in `helpers.py: _annotation_color_label`):
@@ -740,6 +748,14 @@ obsidian version && obsidian vault info=path
 ```powershell
 curl.exe "http://127.0.0.1:23119/connector/ping"
 ```
+
+#### 导入笔记的 frontmatter 字段行为
+
+只有有实际值的字段才会写入 YAML frontmatter。类型专用字段（`university`、`thesisType`、`patentNumber`、`assignee`、`country`、`journalAbbreviation`、`conferenceName`、`proceedingsTitle`、`bookTitle`、`reportNumber`、`institution`、`place`、`edition`、`numPages`、`series`、`repository`、`doi`、`publisher`、`ISBN`）为空时不写入，因此专利笔记不会出现 `university: null`，学位论文笔记不会出现 `patentNumber: null`。
+
+`collections` 字段存储从 Zotero API 解析的可读集合名称（如 `苯乙烯优化`），而非原始内部 key（如 `HXSD675W`）。每次 smart update 时集合名称会自动刷新。
+
+`relations` 和 `annotationPosition` 不会写入文献笔记的 frontmatter。
 
 ### MinerU 文档提取
 
