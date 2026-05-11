@@ -274,8 +274,8 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         result = self.module.obsidian_ingest_reference(json.dumps(metadata), str(self.vault), overwrite=True)
 
         self.assertTrue(result["ok"])
-        self.assertEqual(result["referencePath"], "01-literature/configured2026.md")
-        self.assertTrue((self.vault / "01-literature" / "configured2026.md").exists())
+        self.assertEqual(result["referencePath"], "01-literature/Configured Folder Paper.md")
+        self.assertTrue((self.vault / "01-literature" / "Configured Folder Paper.md").exists())
 
     def test_validate_vault_schema_reports_frontmatter_and_canvas_errors(self):
         self.write_note("sources/Bad.md", "---\ntype: source\ntags: source\n---\n\n# Bad\n")
@@ -653,7 +653,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             ["attachments/zotero/ITEM1/external.pdf", "attachments/zotero/ITEM1/supplement.pdf"],
         )
         self.assertEqual(len(result["attachmentErrors"]), 1)
-        note = (self.vault / "zotero" / "ITEM1.md").read_text(encoding="utf-8")
+        note = (self.vault / "zotero" / "Lovelace (2024) - Zotero Article.md").read_text(encoding="utf-8")
         self.assertIn("zoteroKey: ITEM1", note)
         self.assertIn("zoteroSelect: zotero://select/library/items/ITEM1", note)
         self.assertIn("zotero://open-pdf/library/items/PDF1", note)
@@ -888,7 +888,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             dry_run=True,
         )
         self.assertTrue(dry["dryRun"])
-        self.assertFalse((self.vault / "literature" / "smith2024example.md").exists())
+        self.assertFalse((self.vault / "literature" / "Smith (2024) - Example Process Design.md").exists())
 
         applied = self.module.obsidian_ingest_reference(
             json.dumps(metadata),
@@ -898,7 +898,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             overwrite=True,
         )
         self.assertTrue(applied["ok"])
-        note = (self.vault / "literature" / "smith2024example.md").read_text(encoding="utf-8")
+        note = (self.vault / "literature" / "Smith (2024) - Example Process Design.md").read_text(encoding="utf-8")
         self.assertIn("type: literature", note)
         self.assertIn("10.1000/example", note)
 
@@ -913,7 +913,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["entryCount"], 1)
-        self.assertTrue((self.vault / "papers" / "doe2025energy.md").exists())
+        self.assertTrue((self.vault / "papers" / "Doe (2025) - Energy integration.md").exists())
 
     def test_ingest_mineru_markdown_and_pdf_attachment(self):
         self.write_note("extracts/paper.md", "# Extracted Paper\n\nThis paragraph came from MinerU.")
