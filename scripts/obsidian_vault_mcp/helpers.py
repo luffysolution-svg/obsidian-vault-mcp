@@ -493,7 +493,12 @@ def _listify(value: Any) -> list[Any]:
 
 
 def _normalize_tag(value: Any) -> str:
-    return str(value).strip().lstrip("#")
+    tag = str(value).strip().lstrip("#")
+    if "/" in tag:
+        # Hierarchical tag: normalize each segment (replace spaces with hyphens)
+        segments = [re.sub(r"\s+", "-", seg.strip()) for seg in tag.split("/")]
+        return "/".join(s for s in segments if s)
+    return tag
 
 
 def _frontmatter_tags(props: dict[str, Any]) -> list[str]:
@@ -984,7 +989,12 @@ def _metadata_from_reference(item: dict[str, Any]) -> dict[str, Any]:
             metadata["year"] = int(year_match.group(0))
     # Promote extra bibliographic fields from rawData if not already set at top level
     raw = metadata.get("rawData") or {}
-    for field in ("volume", "issue", "pages", "publisher", "ISBN", "journalAbbreviation"):
+    for field in (
+        "volume", "issue", "pages", "publisher", "ISBN", "journalAbbreviation",
+        "conferenceName", "proceedingsTitle", "bookTitle",
+        "university", "thesisType", "patentNumber", "assignee", "country",
+        "reportNumber", "institution", "place", "edition", "numPages", "series", "repository",
+    ):
         if not metadata.get(field):
             value = raw.get(field)
             if value:
@@ -1072,6 +1082,7 @@ def _attachment_filename(strategy: str, source_pdf: Path, parent_key: str, attac
 def _reference_source_body(metadata: dict[str, Any], abstract: str = "", notes: str = "", content: str = "", attachment_path: str = "") -> str:
     lines: list[str] = []
     authors = _listify(metadata.get("authors"))
+    item_type = str(metadata.get("itemType") or "")
     if authors:
         lines.extend(["## Citation", "", f"- Authors: {', '.join(str(author) for author in authors)}"])
         if metadata.get("year"):
@@ -1080,6 +1091,59 @@ def _reference_source_body(metadata: dict[str, Any], abstract: str = "", notes: 
             lines.append(f"- DOI: {metadata['doi']}")
         if metadata.get("url"):
             lines.append(f"- URL: {metadata['url']}")
+        # Type-specific citation fields
+        if item_type == "journalArticle":
+            if metadata.get("publicationTitle"):
+                lines.append(f"- Journal: {metadata['publicationTitle']}")
+            vol_issue = "/".join(str(metadata[f]) for f in ("volume", "issue") if metadata.get(f))
+            if vol_issue:
+                lines.append(f"- Vol/Issue: {vol_issue}")
+            if metadata.get("pages"):
+                lines.append(f"- Pages: {metadata['pages']}")
+        elif item_type == "conferencePaper":
+            if metadata.get("conferenceName"):
+                lines.append(f"- Conference: {metadata['conferenceName']}")
+            if metadata.get("proceedingsTitle"):
+                lines.append(f"- Proceedings: {metadata['proceedingsTitle']}")
+            if metadata.get("place"):
+                lines.append(f"- Place: {metadata['place']}")
+            if metadata.get("pages"):
+                lines.append(f"- Pages: {metadata['pages']}")
+        elif item_type in ("book", "bookSection"):
+            if item_type == "bookSection" and metadata.get("bookTitle"):
+                lines.append(f"- Book: {metadata['bookTitle']}")
+            if metadata.get("publisher"):
+                lines.append(f"- Publisher: {metadata['publisher']}")
+            if metadata.get("place"):
+                lines.append(f"- Place: {metadata['place']}")
+            if metadata.get("edition"):
+                lines.append(f"- Edition: {metadata['edition']}")
+            if metadata.get("ISBN"):
+                lines.append(f"- ISBN: {metadata['ISBN']}")
+            if metadata.get("pages"):
+                lines.append(f"- Pages: {metadata['pages']}")
+        elif item_type == "thesis":
+            if metadata.get("university"):
+                lines.append(f"- University: {metadata['university']}")
+            if metadata.get("thesisType"):
+                lines.append(f"- Type: {metadata['thesisType']}")
+            if metadata.get("place"):
+                lines.append(f"- Place: {metadata['place']}")
+        elif item_type == "patent":
+            if metadata.get("patentNumber"):
+                lines.append(f"- Patent No.: {metadata['patentNumber']}")
+            if metadata.get("country"):
+                lines.append(f"- Country: {metadata['country']}")
+            if metadata.get("assignee"):
+                lines.append(f"- Assignee: {metadata['assignee']}")
+        elif item_type == "report":
+            if metadata.get("reportNumber"):
+                lines.append(f"- Report No.: {metadata['reportNumber']}")
+            if metadata.get("institution"):
+                lines.append(f"- Institution: {metadata['institution']}")
+        elif item_type == "preprint":
+            if metadata.get("repository"):
+                lines.append(f"- Repository: {metadata['repository']}")
         lines.append("")
     attachment_paths = [str(item) for item in _listify(metadata.get("attachments")) if str(item).strip()]
     if attachment_path and attachment_path not in attachment_paths:
@@ -1087,6 +1151,19 @@ def _reference_source_body(metadata: dict[str, Any], abstract: str = "", notes: 
     if attachment_paths:
         lines.extend(["## Attachments", ""])
         lines.extend(f"- ![[{path}]]" for path in attachment_paths)
+        lines.append("")
+    other_attachments = _listify(metadata.get("otherAttachments"))
+    if other_attachments:
+        lines.extend(["## Other Attachments", ""])
+        for att in other_attachments:
+            if isinstance(att, dict):
+                title = att.get("title") or att.get("key") or "attachment"
+                path = att.get("path") or ""
+                ctype = att.get("contentType") or ""
+                label = f"{title} ({ctype})" if ctype else title
+                lines.append(f"- [{label}]({path})" if path else f"- {label}")
+            else:
+                lines.append(f"- {att}")
         lines.append("")
     if abstract:
         lines.extend(["## Abstract", "", abstract.strip(), ""])
@@ -1160,6 +1237,22 @@ def _zotero_item_summary(item: dict[str, Any]) -> dict[str, Any]:
         "publisher": data.get("publisher"),
         "ISBN": data.get("ISBN"),
         "journalAbbreviation": data.get("journalAbbreviation"),
+        # Type-specific fields
+        "conferenceName": data.get("conferenceName"),
+        "proceedingsTitle": data.get("proceedingsTitle"),
+        "bookTitle": data.get("bookTitle"),
+        "university": data.get("university"),
+        "thesisType": data.get("thesisType"),
+        "patentNumber": data.get("patentNumber"),
+        "assignee": data.get("assignee"),
+        "country": data.get("country"),
+        "reportNumber": data.get("reportNumber"),
+        "institution": data.get("institution"),
+        "place": data.get("place"),
+        "edition": data.get("edition"),
+        "numPages": data.get("numPages"),
+        "series": data.get("series"),
+        "repository": data.get("repository"),
         "parentItem": data.get("parentItem"),
         "note": _plain_note(data.get("note")) if data.get("itemType") == "note" else "",
         "annotationText": data.get("annotationText"),
@@ -1167,6 +1260,7 @@ def _zotero_item_summary(item: dict[str, Any]) -> dict[str, Any]:
         "annotationType": data.get("annotationType"),
         "annotationColor": data.get("annotationColor"),
         "annotationPageLabel": data.get("annotationPageLabel"),
+        "annotationPosition": data.get("annotationPosition"),
         "attachmentPath": data.get("path") or _zotero_path_from_file_url(enclosure_href),
         "contentType": data.get("contentType"),
         "links": links,
@@ -1332,10 +1426,23 @@ def _zotero_notes_and_annotations(children: dict[str, list[dict[str, Any]]]) -> 
                 meta_parts.append(ann_type)
             meta = f" `[{', '.join(meta_parts)}]`" if meta_parts else ""
 
+            # Parse position for machine-readable HTML comment
+            position_comment = ""
+            raw_pos = annotation.get("annotationPosition")
+            if raw_pos:
+                try:
+                    pos_data = json.loads(raw_pos) if isinstance(raw_pos, str) else raw_pos
+                    if isinstance(pos_data, dict):
+                        position_comment = f"<!-- zotero-position: {json.dumps(pos_data, separators=(',', ':'))} -->"
+                except Exception:
+                    pass
+
             if ann_type == "note" and not text:
                 if comment:
                     lines.append(f"> [!note]{meta}")
                     lines.append(f"> {comment}")
+                    if position_comment:
+                        lines.append(position_comment)
                     lines.append("")
             else:
                 if text:
@@ -1344,12 +1451,67 @@ def _zotero_notes_and_annotations(children: dict[str, list[dict[str, Any]]]) -> 
                     if comment:
                         lines.append("> ")
                         lines.append(f"> **Note:** {comment}")
+                    if position_comment:
+                        lines.append(position_comment)
                     lines.append("")
                 elif comment:
                     lines.append(f"> [!note]{meta}")
                     lines.append(f"> {comment}")
+                    if position_comment:
+                        lines.append(position_comment)
                     lines.append("")
     return "\n".join(lines).strip()
+
+
+_ZOTERO_OWNED_FIELDS = frozenset({
+    "title", "authors", "year", "abstract", "doi", "DOI",
+    "zoteroKey", "zoteroVersion", "zoteroSelect", "zoteroLinks",
+    "zoteroPdfKeys", "zoteroPdfLinks", "zoteroAttachmentPaths",
+    "attachments", "attachment", "otherAttachments",
+    "volume", "issue", "pages", "publisher", "ISBN", "journalAbbreviation",
+    "conferenceName", "proceedingsTitle", "bookTitle",
+    "university", "thesisType", "patentNumber", "assignee", "country",
+    "reportNumber", "institution", "place", "edition", "numPages", "series", "repository",
+    "itemType", "journal", "publicationTitle", "booktitle", "type",
+    "citekey", "citationKey", "url", "language", "collections",
+})
+
+
+def _replace_zotero_sections(body: str, new_notes_content: str) -> str:
+    """Replace ## Zotero Notes / ## Zotero Annotations block with new_notes_content."""
+    first_pos = -1
+    for heading in ("## Zotero Notes\n", "## Zotero Annotations\n"):
+        pos = body.find(heading)
+        if pos != -1 and (first_pos == -1 or pos < first_pos):
+            first_pos = pos
+
+    if first_pos == -1:
+        if not new_notes_content:
+            return body
+        marker = "\n## Extracted Content"
+        if marker in body:
+            return body.replace(marker, "\n\n" + new_notes_content.strip() + marker, 1)
+        return body.rstrip() + "\n\n" + new_notes_content.strip() + "\n"
+
+    # Find end of Zotero block: next ## heading that is not a Zotero section
+    search_pos = first_pos
+    end_pos = len(body)
+    while True:
+        next_h2 = body.find("\n## ", search_pos + 1)
+        if next_h2 == -1:
+            end_pos = len(body)
+            break
+        if body[next_h2 + 1:].startswith("## Zotero "):
+            search_pos = next_h2 + 1
+            continue
+        end_pos = next_h2
+        break
+
+    before = body[:first_pos].rstrip("\n")
+    after = body[end_pos:]
+    if new_notes_content:
+        return before + "\n\n" + new_notes_content.strip() + "\n" + after
+    return before + "\n" + after
 
 
 def _markdown_excerpt(markdown: str, max_chars: int = 800) -> str:

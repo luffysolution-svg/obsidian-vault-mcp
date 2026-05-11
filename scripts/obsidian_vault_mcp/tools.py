@@ -719,13 +719,29 @@ def obsidian_ingest_reference(
     if duplicate and not overwrite:
         return {"ok": True, "duplicate": True, "existingPath": duplicate["path"], "matchedOn": duplicate["field"], "referencePath": rel_path, "metadata": metadata}
     tags = _merge_unique(metadata.get("tags"), ["source", "literature"])
-    source_props = {k: v for k, v in metadata.items() if k not in {
+    _exclude_keys = {
         "parentItem", "note", "annotationText", "annotationComment",
-        "annotationType", "annotationColor", "annotationPageLabel",
+        "annotationType", "annotationColor", "annotationPageLabel", "annotationPosition",
         "attachmentPath", "contentType", "links", "rawData",
         "creators", "zoteroLinks",
         "key", "version", "date",
-    }}
+        "relations",
+    }
+    # Fields that should only appear when they have a non-null value
+    _omit_if_empty = {
+        "publicationTitle", "volume", "issue", "pages", "publisher", "ISBN", "journalAbbreviation",
+        "conferenceName", "proceedingsTitle", "bookTitle",
+        "university", "thesisType", "patentNumber", "assignee", "country",
+        "reportNumber", "institution", "place", "edition", "numPages", "series", "repository",
+        "doi",
+    }
+    source_props = {}
+    for k, v in metadata.items():
+        if k in _exclude_keys:
+            continue
+        if k in _omit_if_empty and not v:
+            continue
+        source_props[k] = v
     source_props["type"] = "literature"
     source_props["tags"] = tags
     if attachment_path:
@@ -1227,6 +1243,8 @@ def obsidian_ingest_zotero_item(
     max_pdf_pages: int = 5,
     folder_by_collection: bool = False,
     folder_by_type: bool = False,
+    tag_by_collection: bool = False,
+    smart_update: bool = True,
     entities_json: str = "[]",
     concepts_json: str = "[]",
     index_path: str = "index.md",
@@ -1239,7 +1257,10 @@ def obsidian_ingest_zotero_item(
 
     folder_by_type: place items in sub-folders by itemType (e.g. literature/journalArticle/).
     folder_by_collection: place items in sub-folders named after their first Zotero collection.
-    When both are set, collection takes precedence.
+    tag_by_collection: add all Zotero collection names as tags (collection/<slug>).
+    smart_update: when version changes, merge frontmatter and replace only Zotero sections
+        instead of overwriting the entire note (preserves user edits).
+    When both folder_by_collection and folder_by_type are set, collection takes precedence.
     """
     vault = _vault(vault_path)
     source_folder = _configured_path(vault, "literatureFolder", source_folder, "literature")
@@ -1255,19 +1276,25 @@ def obsidian_ingest_zotero_item(
     metadata["zoteroSelect"] = _zotero_select_uri(key)
     metadata["tags"] = _merge_unique(metadata.get("tags"), ["source", "literature", "zotero"])
 
+    # Resolve collection names from Zotero keys (always, for human-readable collections field)
+    collection_names: list[str] = []
+    collection_keys = item.get("collections") or []
+    for col_key in collection_keys:
+        try:
+            col_data = _zotero_api(f"users/0/collections/{col_key}", {"format": "json"}, api_base) or {}
+            col_name = col_data.get("data", {}).get("name") or ""
+            if col_name:
+                collection_names.append(col_name)
+        except Exception:
+            pass
+    if collection_names:
+        metadata["collections"] = collection_names
+
     # Resolve sub-folder: collection name takes precedence over item type
-    if folder_by_collection or folder_by_type:
+    if folder_by_collection or folder_by_type or tag_by_collection:
         subfolder = ""
-        if folder_by_collection:
-            collection_keys = item.get("collections") or []
-            if collection_keys:
-                try:
-                    col_data = _zotero_api(f"users/0/collections/{collection_keys[0]}", {"format": "json"}, api_base) or {}
-                    col_name = col_data.get("data", {}).get("name") or ""
-                    if col_name:
-                        subfolder = _slug_filename(col_name)
-                except Exception:
-                    pass
+        if folder_by_collection and collection_names:
+            subfolder = _slug_filename(collection_names[0])
         if not subfolder and folder_by_type:
             item_type = str(item.get("itemType") or "")
             if item_type:
@@ -1275,20 +1302,27 @@ def obsidian_ingest_zotero_item(
         if subfolder:
             source_folder = f"{source_folder.rstrip('/')}/{subfolder}"
 
-    # Version-based update detection: if the note exists and version matches, skip.
-    # If version has changed, force overwrite. If version is unavailable, fall through
-    # to the normal duplicate detection in obsidian_ingest_reference.
+    if tag_by_collection and collection_names:
+        col_tags = [re.sub(r"\s+", "-", re.sub(r'[<>:"/\\|?*\x00-\x1f#\[\]]', "", n).strip()).lower() for n in collection_names]
+        col_tags = [f"collection/{t}" for t in col_tags if t]
+        metadata["tags"] = _merge_unique(metadata.get("tags"), col_tags)
+
+    # Version-based update detection
+    _smart_update_target: dict[str, Any] | None = None
     if not overwrite:
         existing = _find_existing_reference(vault, metadata, source_folder)
         if existing:
             existing_path = _safe_path(vault, existing["path"])
-            existing_props, _ = _split_frontmatter(_read_text(existing_path))
+            existing_props, existing_body = _split_frontmatter(_read_text(existing_path))
             stored_version = existing_props.get("zoteroVersion")
             current_version = item.get("version")
             if stored_version is not None and current_version is not None:
                 if stored_version == current_version:
                     return {"ok": True, "upToDate": True, "existingPath": existing["path"], "zoteroVersion": current_version, "zoteroKey": key}
-                overwrite = True  # version changed — force update
+                if smart_update:
+                    _smart_update_target = {"path": existing_path, "rel_path": existing["path"], "props": existing_props, "body": existing_body}
+                else:
+                    overwrite = True
 
     notes_content = _zotero_notes_and_annotations(
         {
@@ -1300,11 +1334,26 @@ def obsidian_ingest_zotero_item(
     copied_attachments: list[str] = []
     linked_attachments: list[str] = []
     zotero_attachment_paths: list[str] = []
+    other_attachments: list[dict[str, str]] = []
     attachment_errors: list[dict[str, str]] = []
     pdf_text_parts: list[str] = []
     pdf_keys: list[str] = []
     for attachment_index, attachment in enumerate(children.get("attachments", []), start=1):
-        if attachment.get("contentType") != "application/pdf" and not str(attachment.get("attachmentPath") or "").lower().endswith(".pdf"):
+        content_type = str(attachment.get("contentType") or "")
+        att_path_str = str(attachment.get("attachmentPath") or "")
+        is_pdf = content_type == "application/pdf" or att_path_str.lower().endswith(".pdf")
+        if not is_pdf:
+            # Collect non-PDF attachments (web snapshots, images, Word, etc.)
+            att_key = str(attachment.get("key") or "")
+            att_title = str(attachment.get("title") or att_key or "attachment")
+            if att_path_str or att_key:
+                other_attachments.append({
+                    "key": att_key,
+                    "title": att_title,
+                    "contentType": content_type,
+                    "path": att_path_str,
+                    "zoteroSelect": _zotero_select_uri(att_key) if att_key else "",
+                })
             continue
         if attachment.get("key"):
             pdf_keys.append(str(attachment["key"]))
@@ -1347,6 +1396,8 @@ def obsidian_ingest_zotero_item(
         metadata["attachments"] = linked_attachments
     if zotero_attachment_paths:
         metadata["zoteroAttachmentPaths"] = zotero_attachment_paths
+    if other_attachments:
+        metadata["otherAttachments"] = other_attachments
 
     # Build relations section: resolve related Zotero item keys to vault note wikilinks
     relations_content = ""
@@ -1378,6 +1429,50 @@ def obsidian_ingest_zotero_item(
             lines.append(f"- {title}: {err_item.get('error')}")
         attachment_content = "\n".join(lines)
     content = "\n\n".join(part for part in [notes_content, relations_content, attachment_content, *pdf_text_parts] if part)
+
+    # Smart update: merge frontmatter, replace only Zotero sections in body
+    if _smart_update_target is not None:
+        _su_exclude = {
+            "parentItem", "note", "annotationText", "annotationComment",
+            "annotationType", "annotationColor", "annotationPageLabel", "annotationPosition",
+            "attachmentPath", "contentType", "links", "rawData", "creators", "zoteroLinks",
+            "key", "version", "date", "relations",
+        }
+        _su_omit_if_empty = {
+            "publicationTitle", "volume", "issue", "pages", "publisher", "ISBN", "journalAbbreviation",
+            "conferenceName", "proceedingsTitle", "bookTitle",
+            "university", "thesisType", "patentNumber", "assignee", "country",
+            "reportNumber", "institution", "place", "edition", "numPages", "series", "repository",
+            "doi",
+        }
+        new_props = {}
+        for k, v in metadata.items():
+            if k in _su_exclude:
+                continue
+            if k in _su_omit_if_empty and not v:
+                continue
+            new_props[k] = v
+        new_props["type"] = "literature"
+        new_props["tags"] = _merge_unique(metadata.get("tags"), ["source", "literature"])
+        if attachment_path:
+            new_props["attachment"] = attachment_path
+        merged = dict(_smart_update_target["props"])
+        for field, value in new_props.items():
+            if field in _ZOTERO_OWNED_FIELDS or field.startswith("zotero"):
+                merged[field] = value
+        merged["tags"] = _merge_unique(_smart_update_target["props"].get("tags"), new_props.get("tags"))
+        new_body = _replace_zotero_sections(_smart_update_target["body"], notes_content)
+        if not dry_run:
+            _smart_update_target["path"].write_text(_join_frontmatter(merged, new_body), encoding="utf-8")
+        result: dict[str, Any] = {"ok": True, "smartUpdated": True, "path": _smart_update_target["rel_path"], "zoteroVersion": metadata.get("zoteroVersion"), "zoteroKey": key}
+        result["children"] = {"notes": len(children.get("notes", [])), "annotations": len(children.get("annotations", [])), "attachments": len(children.get("attachments", []))}
+        result["copiedAttachments"] = copied_attachments
+        result["linkedAttachments"] = linked_attachments
+        result["zoteroAttachmentPaths"] = zotero_attachment_paths
+        result["attachmentErrors"] = attachment_errors
+        result["includedContentChars"] = len(content)
+        return result
+
     result = obsidian_ingest_reference(
         metadata_json=json.dumps(metadata, ensure_ascii=False),
         vault_path=str(vault),
@@ -1422,6 +1517,8 @@ def obsidian_ingest_zotero_collection(
     max_pdf_pages: int = 5,
     folder_by_collection: bool = False,
     folder_by_type: bool = False,
+    tag_by_collection: bool = False,
+    smart_update: bool = True,
     index_path: str = "index.md",
     log_path: str = "log.md",
     overwrite: bool = False,
@@ -1483,6 +1580,8 @@ def obsidian_ingest_zotero_collection(
                 max_pdf_pages=max_pdf_pages,
                 folder_by_collection=folder_by_collection,
                 folder_by_type=folder_by_type,
+                tag_by_collection=tag_by_collection,
+                smart_update=smart_update,
                 index_path=index_path,
                 log_path=log_path,
                 overwrite=overwrite,
@@ -1493,11 +1592,11 @@ def obsidian_ingest_zotero_collection(
                 skipped += 1
             elif res.get("duplicate"):
                 skipped += 1
-            elif res.get("changed"):
+            elif res.get("smartUpdated") or res.get("changed"):
                 updated += 1
             else:
                 created += 1
-            results.append({"key": item_key, **{k: v for k, v in res.items() if k in {"ok", "upToDate", "duplicate", "changed", "referencePath", "attachmentErrors"}}})
+            results.append({"key": item_key, **{k: v for k, v in res.items() if k in {"ok", "upToDate", "duplicate", "changed", "smartUpdated", "referencePath", "path", "attachmentErrors"}}})
         except Exception as exc:
             errors += 1
             results.append({"key": item_key, "ok": False, "error": str(exc)})
