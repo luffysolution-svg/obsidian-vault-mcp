@@ -1141,6 +1141,9 @@ def _zotero_item_summary(item: dict[str, Any]) -> dict[str, Any]:
         "note": _plain_note(data.get("note")) if data.get("itemType") == "note" else "",
         "annotationText": data.get("annotationText"),
         "annotationComment": data.get("annotationComment"),
+        "annotationType": data.get("annotationType"),
+        "annotationColor": data.get("annotationColor"),
+        "annotationPageLabel": data.get("annotationPageLabel"),
         "attachmentPath": data.get("path") or _zotero_path_from_file_url(enclosure_href),
         "contentType": data.get("contentType"),
         "links": links,
@@ -1177,6 +1180,24 @@ def _extract_pdf_text_from_path(pdf_path: Path, max_pages: int = 5) -> dict[str,
         return {"ok": False, "path": str(pdf_path), "error": str(exc)}
 
 
+_ANNOTATION_COLOR_NAMES: dict[str, str] = {
+    "#ffd400": "yellow",
+    "#ff6666": "red",
+    "#5fb236": "green",
+    "#2ea8e5": "blue",
+    "#a28ae5": "purple",
+    "#e56eee": "magenta",
+    "#f19837": "orange",
+    "#aaaaaa": "gray",
+}
+
+
+def _annotation_color_label(color: str | None) -> str:
+    if not color:
+        return ""
+    return _ANNOTATION_COLOR_NAMES.get(color.lower(), color)
+
+
 def _zotero_notes_and_annotations(children: dict[str, list[dict[str, Any]]]) -> str:
     lines: list[str] = []
     notes = children.get("notes", [])
@@ -1190,11 +1211,36 @@ def _zotero_notes_and_annotations(children: dict[str, list[dict[str, Any]]]) -> 
         for annotation in annotations:
             text = str(annotation.get("annotationText") or "").strip()
             comment = str(annotation.get("annotationComment") or "").strip()
-            if text:
-                lines.append(f"- {text}")
-            if comment:
-                lines.append(f"  - Comment: {comment}")
-        lines.append("")
+            ann_type = str(annotation.get("annotationType") or "highlight")
+            page = str(annotation.get("annotationPageLabel") or "").strip()
+            color = _annotation_color_label(annotation.get("annotationColor"))
+
+            meta_parts = []
+            if page:
+                meta_parts.append(f"p. {page}")
+            if color:
+                meta_parts.append(color)
+            if ann_type and ann_type != "highlight":
+                meta_parts.append(ann_type)
+            meta = f" `[{', '.join(meta_parts)}]`" if meta_parts else ""
+
+            if ann_type == "note" and not text:
+                if comment:
+                    lines.append(f"> [!note]{meta}")
+                    lines.append(f"> {comment}")
+                    lines.append("")
+            else:
+                if text:
+                    lines.append(f"> [!quote]{meta}")
+                    lines.append(f"> {text}")
+                    if comment:
+                        lines.append(f"> ")
+                        lines.append(f"> **Note:** {comment}")
+                    lines.append("")
+                elif comment:
+                    lines.append(f"> [!note]{meta}")
+                    lines.append(f"> {comment}")
+                    lines.append("")
     return "\n".join(lines).strip()
 
 

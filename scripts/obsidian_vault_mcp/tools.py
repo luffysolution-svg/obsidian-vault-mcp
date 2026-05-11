@@ -1230,8 +1230,25 @@ def obsidian_ingest_zotero_item(
     children = obsidian_zotero_get_children(key, api_base)
     metadata = _metadata_from_reference(item)
     metadata["zoteroKey"] = key
+    metadata["zoteroVersion"] = item.get("version")
     metadata["zoteroSelect"] = _zotero_select_uri(key)
     metadata["tags"] = _merge_unique(metadata.get("tags"), ["source", "literature", "zotero"])
+
+    # Version-based update detection: if the note exists and version matches, skip.
+    # If version has changed, force overwrite. If version is unavailable, fall through
+    # to the normal duplicate detection in obsidian_ingest_reference.
+    if not overwrite:
+        existing = _find_existing_reference(vault, metadata, source_folder)
+        if existing:
+            existing_path = _safe_path(vault, existing["path"])
+            existing_props, _ = _split_frontmatter(_read_text(existing_path))
+            stored_version = existing_props.get("zoteroVersion")
+            current_version = item.get("version")
+            if stored_version is not None and current_version is not None:
+                if stored_version == current_version:
+                    return {"ok": True, "upToDate": True, "existingPath": existing["path"], "zoteroVersion": current_version, "zoteroKey": key}
+                overwrite = True  # version changed — force update
+
     notes_content = _zotero_notes_and_annotations(
         {
             "notes": children.get("notes", []) if include_child_notes else [],
@@ -1322,6 +1339,110 @@ def obsidian_ingest_zotero_item(
     result["attachmentErrors"] = attachment_errors
     result["includedContentChars"] = len(content)
     return result
+
+
+@tool()
+def obsidian_ingest_zotero_collection(
+    collection_key: str = "",
+    tag: str = "",
+    item_type: str = "",
+    query: str = "",
+    vault_path: str = "",
+    source_folder: str = "literature",
+    attachments_folder: str = "attachments/zotero",
+    attachment_name_strategy: str = "original",
+    copy_pdf_attachments: bool = False,
+    include_child_notes: bool = True,
+    include_annotations: bool = True,
+    include_pdf_text: bool = False,
+    max_pdf_pages: int = 5,
+    index_path: str = "index.md",
+    log_path: str = "log.md",
+    overwrite: bool = False,
+    skip_up_to_date: bool = True,
+    limit: int = 100,
+    dry_run: bool = False,
+    api_base: str = "",
+) -> dict[str, Any]:
+    """Batch-ingest Zotero items into the vault.
+
+    Fetch items from a collection, tag, item type filter, or free-text query
+    (at least one of collection_key / tag / item_type / query is required).
+    Items whose zoteroVersion matches the stored value are skipped unless
+    skip_up_to_date=False or overwrite=True.
+    """
+    if not any([collection_key, tag, item_type, query]):
+        raise ValueError("Provide at least one of: collection_key, tag, item_type, query.")
+
+    params: dict[str, Any] = {"format": "json", "limit": max(1, min(limit, 100))}
+    if tag:
+        params["tag"] = tag
+    if item_type:
+        params["itemType"] = item_type
+    if query:
+        params["q"] = query
+
+    if collection_key:
+        raw_items = _zotero_api(f"users/0/collections/{collection_key}/items/top", params, api_base) or []
+    else:
+        raw_items = _zotero_api("users/0/items/top", params, api_base) or []
+
+    # Filter to real parent items (exclude attachments/notes/annotations)
+    skip_types = {"attachment", "note", "annotation"}
+    keys = [
+        item.get("key")
+        for item in raw_items
+        if item.get("key") and item.get("data", {}).get("itemType") not in skip_types
+    ]
+
+    results: list[dict[str, Any]] = []
+    skipped = 0
+    updated = 0
+    created = 0
+    errors = 0
+
+    for item_key in keys:
+        try:
+            res = obsidian_ingest_zotero_item(
+                key=item_key,
+                vault_path=vault_path,
+                source_folder=source_folder,
+                attachments_folder=attachments_folder,
+                attachment_name_strategy=attachment_name_strategy,
+                copy_pdf_attachments=copy_pdf_attachments,
+                include_child_notes=include_child_notes,
+                include_annotations=include_annotations,
+                include_pdf_text=include_pdf_text,
+                max_pdf_pages=max_pdf_pages,
+                index_path=index_path,
+                log_path=log_path,
+                overwrite=overwrite,
+                dry_run=dry_run,
+                api_base=api_base,
+            )
+            if res.get("upToDate") and skip_up_to_date:
+                skipped += 1
+            elif res.get("duplicate"):
+                skipped += 1
+            elif res.get("changed"):
+                updated += 1
+            else:
+                created += 1
+            results.append({"key": item_key, **{k: v for k, v in res.items() if k in {"ok", "upToDate", "duplicate", "changed", "referencePath", "attachmentErrors"}}})
+        except Exception as exc:
+            errors += 1
+            results.append({"key": item_key, "ok": False, "error": str(exc)})
+
+    return {
+        "ok": errors == 0,
+        "total": len(keys),
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "errors": errors,
+        "dryRun": dry_run,
+        "results": results,
+    }
 
 
 @tool()
