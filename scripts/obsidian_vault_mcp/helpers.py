@@ -1084,7 +1084,7 @@ def _reference_source_body(metadata: dict[str, Any], abstract: str = "", notes: 
     if abstract:
         lines.extend(["## Abstract", "", abstract.strip(), ""])
     if notes:
-        lines.extend(["## Notes", "", notes.strip(), ""])
+        lines.extend([notes.strip(), ""])
     if content:
         lines.extend(["## Extracted Content", "", content.strip(), ""])
     return "\n".join(lines).strip() + "\n"
