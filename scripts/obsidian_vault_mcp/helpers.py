@@ -1191,11 +1191,49 @@ _ANNOTATION_COLOR_NAMES: dict[str, str] = {
     "#aaaaaa": "gray",
 }
 
+# Cache for Ethereal Style color labels loaded from prefs.js
+_ethereal_color_labels: dict[str, str] | None = None
+
+
+def _load_ethereal_color_labels() -> dict[str, str]:
+    """Load annotation color name mappings from Ethereal Style (ZoteroStyle) plugin prefs.js."""
+    global _ethereal_color_labels
+    if _ethereal_color_labels is not None:
+        return _ethereal_color_labels
+    _ethereal_color_labels = {}
+    try:
+        import glob as _glob
+        prefs_pattern = os.path.expanduser(
+            "~/AppData/Roaming/Zotero/Zotero/Profiles/*/prefs.js"
+        )
+        prefs_files = _glob.glob(prefs_pattern)
+        if not prefs_files:
+            return _ethereal_color_labels
+        with open(prefs_files[0], "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+        import re as _re
+        # extensions.zotero.zoterostyle.annotationColors = [["name","#hex"],...]
+        m = _re.search(
+            r'user_pref\("extensions\.zotero\.zoterostyle\.annotationColors",\s*"(.+?)"\)',
+            content,
+        )
+        if m:
+            raw = m.group(1).replace('\\"', '"')
+            pairs = json.loads(raw)
+            for name, hex_color in pairs:
+                _ethereal_color_labels[hex_color.lower()] = name
+    except Exception:
+        pass
+    return _ethereal_color_labels
+
 
 def _annotation_color_label(color: str | None) -> str:
     if not color:
         return ""
-    return _ANNOTATION_COLOR_NAMES.get(color.lower(), color)
+    key = color.lower()
+    # Prefer user-defined Ethereal Style label over built-in English name
+    labels = _load_ethereal_color_labels()
+    return labels.get(key) or _ANNOTATION_COLOR_NAMES.get(key, color)
 
 
 def _zotero_notes_and_annotations(children: dict[str, list[dict[str, Any]]]) -> str:
