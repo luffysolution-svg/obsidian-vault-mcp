@@ -976,7 +976,7 @@ def obsidian_mineru_extract(
     else:
         output_full.mkdir(parents=True, exist_ok=True)
     try:
-        completed = subprocess.run(args, capture_output=True, text=True, timeout=max(1, timeout_seconds + 30), check=False)  # noqa: S603
+        completed = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=max(1, timeout_seconds + 30), check=False)  # noqa: S603
     except Exception as exc:
         result["error"] = f"MinerU CLI failed to start: {exc}"
         return result
@@ -985,8 +985,8 @@ def obsidian_mineru_extract(
         {
             "ok": completed.returncode == 0 and bool(markdown_rel),
             "returnCode": completed.returncode,
-            "stdout": completed.stdout.strip(),
-            "stderr": completed.stderr.strip(),
+            "stdout": _s(completed.stdout).strip(),
+            "stderr": _s(completed.stderr).strip(),
             "markdownPath": markdown_rel,
         }
     )
