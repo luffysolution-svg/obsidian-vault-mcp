@@ -1519,6 +1519,31 @@ def _replace_zotero_sections(body: str, new_notes_content: str) -> str:
     return before + "\n" + after
 
 
+def _replace_mineru_section(body: str, content: str) -> str:
+    """Replace or insert ## Full Text (MinerU) section in a note body."""
+    heading = "## Full Text (MinerU)\n"
+    pos = body.find(heading)
+
+    if pos != -1:
+        next_h2 = body.find("\n## ", pos + 1)
+        end_pos = next_h2 if next_h2 != -1 else len(body)
+        before = body[:pos].rstrip("\n")
+        after = body[end_pos:]
+        if content:
+            return before + "\n\n" + heading + "\n" + content.strip() + "\n" + after
+        return before + "\n" + after
+
+    # Insert before Zotero sections if present, otherwise append
+    for anchor in ("## Zotero Notes\n", "## Zotero Annotations\n"):
+        anchor_pos = body.find(anchor)
+        if anchor_pos != -1:
+            before = body[:anchor_pos].rstrip("\n")
+            after = body[anchor_pos:]
+            return before + "\n\n" + heading + "\n" + content.strip() + "\n\n" + after
+
+    return body.rstrip() + "\n\n" + heading + "\n" + content.strip() + "\n"
+
+
 def _markdown_excerpt(markdown: str, max_chars: int = 800) -> str:
     lines: list[str] = []
     for line in markdown.splitlines():
