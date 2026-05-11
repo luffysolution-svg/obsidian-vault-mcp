@@ -1031,16 +1031,14 @@ def _find_existing_reference(vault: Path, metadata: dict[str, Any], folder: str 
 
 
 def _reference_filename(metadata: dict[str, Any]) -> str:
-    citekey = str(metadata.get("citekey") or metadata.get("citationKey") or metadata.get("key") or "").strip()
-    if citekey:
-        return _slug_filename(citekey)
     title = str(metadata.get("title") or "Untitled Reference")
     year = str(metadata.get("year") or "").strip()
     first_author = ""
     authors = _listify(metadata.get("authors"))
     if authors:
         first_author = str(authors[0]).split(",")[0].split()[-1]
-    pieces = [piece for piece in [first_author, year, title[:60]] if piece]
+    author_year = f"{first_author} ({year})" if first_author and year else first_author or year
+    pieces = [piece for piece in [author_year, title[:80]] if piece]
     return _slug_filename(" - ".join(pieces))
 
 

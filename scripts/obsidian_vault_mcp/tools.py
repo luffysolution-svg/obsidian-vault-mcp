@@ -719,7 +719,11 @@ def obsidian_ingest_reference(
     if duplicate and not overwrite:
         return {"ok": True, "duplicate": True, "existingPath": duplicate["path"], "matchedOn": duplicate["field"], "referencePath": rel_path, "metadata": metadata}
     tags = _merge_unique(metadata.get("tags"), ["source", "literature"])
-    source_props = dict(metadata)
+    source_props = {k: v for k, v in metadata.items() if k not in {
+        "parentItem", "note", "annotationText", "annotationComment",
+        "attachmentPath", "contentType", "links", "rawData",
+        "creators", "zoteroLinks",
+    }}
     source_props["type"] = "literature"
     source_props["tags"] = tags
     if attachment_path:
