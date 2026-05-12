@@ -87,7 +87,7 @@ Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user 
 - `obsidian_parse_bibtex`: parse BibTeX into normalized reference metadata.
 - `obsidian_ingest_reference`: ingest one reference metadata object as a literature source note.
 - `obsidian_ingest_bibtex`: ingest one or more BibTeX entries as literature source notes.
-- `obsidian_ingest_mineru_markdown`: ingest MinerU Markdown output and optional PDF attachment as a source note.
+- `obsidian_ingest_mineru_markdown`: ingest MinerU Markdown output and optional PDF attachment as a source note in `sources/mineru/`. Does not modify any existing literature note.
 - `obsidian_mineru_status`: check optional MinerU CLI availability and token environment variables.
 - `obsidian_mineru_extract`: run optional MinerU CLI extraction and save Markdown output under the vault.
 - `obsidian_mineru_extract_and_ingest`: run MinerU CLI, find the generated Markdown, and ingest it as a source note. Pass `zotero_key` to also append a `mineru_markdown` wikilink to the matching literature note YAML.
@@ -98,7 +98,8 @@ Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user 
 - `obsidian_zotero_get_children`: fetch child notes, annotations, attachments, and other child items.
 - `obsidian_zotero_list_pdf_attachments`: list Zotero PDF attachments.
 - `obsidian_zotero_extract_pdf_text`: extract text from a Zotero PDF attachment when `pypdf` or `PyPDF2` is installed.
-- `obsidian_ingest_zotero_item`: fetch a Zotero item, optionally copy PDF attachments into the vault, include child notes/annotations/PDF text, and ingest it as a literature note.
+- `obsidian_ingest_zotero_item`: fetch a Zotero item, optionally copy PDF attachments into the vault, include child notes/annotations/PDF text, and ingest it as a literature note in `literature/`. Re-ingesting an unchanged item (`zoteroVersion` matches) returns `upToDate: true` without writing; a changed version triggers a full overwrite of the note.
+- `obsidian_ingest_zotero_collection`: batch-ingest Zotero items by collection key, tag, item type, or free-text query. Forwards all per-item options to `obsidian_ingest_zotero_item`; items whose version is unchanged are skipped when `skip_up_to_date=true` (default).
 - `obsidian_create_canvas`: write valid JSON Canvas from node and edge JSON.
 - `obsidian_create_canvas_from_graph`: create a Canvas map from the vault graph with `grid`, `radial`, `grouped`, or `layered` layout, optional folder/tag filtering, group nodes, orphan control, and dry-run diff support.
 - `obsidian_create_base`: write valid Obsidian Bases YAML from JSON.
