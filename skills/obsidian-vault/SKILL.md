@@ -96,6 +96,7 @@ Use `obsidian_zotero_ping` before direct Zotero work. If it fails, ask the user 
 - `obsidian_zotero_search_items`: search local Zotero items.
 - `obsidian_zotero_get_item`: fetch one Zotero item metadata record.
 - `obsidian_zotero_get_children`: fetch child notes, annotations, attachments, and other child items.
+- `obsidian_zotero_list_collections`: list all Zotero collections with their keys, names, parent keys, and item counts.
 - `obsidian_zotero_list_pdf_attachments`: list Zotero PDF attachments.
 - `obsidian_zotero_extract_pdf_text`: extract text from a Zotero PDF attachment when `pypdf` or `PyPDF2` is installed.
 - `obsidian_ingest_zotero_item`: fetch a Zotero item, optionally copy PDF attachments into the vault, include child notes/annotations/PDF text, and ingest it as a literature note in `literature/`. Re-ingesting an unchanged item (`zoteroVersion` matches) returns `upToDate: true` without writing; a changed version triggers a full overwrite of the note.
