@@ -829,17 +829,11 @@ def obsidian_ingest_mineru_markdown(
     index_path: str = "index.md",
     log_path: str = "log.md",
     overwrite: bool = False,
-    smart_update: bool = True,
     update_index: bool = True,
     append_log: bool = True,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Ingest MinerU Markdown output and optional PDF attachment as a linked source note.
-
-    When smart_update=True (default) and the target note already exists with a zoteroKey,
-    the Zotero frontmatter fields and body sections are preserved and only the
-    '## Full Text (MinerU)' section is replaced/added.
-    """
+    """Ingest MinerU Markdown output and optional PDF attachment as a linked source note."""
     vault = _vault(vault_path)
     source_root = _configured_path(vault, "mineruSourceFolder", "sources/mineru", "sources/mineru")
     index_path = _configured_path(vault, "indexPath", index_path, "index.md")
@@ -854,25 +848,6 @@ def obsidian_ingest_mineru_markdown(
         raise ValueError("markdown_content or markdown_path is required.")
     source_title = title or str(metadata.get("title") or _note_title_from_path(_s(markdown_path) or "MinerU Extraction.md"))
     rel_path = _s(source_path).strip() or f"{source_root}/{_slug_filename(source_title)}.md"
-
-    # Smart update: if target note exists with zoteroKey, only add mineru_markdown to frontmatter
-    if smart_update:
-        target_full = _safe_path(vault, rel_path)
-        if target_full.exists():
-            existing_props, existing_body = _split_frontmatter(_read_text(target_full))
-            if existing_props.get("zoteroKey"):
-                merged_props = dict(existing_props)
-                if markdown_path:
-                    merged_props["mineru_markdown"] = markdown_path
-                if not dry_run:
-                    target_full.write_text(_join_frontmatter(merged_props, existing_body), encoding="utf-8")
-                return {
-                    "ok": True,
-                    "smartUpdated": True,
-                    "path": rel_path,
-                    "markdownPath": markdown_path,
-                    "dryRun": dry_run,
-                }
 
     props = dict(metadata)
     props["type"] = "mineru"
@@ -1049,7 +1024,7 @@ def obsidian_mineru_extract_and_ingest(
     index_path: str = "index.md",
     log_path: str = "log.md",
     overwrite: bool = False,
-    smart_update: bool = True,
+    zotero_key: str = "",
     update_index: bool = True,
     append_log: bool = True,
     verbose: bool = False,
@@ -1059,8 +1034,9 @@ def obsidian_mineru_extract_and_ingest(
 
     Mode and token follow the same auto-resolution as obsidian_mineru_extract:
     precise 'extract' mode is used automatically when a token is available.
-    When smart_update=True (default) and the target note has a zoteroKey, the
-    Zotero metadata is preserved and only the MinerU content section is updated.
+    When zotero_key is provided and extraction succeeds, the corresponding
+    literature note in the vault will have mineru_markdown added to its YAML
+    frontmatter (all other fields and body content are left unchanged).
     """
     vault = _vault(vault_path)
     extraction = obsidian_mineru_extract(
@@ -1116,13 +1092,28 @@ def obsidian_mineru_extract_and_ingest(
         index_path=index_path,
         log_path=log_path,
         overwrite=overwrite,
-        smart_update=smart_update,
         update_index=update_index,
         append_log=append_log,
         dry_run=False,
     )
     result["ingest"] = ingest
     result["ok"] = bool(ingest.get("ok"))
+
+    # If a zotero_key is given and extraction succeeded, add mineru_markdown to the literature note
+    if zotero_key and result["ok"]:
+        markdown_rel = str(extraction.get("markdownPath") or "")
+        if markdown_rel:
+            lit_note = _find_existing_reference(vault, {"zoteroKey": zotero_key}, "")
+            if lit_note:
+                lit_path = _safe_path(vault, lit_note["path"])
+                existing_props, existing_body = _split_frontmatter(_read_text(lit_path))
+                wikilink = "[[" + re.sub(r"\.md$", "", markdown_rel) + "]]"
+                existing_props["mineru_markdown"] = wikilink
+                if not dry_run:
+                    lit_path.write_text(_join_frontmatter(existing_props, existing_body), encoding="utf-8")
+                result["zoteroKey"] = zotero_key
+                result["literatureNotePath"] = lit_note["path"]
+
     return result
 
 
@@ -1329,7 +1320,6 @@ def obsidian_ingest_zotero_item(
     folder_by_collection: bool = False,
     folder_by_type: bool = False,
     tag_by_collection: bool = False,
-    smart_update: bool = True,
     entities_json: str = "[]",
     concepts_json: str = "[]",
     index_path: str = "index.md",
@@ -1343,8 +1333,6 @@ def obsidian_ingest_zotero_item(
     folder_by_type: place items in sub-folders by itemType (e.g. literature/journalArticle/).
     folder_by_collection: place items in sub-folders named after their first Zotero collection.
     tag_by_collection: add all Zotero collection names as tags (collection/<slug>).
-    smart_update: when version changes, merge frontmatter and replace only Zotero sections
-        instead of overwriting the entire note (preserves user edits).
     When both folder_by_collection and folder_by_type are set, collection takes precedence.
     """
     vault = _vault(vault_path)
@@ -1393,21 +1381,17 @@ def obsidian_ingest_zotero_item(
         metadata["tags"] = _merge_unique(metadata.get("tags"), col_tags)
 
     # Version-based update detection
-    _smart_update_target: dict[str, Any] | None = None
     if not overwrite:
         existing = _find_existing_reference(vault, metadata, source_folder)
         if existing:
             existing_path = _safe_path(vault, existing["path"])
-            existing_props, existing_body = _split_frontmatter(_read_text(existing_path))
+            existing_props, _ = _split_frontmatter(_read_text(existing_path))
             stored_version = existing_props.get("zoteroVersion")
             current_version = item.get("version")
             if stored_version is not None and current_version is not None:
                 if stored_version == current_version:
                     return {"ok": True, "upToDate": True, "existingPath": existing["path"], "zoteroVersion": current_version, "zoteroKey": key}
-                if smart_update:
-                    _smart_update_target = {"path": existing_path, "rel_path": existing["path"], "props": existing_props, "body": existing_body}
-                else:
-                    overwrite = True
+                overwrite = True
 
     notes_content = _zotero_notes_and_annotations(
         {
@@ -1515,49 +1499,6 @@ def obsidian_ingest_zotero_item(
         attachment_content = "\n".join(lines)
     content = "\n\n".join(part for part in [notes_content, relations_content, attachment_content, *pdf_text_parts] if part)
 
-    # Smart update: merge frontmatter, replace only Zotero sections in body
-    if _smart_update_target is not None:
-        _su_exclude = {
-            "parentItem", "note", "annotationText", "annotationComment",
-            "annotationType", "annotationColor", "annotationPageLabel", "annotationPosition",
-            "attachmentPath", "contentType", "links", "rawData", "creators", "zoteroLinks",
-            "key", "version", "date", "relations",
-        }
-        _su_omit_if_empty = {
-            "publicationTitle", "volume", "issue", "pages", "publisher", "ISBN", "journalAbbreviation",
-            "conferenceName", "proceedingsTitle", "bookTitle",
-            "university", "thesisType", "patentNumber", "assignee", "country",
-            "reportNumber", "institution", "place", "edition", "numPages", "series", "repository",
-            "doi",
-        }
-        new_props = {}
-        for k, v in metadata.items():
-            if k in _su_exclude:
-                continue
-            if k in _su_omit_if_empty and not v:
-                continue
-            new_props[k] = v
-        new_props["type"] = "literature"
-        new_props["tags"] = _merge_unique(metadata.get("tags"), ["source", "literature"])
-        if attachment_path:
-            new_props["attachment"] = attachment_path
-        merged = dict(_smart_update_target["props"])
-        for field, value in new_props.items():
-            if field in _ZOTERO_OWNED_FIELDS or field.startswith("zotero"):
-                merged[field] = value
-        merged["tags"] = _merge_unique(_smart_update_target["props"].get("tags"), new_props.get("tags"))
-        new_body = _replace_zotero_sections(_smart_update_target["body"], notes_content)
-        if not dry_run:
-            _smart_update_target["path"].write_text(_join_frontmatter(merged, new_body), encoding="utf-8")
-        result: dict[str, Any] = {"ok": True, "smartUpdated": True, "path": _smart_update_target["rel_path"], "zoteroVersion": metadata.get("zoteroVersion"), "zoteroKey": key}
-        result["children"] = {"notes": len(children.get("notes", [])), "annotations": len(children.get("annotations", [])), "attachments": len(children.get("attachments", []))}
-        result["copiedAttachments"] = copied_attachments
-        result["linkedAttachments"] = linked_attachments
-        result["zoteroAttachmentPaths"] = zotero_attachment_paths
-        result["attachmentErrors"] = attachment_errors
-        result["includedContentChars"] = len(content)
-        return result
-
     result = obsidian_ingest_reference(
         metadata_json=json.dumps(metadata, ensure_ascii=False),
         vault_path=str(vault),
@@ -1603,7 +1544,6 @@ def obsidian_ingest_zotero_collection(
     folder_by_collection: bool = False,
     folder_by_type: bool = False,
     tag_by_collection: bool = False,
-    smart_update: bool = True,
     index_path: str = "index.md",
     log_path: str = "log.md",
     overwrite: bool = False,
@@ -1666,7 +1606,6 @@ def obsidian_ingest_zotero_collection(
                 folder_by_collection=folder_by_collection,
                 folder_by_type=folder_by_type,
                 tag_by_collection=tag_by_collection,
-                smart_update=smart_update,
                 index_path=index_path,
                 log_path=log_path,
                 overwrite=overwrite,
@@ -1677,11 +1616,11 @@ def obsidian_ingest_zotero_collection(
                 skipped += 1
             elif res.get("duplicate"):
                 skipped += 1
-            elif res.get("smartUpdated") or res.get("changed"):
+            elif res.get("changed"):
                 updated += 1
             else:
                 created += 1
-            results.append({"key": item_key, **{k: v for k, v in res.items() if k in {"ok", "upToDate", "duplicate", "changed", "smartUpdated", "referencePath", "path", "attachmentErrors"}}})
+            results.append({"key": item_key, **{k: v for k, v in res.items() if k in {"ok", "upToDate", "duplicate", "changed", "referencePath", "path", "attachmentErrors"}}})
         except Exception as exc:
             errors += 1
             results.append({"key": item_key, "ok": False, "error": str(exc)})

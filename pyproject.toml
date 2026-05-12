@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "obsidian-vault-mcp"
-version = "1.0.13"
+version = "1.0.14"
 description = "Local MCP server for maintaining Obsidian vaults as persistent linked wikis."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -44,10 +44,14 @@ Issues = "https://github.com/luffysolution-svg/obsidian-vault-mcp/issues"
 
 [tool.setuptools]
 package-dir = { "" = "scripts" }
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["scripts"]
 include = ["obsidian_vault_mcp*"]
+
+[tool.setuptools.package-data]
+"obsidian_vault_mcp" = ["skills/**/*"]
 
 [tool.ruff]
 line-length = 160

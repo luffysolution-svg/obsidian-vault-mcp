@@ -39,7 +39,7 @@ python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path
 - Obsidian Bases 创建，内置文献、项目任务、设备、公用工程、经济性和来源材料模板。
 - Dataview 查询笔记模板。
 - 封装本地官方 `obsidian` CLI，提供 read/open、backlinks、Base query、properties、tasks、截图、plugin reload、move/rename dry-run 等结构化工具。
-- 随插件发布的 `skills/obsidian-vault/SKILL.md`，让 Codex 知道何时、如何调用这些工具。
+- 随插件发布的 `skills/obsidian-vault/SKILL.md`，让 Codex 知道何时、如何调用这些工具。`pip install` 安装后 skill 文件位于 Python 包目录内（`<site-packages>/obsidian_vault_mcp/skills/obsidian-vault/SKILL.md`）；clone 源码安装后位于仓库根目录 `skills/obsidian-vault/SKILL.md`。
 
 ## 配置
 
@@ -57,6 +57,12 @@ CLI 封装需要 Obsidian 1.12.7 或更高版本，且 `obsidian` 命令在 PATH
 Zotero 工具需要 Zotero Desktop 本地 API 运行在 `http://127.0.0.1:23119/api`，可通过 `ZOTERO_LOCAL_API` 覆盖。
 
 MinerU 支持是可选的。已有 MinerU Markdown 可直接导入，无需安装 MinerU。如需直接解析文档，安装 `mineru-open-api` 并使用 `obsidian_mineru_*` 工具。`flash-extract` 无需 token；精确 `extract` 可能需要 MinerU token。本插件不会自动安装 MinerU CLI、MinerU MCP、Zotero Desktop 或 Obsidian CLI。
+
+与 Zotero 联动的推荐三步工作流：
+
+1. `obsidian_ingest_zotero_item` → 将文献导入 `literature/`，生成完整 YAML、笔记和批注。
+2. `obsidian_mineru_extract_and_ingest`（传入 `zotero_key`）→ 解析 PDF，在 `sources/mineru/` 生成全文笔记，同时向文献 note 的 YAML 追加 `mineru_markdown: [[...]]` 跳转链接。
+3. 文献 note 的正文和其他 YAML 字段完全不变，仅新增一个可点击的 MinerU 全文链接。
 
 MinerU 提取会调用多个 MinerU/OpenXLab 端点。使用 VPN、代理或 fake-IP DNS 时，请确保以下域名可直连：
 

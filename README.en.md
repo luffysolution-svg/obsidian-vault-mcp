@@ -42,7 +42,7 @@ It provides:
 - Obsidian Bases creation for table/card/list views, including built-in Base templates for literature, project tasks, equipment, utilities, economics, and sources.
 - Dataview note templates for the same literature, project task, equipment, utilities, economics, and sources workflows.
 - A safe wrapper around the local `obsidian` CLI plus structured helpers for read/open, backlinks, Base queries, properties, tasks, screenshots, plugin reloads, and move/rename dry-runs.
-- A workflow skill that composes this plugin with `obsidian-markdown`, `json-canvas`, and `obsidian-bases`.
+- A workflow skill (`skills/obsidian-vault/SKILL.md`) that composes this plugin with `obsidian-markdown`, `json-canvas`, and `obsidian-bases`. After `pip install` the skill file is located inside the Python package at `<site-packages>/obsidian_vault_mcp/skills/obsidian-vault/SKILL.md`; after a source clone it is at `skills/obsidian-vault/SKILL.md` in the repository root.
 
 ## Demo Assets
 
@@ -81,6 +81,12 @@ use the `obsidian_mineru_*` tools. `flash-extract` works without a token for
 small/simple documents; precision `extract` may require a MinerU token or a
 local MinerU CLI auth configuration. This plugin does not install MinerU CLI,
 MinerU MCP, Zotero Desktop, or Obsidian CLI automatically.
+
+Recommended three-step workflow when the document belongs to a Zotero item:
+
+1. `obsidian_ingest_zotero_item` → imports the item into `literature/` with full YAML, notes, and annotations.
+2. `obsidian_mineru_extract_and_ingest` with `zotero_key=<key>` → parses the PDF into a MinerU source note and appends `mineru_markdown: [[...]]` to the literature note YAML.
+3. The literature note body and all other YAML fields are left unchanged; only the clickable MinerU link is added.
 
 MinerU extraction calls several MinerU/OpenXLab endpoints. If you use a VPN,
 proxy, or fake-IP DNS mode, make sure these domains are reachable and preferably
