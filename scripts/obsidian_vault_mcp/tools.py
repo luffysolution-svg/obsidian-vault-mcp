@@ -1381,6 +1381,7 @@ def obsidian_ingest_zotero_item(
         metadata["tags"] = _merge_unique(metadata.get("tags"), col_tags)
 
     # Version-based update detection
+    _preserved_user_fields: dict[str, Any] = {}
     if not overwrite:
         existing = _find_existing_reference(vault, metadata, source_folder)
         if existing:
@@ -1391,6 +1392,11 @@ def obsidian_ingest_zotero_item(
             if stored_version is not None and current_version is not None:
                 if stored_version == current_version:
                     return {"ok": True, "upToDate": True, "existingPath": existing["path"], "zoteroVersion": current_version, "zoteroKey": key}
+                # version changed: preserve user-added fields not owned by Zotero
+                _preserved_user_fields = {
+                    k: v for k, v in existing_props.items()
+                    if k not in _ZOTERO_OWNED_FIELDS and not k.startswith("zotero")
+                }
                 overwrite = True
 
     notes_content = _zotero_notes_and_annotations(
@@ -1516,6 +1522,16 @@ def obsidian_ingest_zotero_item(
         append_log=True,
         dry_run=dry_run,
     )
+    # Restore user-added YAML fields (e.g. mineru_markdown) that were in the old note
+    if _preserved_user_fields and result.get("ok") and not dry_run:
+        written_rel = result.get("referencePath") or ""
+        if written_rel:
+            written_path = _safe_path(vault, written_rel)
+            if written_path.exists():
+                props, body = _split_frontmatter(_read_text(written_path))
+                for k, v in _preserved_user_fields.items():
+                    props[k] = v
+                written_path.write_text(_join_frontmatter(props, body), encoding="utf-8")
     result["zoteroKey"] = key
     result["children"] = {"notes": len(children.get("notes", [])), "annotations": len(children.get("annotations", [])), "attachments": len(children.get("attachments", []))}
     result["copiedAttachments"] = copied_attachments
