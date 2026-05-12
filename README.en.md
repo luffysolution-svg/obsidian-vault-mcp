@@ -6,13 +6,20 @@ Local MCP plugin for Codex, Claude Code, and OpenCode — maintain Obsidian vaul
 
 ## Quick Start
 
-For a detailed setup guide, see [Technical Guide](./docs/TECHNICAL_GUIDE.md).
-
-From the plugin directory:
+**Option 1: Install from PyPI (recommended)**
 
 ```bash
-python -m pip install -r requirements.txt
-python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path/to/your-vault
+pip install zotero-obsidian-mcp
+obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
+```
+
+**Option 2: Install from source (developers / latest commits)**
+
+```bash
+git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git
+cd obsidian-vault-mcp
+pip install -e .
+obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
 Register this folder as a local Codex plugin, or add the MCP server to Claude
@@ -185,18 +192,16 @@ plans create vault-local backups under `.obsidian-vault-backups/` so
 
 ## Install Dependencies
 
-The MCP server is Python-based:
+**Install from PyPI (recommended):**
 
 ```bash
-python -m pip install -r requirements.txt
+pip install zotero-obsidian-mcp
 ```
 
-For editable development installs, use the package metadata in
-`pyproject.toml`:
+**Development install from source:**
 
 ```bash
 python -m pip install -e ".[dev]"
-obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
 After opening Obsidian and Zotero Desktop, run the local smoke checks:
@@ -290,9 +295,8 @@ Install and configure the open-source Obsidian Vault MCP plugin from
 https://github.com/luffysolution-svg/obsidian-vault-mcp.
 
 Please:
-1. Clone the repository to a suitable local plugins folder.
-2. Install its Python dependencies with `python -m pip install -e .`.
-3. Register it as a local MCP server. Use the method that matches the AI client
+1. Install the package with `pip install zotero-obsidian-mcp`, or clone the repository and run `pip install -e .` for a development install.
+2. Register it as a local MCP server. Use the method that matches the AI client
    you are running in:
    - Codex: register using the checked-in `.mcp.json` as a local Codex plugin.
    - Claude Code: run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add
@@ -330,10 +334,19 @@ authentication locally.
 
 ## Deploy With Claude Code
 
-Install the package, then add the MCP server with the Claude Code CLI:
+**After PyPI install:**
 
 ```bash
-python -m pip install -e .
+pip install zotero-obsidian-mcp
+claude mcp add obsidian-vault obsidian-vault-mcp
+```
+
+**After source install:**
+
+```bash
+git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git
+cd obsidian-vault-mcp
+pip install -e .
 claude mcp add obsidian-vault obsidian-vault-mcp
 ```
 
@@ -383,8 +396,8 @@ This repository is intended to be reusable by other users. The checked-in
 configuration is portable by default:
 
 - `.mcp.json` uses the installed `obsidian-vault-mcp` entry point instead of
-  an absolute script path. Users install the package with `pip install -e .`
-  once; all three clients then share the same command.
+  an absolute script path. Users install the package with `pip install zotero-obsidian-mcp`
+  (or `pip install -e .` for source); all three clients then share the same command.
 - `OBSIDIAN_VAULT_PATH` defaults to `auto`; users can set their own local vault
   path without committing it.
 - Zotero integration points at the user's own local Zotero Desktop API.
@@ -401,7 +414,7 @@ configuration is portable by default:
 - Wiki workflow tools keep generated sections inside marker comments so hand-written note content can stay outside the managed block.
 - Obsidian CLI features require Obsidian Desktop to be running. Direct file tools still work when the CLI is unavailable if `OBSIDIAN_VAULT_PATH` is set.
 - `.mcp.json` uses the installed `obsidian-vault-mcp` entry point. Install the
-  package with `pip install -e .` before starting any MCP client.
+  package with `pip install zotero-obsidian-mcp` (or `pip install -e .`) before starting any MCP client.
 
 ## Contributing and Publishing
 

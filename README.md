@@ -6,11 +6,20 @@
 
 ## 快速开始
 
-在插件目录中运行：
+**方式一：PyPI 安装（推荐）**
 
 ```bash
-python -m pip install -r requirements.txt
-python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path/to/your-vault
+pip install zotero-obsidian-mcp
+obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
+```
+
+**方式二：源码安装（开发者 / 跟进最新提交）**
+
+```bash
+git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git
+cd obsidian-vault-mcp
+pip install -e .
+obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
 将本目录注册为 Codex 本地插件，或将 MCP server 添加到 Claude Code 或 OpenCode，然后重启或重新加载 MCP 客户端。个人 vault 路径、Zotero 存储路径、API token 和私有笔记内容只保存在本地配置中，不要提交到仓库。
@@ -142,17 +151,16 @@ Zotero Desktop、Obsidian CLI、MinerU、PDF 文本提取等可选集成会作�
 
 ## 安装依赖
 
-MCP 服务器基于 Python：
+**PyPI 安装（推荐）：**
 
 ```bash
-python -m pip install -r requirements.txt
+pip install zotero-obsidian-mcp
 ```
 
-开发模式安装（同时提供 `obsidian-vault-mcp` 命令行工具）：
+**源码开发模式安装：**
 
 ```bash
 python -m pip install -e ".[dev]"
-obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
 打开 Obsidian 和 Zotero Desktop 后，可运行只读集成检查：
@@ -228,9 +236,8 @@ Install and configure the open-source Obsidian Vault MCP plugin from
 https://github.com/luffysolution-svg/obsidian-vault-mcp.
 
 Please:
-1. Clone the repository to a suitable local plugins folder.
-2. Install its Python dependencies with `python -m pip install -e .`.
-3. Register it as a local MCP server. Use the method that matches the AI client
+1. Install the package with `pip install zotero-obsidian-mcp`, or clone the repository and run `pip install -e .` for a development install.
+2. Register it as a local MCP server. Use the method that matches the AI client
    you are running in:
    - Codex: register using the checked-in `.mcp.json` as a local Codex plugin.
    - Claude Code: run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add
@@ -268,10 +275,19 @@ authentication locally.
 
 ## 通过 Claude Code 部署
 
-安装包后，用 Claude Code CLI 添加 MCP server：
+**PyPI 安装后直接添加：**
 
 ```bash
-python -m pip install -e .
+pip install zotero-obsidian-mcp
+claude mcp add obsidian-vault obsidian-vault-mcp
+```
+
+**源码安装后添加：**
+
+```bash
+git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git
+cd obsidian-vault-mcp
+pip install -e .
 claude mcp add obsidian-vault obsidian-vault-mcp
 ```
 
@@ -317,7 +333,7 @@ claude mcp add obsidian-vault obsidian-vault-mcp
 
 本仓库设计为可被其他用户复用，默认配置具有可移植性：
 
-- `.mcp.json` 使用已安装的 `obsidian-vault-mcp` 入口命令，而非绝对脚本路径。用户执行一次 `pip install -e .`，三个客户端即可共用同一命令。
+- `.mcp.json` 使用已安装的 `obsidian-vault-mcp` 入口命令，而非绝对脚本路径。用户执行一次 `pip install zotero-obsidian-mcp`（或 `pip install -e .`），三个客户端即可共用同一命令。
 - `OBSIDIAN_VAULT_PATH` 默认 `auto`，用户可在本地设置自己的 vault 路径而无需提交。
 - Zotero 集成指向用户自己的本地 Zotero Desktop API。
 - 文件工具默认拒绝非 vault 文件夹，除非用户显式设置 `OBSIDIAN_ALLOW_NON_VAULT=true`。
@@ -330,7 +346,7 @@ claude mcp add obsidian-vault obsidian-vault-mcp
 - 现有文件不会被覆盖，除非工具调用传入 `overwrite=true`。
 - 写入工具支持 `dry_run=true`，返回 unified diff 而不修改文件。
 - Wiki 工作流工具将生成内容保存在标记注释内，手写笔记内容可保留在托管块之外。
-- `.mcp.json` 使用已安装的 `obsidian-vault-mcp` 入口命令。连接任何 MCP 客户端前需先执行 `pip install -e .`。
+- `.mcp.json` 使用已安装的 `obsidian-vault-mcp` 入口命令。连接任何 MCP 客户端前需先执行 `pip install zotero-obsidian-mcp`（或 `pip install -e .`）。
 
 ## 贡献与发布
 
