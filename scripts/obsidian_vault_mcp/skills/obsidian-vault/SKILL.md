@@ -9,6 +9,14 @@ Use the bundled `obsidian-vault` MCP tools for local vault operations, and combi
 
 ## Setup
 
+If the MCP tools are unavailable or the server fails to start, the package may not be installed. Install it with:
+
+```bash
+pip install zotero-obsidian-mcp
+```
+
+Then restart Claude Code to reload the MCP server. For a development install from the plugin source directory, use `pip install -e .` instead.
+
 The plugin reads `OBSIDIAN_VAULT_PATH` from `.mcp.json` when set. The default value is `auto`, which resolves the currently active Obsidian CLI vault. If `auto` cannot resolve a vault, pass `vault_path` explicitly to tools or set `OBSIDIAN_VAULT_PATH` to the vault root. The path should usually contain `.obsidian`.
 
 Vault-local defaults can be stored in `.obsidian-vault-mcp.json` or `.obsidian/obsidian-vault-mcp.json` for folders such as `literatureFolder`, `mineruSourceFolder`, `pdfSourceFolder`, `zoteroAttachmentsFolder`, `entitiesFolder`, `conceptsFolder`, plus `indexPath`, `logPath`, `templateFolder`, `defaultTemplate`, and `zoteroAttachmentNameStrategy`.
