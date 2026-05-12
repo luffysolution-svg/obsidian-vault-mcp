@@ -115,6 +115,18 @@ claude mcp add obsidian-vault obsidian-vault-mcp
 
 配置完成后重启 Claude Code，新工具即可使用。
 
+### 注册 Skill（Claude Code 专用）
+
+MCP server 注册完成后，还需要将 workflow skill 注册到 Claude Code，让 AI 知道何时以及如何使用这些工具。运行以下一行命令，将包内置的 skill 文件复制到 Claude Code 的 skills 目录：
+
+```bash
+python -c "import obsidian_vault_mcp, shutil, pathlib; src=pathlib.Path(obsidian_vault_mcp.__file__).parent/'skills'/'obsidian-vault'/'SKILL.md'; dst=pathlib.Path.home()/'.claude'/'skills'/'obsidian-vault'/'SKILL.md'; dst.parent.mkdir(parents=True, exist_ok=True); shutil.copy(src, dst); print('Skill registered:', dst)"
+```
+
+重启 Claude Code 后，`obsidian-vault` skill 会出现在可用 skill 列表中。
+
+> Codex 和 OpenCode 通过插件目录自动加载 skills，无需此步骤。
+
 ---
 
 ### Codex

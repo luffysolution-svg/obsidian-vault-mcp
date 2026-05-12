@@ -252,6 +252,10 @@ Please:
      and set env `OBSIDIAN_VAULT_PATH=auto`, or edit `~/.kimi/mcp.json` directly.
    - Other MCP clients: register a stdio server with command
      `obsidian-vault-mcp` and env `OBSIDIAN_VAULT_PATH=auto`.
+3. Register the workflow skill for Claude Code (skip for Codex and OpenCode — they load skills automatically from the plugin directory):
+   - Run this one-liner to copy the bundled skill file into Claude Code's skills directory:
+     python -c "import obsidian_vault_mcp, shutil, pathlib; src=pathlib.Path(obsidian_vault_mcp.__file__).parent/'skills'/'obsidian-vault'/'SKILL.md'; dst=pathlib.Path.home()/'.claude'/'skills'/'obsidian-vault'/'SKILL.md'; dst.parent.mkdir(parents=True, exist_ok=True); shutil.copy(src, dst); print('Skill registered:', dst)"
+   - Restart Claude Code so the skill appears in the available skill list.
 4. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me
    for my local Obsidian vault path and configure it only in my local
    MCP/plugin settings.
