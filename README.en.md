@@ -107,6 +107,9 @@ routed directly:
 A common failure mode is that the parse task and OSS upload succeed, but
 downloading `full.md` from `cdn-mineru.openxlab.org.cn` fails with TLS/EOF
 errors. In that case, check proxy/DNS rules before debugging this plugin.
+`NO_PROXY` can help in explicit HTTP proxy setups, but it is often ignored by
+full-tunnel/TUN or fake-IP routing modes. In those cases, direct-route or DNS
+bypass rules in the proxy client are usually required.
 
 By default, paths must resolve to a folder containing `.obsidian`. Set `OBSIDIAN_ALLOW_NON_VAULT=true` only when intentionally using a plain Markdown folder.
 

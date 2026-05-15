@@ -81,6 +81,7 @@ MinerU 提取会调用多个 MinerU/OpenXLab 端点。使用 VPN、代理或 fak
 - `*.openxlab.org.cn`
 
 常见失败场景：解析任务和 OSS 上传成功，但从 `cdn-mineru.openxlab.org.cn` 下载 `full.md` 时出现 TLS/EOF 错误。遇到此问题请先检查代理/DNS 规则。
+`NO_PROXY` 在显式 HTTP 代理场景下可能有帮助，但在全局代理、TUN 或 fake-IP 路由模式下经常不会生效。这种情况下通常需要直接在代理客户端里配置直连或 DNS bypass 规则。
 
 默认要求路径解析到包含 `.obsidian` 的文件夹。只有在明确使用普通 Markdown 文件夹时才设置 `OBSIDIAN_ALLOW_NON_VAULT=true`。
 

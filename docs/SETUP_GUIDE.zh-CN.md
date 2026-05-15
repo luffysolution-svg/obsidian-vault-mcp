@@ -278,6 +278,8 @@ curl.exe -I https://cdn-mineru.openxlab.org.cn
 - `cdn-mineru.openxlab.org.cn`
 - `*.openxlab.org.cn`
 
+补充说明：`NO_PROXY` 在显式 HTTP 代理场景下可能有帮助，但在全局代理、TUN 或 fake-IP 路由模式下经常不会生效。这类情况下通常还是要在代理客户端里配置直连或 DNS bypass 规则。
+
 ---
 
 ## 7. Vault 内默认配置
