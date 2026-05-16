@@ -26,7 +26,12 @@ obsidian-vault-mcp/
     helpers.py
     server.py
     tools.py
-  skills/obsidian-vault/SKILL.md
+  skills/
+    obsidian-vault/SKILL.md
+    obsidian-zotero/SKILL.md
+    obsidian-mineru/SKILL.md
+    obsidian-views/SKILL.md
+    obsidian-cli/SKILL.md
   tests/
 ```
 
@@ -164,9 +169,9 @@ https://luffysolution-svg.github.io/obsidian-vault-mcp/
 - `python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py` 通过。
 - `python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault path/to/test-vault` 通过核心检查。
 - `python scripts/smoke_integrations.py --vault path/to/test-vault` 没有必需检查失败。
-- `./scripts/build_release.ps1` 生成 release zip，并包含 `pyproject.toml`、兼容入口、实现包、smoke 脚本、docs、tests、skill。
+- `./scripts/build_release.ps1` 生成 release zip，并包含 `pyproject.toml`、兼容入口、实现包、smoke 脚本、docs、tests、skills 套件。
 - `docs/PRIVACY.zh-CN.md` 与 `docs/PRIVACY.md` 描述一致。
-- `docs/TECHNICAL_GUIDE.md` 覆盖 Obsidian CLI、Codex skill/plugin、Claude Code plugin、OpenCode MCP、Zotero、MinerU 配置细节。
+- `docs/TECHNICAL_GUIDE.md` 覆盖 Obsidian CLI、Codex skills/plugin、Claude Code plugin、OpenCode MCP、Zotero、MinerU 配置细节。
 - `LICENSE` 存在。
 - 没有提交个人 vault 路径、用户名、缓存路径、Zotero 存储路径或 API token。
 - 示例截图经过脱敏。

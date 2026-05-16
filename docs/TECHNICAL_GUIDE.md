@@ -39,7 +39,12 @@ obsidian-vault/
 │       ├── helpers.py               # Core logic (~1,933 lines)
 │       ├── tools.py                 # 57 MCP tool functions (~2,217 lines)
 │       └── server.py                # FastMCP server setup
-├── skills/obsidian-vault/SKILL.md   # Codex skill definition
+├── skills/
+│   ├── obsidian-vault/SKILL.md      # General vault workflow skill
+│   ├── obsidian-zotero/SKILL.md     # Zotero import workflow skill
+│   ├── obsidian-mineru/SKILL.md     # MinerU extraction workflow skill
+│   ├── obsidian-views/SKILL.md      # Canvas/Bases/Dataview skill
+│   └── obsidian-cli/SKILL.md        # Obsidian CLI workflow skill
 ├── docs/                            # Documentation (EN + zh-CN)
 └── tests/                           # Unit tests
 ```
@@ -537,7 +542,12 @@ obsidian-vault/
 │       ├── helpers.py               # 核心逻辑（~1,933 行）
 │       ├── tools.py                 # 57 个 MCP 工具函数（~2,217 行）
 │       └── server.py                # FastMCP 服务器设置
-├── skills/obsidian-vault/SKILL.md   # Codex skill 定义
+├── skills/
+│   ├── obsidian-vault/SKILL.md      # 通用 vault 工作流 skill
+│   ├── obsidian-zotero/SKILL.md     # Zotero 导入工作流 skill
+│   ├── obsidian-mineru/SKILL.md     # MinerU 提取工作流 skill
+│   ├── obsidian-views/SKILL.md      # Canvas/Bases/Dataview skill
+│   └── obsidian-cli/SKILL.md        # Obsidian CLI 工作流 skill
 ├── docs/                            # 文档（EN + zh-CN）
 └── tests/                           # 单元测试
 ```

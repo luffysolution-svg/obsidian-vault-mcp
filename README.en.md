@@ -49,7 +49,15 @@ It provides:
 - Obsidian Bases creation for table/card/list views, including built-in Base templates for literature, project tasks, equipment, utilities, economics, and sources.
 - Dataview note templates for the same literature, project task, equipment, utilities, economics, and sources workflows.
 - A safe wrapper around the local `obsidian` CLI plus structured helpers for read/open, backlinks, Base queries, properties, tasks, screenshots, plugin reloads, and move/rename dry-runs.
-- A workflow skill (`skills/obsidian-vault/SKILL.md`) that composes this plugin with `obsidian-markdown`, `json-canvas`, and `obsidian-bases`. After `pip install` the skill file is located inside the Python package at `<site-packages>/obsidian_vault_mcp/skills/obsidian-vault/SKILL.md`; after a source clone it is at `skills/obsidian-vault/SKILL.md` in the repository root.
+- A bundled skill suite under `skills/` that helps Codex trigger the right workflow automatically. After `pip install`, the skills are located under `<site-packages>/obsidian_vault_mcp/skills/`; after a source clone they are in `skills/` at the repository root.
+
+## Bundled Skills
+
+- `obsidian-vault`: general vault maintenance, frontmatter, wikilinks, graph checks, edit plans, and wiki-style index/log upkeep.
+- `obsidian-zotero`: Zotero search, single-item import, collection import, attachments, annotations, and re-ingest behavior.
+- `obsidian-mineru`: MinerU extraction, Markdown ingestion, vault PDF source notes, and Zotero-linked full-text attachment.
+- `obsidian-views`: JSON Canvas, Obsidian Bases, built-in Base templates, and Dataview note generation.
+- `obsidian-cli`: app-backed Obsidian CLI operations such as backlinks, properties, tasks, screenshots, plugin reloads, and link-aware move/rename.
 
 ## Demo Assets
 
@@ -314,10 +322,10 @@ Please:
      and set env `OBSIDIAN_VAULT_PATH=auto`, or edit `~/.kimi/mcp.json` directly.
    - Other MCP clients: register a stdio server with command
      `obsidian-vault-mcp` and env `OBSIDIAN_VAULT_PATH=auto`.
-3. Register the workflow skill for Claude Code (skip for Codex and OpenCode — they load skills automatically from the plugin directory):
-   - Run this one-liner to copy the bundled skill file into Claude Code's skills directory:
-     python -c "import obsidian_vault_mcp, shutil, pathlib; src=pathlib.Path(obsidian_vault_mcp.__file__).parent/'skills'/'obsidian-vault'/'SKILL.md'; dst=pathlib.Path.home()/'.claude'/'skills'/'obsidian-vault'/'SKILL.md'; dst.parent.mkdir(parents=True, exist_ok=True); shutil.copy(src, dst); print('Skill registered:', dst)"
-   - Restart Claude Code so the skill appears in the available skill list.
+3. Register the bundled skills for Claude Code (skip for Codex and OpenCode — they load skills automatically from the plugin directory):
+   - Run this one-liner to copy the packaged `skills/` directory into Claude Code's skills directory:
+     python -c "import obsidian_vault_mcp, shutil, pathlib; src=pathlib.Path(obsidian_vault_mcp.__file__).parent/'skills'; dst=pathlib.Path.home()/'.claude'/'skills'; dst.mkdir(parents=True, exist_ok=True); shutil.copytree(src, dst, dirs_exist_ok=True); print('Skills registered:', dst)"
+   - Restart Claude Code so the new skills appear in the available skill list.
 4. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me
    for my local Obsidian vault path and configure it only in my local
    MCP/plugin settings.

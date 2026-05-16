@@ -39,7 +39,15 @@ python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path
 - 创建 Obsidian Bases，包括文献、项目任务、设备、公用工程、经济性和来源材料模板。
 - 创建 Dataview 查询笔记。
 - 包装本地官方 `obsidian` CLI，并提供 read/open、backlinks、Base query、properties、tasks、screenshots、plugin reload、move/rename dry-run 等结构化工具。
-- 附带 `skills/obsidian-vault/SKILL.md`，让 Codex 知道什么时候、怎样调用这些工具。
+- 附带一组标准 skills，帮助 Codex 自动命中合适的工作流；源码安装时位于仓库根目录 `skills/`，`pip install` 安装时位于 Python 包目录内的 `skills/`。
+
+## 内置 Skills
+
+- `obsidian-vault`：通用 vault 维护、frontmatter、双链、图谱检查、批量编辑计划、index/log 维护。
+- `obsidian-zotero`：Zotero 搜索、单条导入、合集批量导入、附件、批注与重导入同步。
+- `obsidian-mineru`：MinerU 文档解析、Markdown 导入、vault PDF 来源笔记、Zotero 全文挂接。
+- `obsidian-views`：JSON Canvas、Obsidian Bases、内置 Base 模板和 Dataview 查询笔记。
+- `obsidian-cli`：backlinks、properties、tasks、截图、plugin reload、带链接更新的 move/rename 等 Obsidian CLI 操作。
 
 ## 安装与配置
 

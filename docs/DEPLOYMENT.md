@@ -26,7 +26,12 @@ obsidian-vault-mcp/
     helpers.py
     server.py
     tools.py
-  skills/obsidian-vault/SKILL.md
+  skills/
+    obsidian-vault/SKILL.md
+    obsidian-zotero/SKILL.md
+    obsidian-mineru/SKILL.md
+    obsidian-views/SKILL.md
+    obsidian-cli/SKILL.md
   tests/
 ```
 
@@ -131,7 +136,7 @@ git push -u origin main
   archive contains `pyproject.toml`, `scripts/smoke_integrations.py`, and the
   `scripts/obsidian_vault_mcp/` package.
 - `docs/PRIVACY.md` accurately describes local data access.
-- `docs/TECHNICAL_GUIDE.md` is up to date with Obsidian CLI, Codex plugin/skill,
+- `docs/TECHNICAL_GUIDE.md` is up to date with Obsidian CLI, Codex plugin/skills,
   Claude Code plugin, OpenCode MCP, Zotero, and MinerU setup details.
 - `LICENSE` is present.
 - No personal vault path, username, cache path, or Zotero storage path is

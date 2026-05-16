@@ -51,7 +51,11 @@ try {
         "obsidian-vault/pyproject.toml",
         "obsidian-vault/.codex-plugin/plugin.json",
         "obsidian-vault/.mcp.json",
-        "obsidian-vault/skills/obsidian-vault/SKILL.md"
+        "obsidian-vault/skills/obsidian-vault/SKILL.md",
+        "obsidian-vault/skills/obsidian-zotero/SKILL.md",
+        "obsidian-vault/skills/obsidian-mineru/SKILL.md",
+        "obsidian-vault/skills/obsidian-views/SKILL.md",
+        "obsidian-vault/skills/obsidian-cli/SKILL.md"
     )
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)

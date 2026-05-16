@@ -14,7 +14,7 @@
 
 本插件的改造：
 
-- 随插件发布的 `obsidian-vault` skill 负责协调本地 vault 操作。
+- 随插件发布一组可组合的 skills，分别覆盖通用 vault 操作、Zotero 导入、MinerU 提取、视图构建和 Obsidian CLI 工作流。
 - MCP server 提供 list、read、write、frontmatter、wikilink、graph、Canvas、Base 和 CLI 工具。
 - `obsidian-markdown`、`json-canvas`、`obsidian-bases` 等技能仍可作为格式权威。
 - MinerU 作为可选外部解析器；插件可导入已有 Markdown，也可调用本地 `mineru-open-api` CLI。

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-vault",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "Work with local Obsidian vaults: files, properties, wikilinks, Canvas, Bases, graph data, and the Obsidian CLI.",
   "author": {
     "name": "Obsidian Vault MCP Contributors",
@@ -15,14 +15,18 @@
     "markdown",
     "canvas",
     "bases",
-    "wiki"
+    "wiki",
+    "zotero",
+    "mineru",
+    "dataview",
+    "cli"
   ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Obsidian Vault",
     "shortDescription": "Maintain local Obsidian vaults as persistent linked wikis.",
-    "longDescription": "Provides local MCP tools and workflow guidance for reading and editing vault files, previewing write diffs with dry runs, applying rollbackable batch edit transactions, managing YAML properties and tags, creating wikilinks, generating JSON Canvas and Bases files, generating Dataview notes, laying out Canvas maps from vault graphs, generating built-in Base templates, building graph data, suggesting graph improvements, validating frontmatter/Canvas/Base schemas, linting vault health, maintaining Karpathy-style index/log files, ingesting source notes into linked entity and concept pages, ingesting literature and extraction outputs from BibTeX/reference metadata, existing MinerU Markdown, optional MinerU CLI extraction, PDF attachments, and direct Zotero Desktop local API items, and calling the local Obsidian CLI through generic and structured wrappers when available. It follows the persistent LLM-maintained wiki pattern while reusing Obsidian Markdown, Bases, Canvas, Dataview, Zotero, MinerU, and CLI conventions.",
+    "longDescription": "Provides local MCP tools plus a bundled skill suite for maintaining Obsidian vaults as persistent linked wikis. The plugin covers vault file reads and writes, YAML properties, wikilinks, graph analysis, batch edit plans, schema checks, JSON Canvas, Bases, Dataview notes, Karpathy-style index/log maintenance, literature and source ingestion, direct Zotero Desktop local API imports, optional MinerU extraction workflows, and app-backed Obsidian CLI wrappers. The packaged skills split the domain into general vault work, Zotero import, MinerU extraction, views, and CLI workflows so Codex can trigger more precise guidance automatically.",
     "developerName": "Obsidian Vault MCP Contributors",
     "category": "Productivity",
     "capabilities": [
@@ -37,6 +41,8 @@
     "defaultPrompt": [
       "Show me the structure of this Obsidian vault.",
       "Create a linked wiki note with YAML properties.",
+      "Import a Zotero item with annotations into my Obsidian vault.",
+      "Extract a PDF with MinerU and attach the Markdown to my literature note.",
       "Build a Canvas graph for these vault notes."
     ],
     "brandColor": "#7C3AED",

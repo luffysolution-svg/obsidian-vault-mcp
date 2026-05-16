@@ -48,7 +48,15 @@ obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 - Obsidian Bases 创建，内置文献、项目任务、设备、公用工程、经济性和来源材料模板。
 - Dataview 查询笔记模板。
 - 封装本地官方 `obsidian` CLI，提供 read/open、backlinks、Base query、properties、tasks、截图、plugin reload、move/rename dry-run 等结构化工具。
-- 随插件发布的 `skills/obsidian-vault/SKILL.md`，让 Codex 知道何时、如何调用这些工具。`pip install` 安装后 skill 文件位于 Python 包目录内（`<site-packages>/obsidian_vault_mcp/skills/obsidian-vault/SKILL.md`）；clone 源码安装后位于仓库根目录 `skills/obsidian-vault/SKILL.md`。
+- 随插件发布一组标准 skills，帮助 Codex 自动命中合适的工作流。`pip install` 安装后 skills 位于 Python 包目录内（`<site-packages>/obsidian_vault_mcp/skills/`）；clone 源码安装后位于仓库根目录 `skills/`。
+
+## 内置 Skills
+
+- `obsidian-vault`：通用 vault 维护、frontmatter、双链、图谱检查、批量编辑计划、index/log 维护。
+- `obsidian-zotero`：Zotero 搜索、单条导入、合集批量导入、附件、批注与重导入同步。
+- `obsidian-mineru`：MinerU 文档解析、Markdown 导入、vault PDF 来源笔记、Zotero 全文挂接。
+- `obsidian-views`：JSON Canvas、Obsidian Bases、内置 Base 模板和 Dataview 查询笔记。
+- `obsidian-cli`：backlinks、properties、tasks、截图、plugin reload、带链接更新的 move/rename 等 Obsidian CLI 操作。
 
 ## 配置
 
@@ -253,10 +261,10 @@ Please:
      and set env `OBSIDIAN_VAULT_PATH=auto`, or edit `~/.kimi/mcp.json` directly.
    - Other MCP clients: register a stdio server with command
      `obsidian-vault-mcp` and env `OBSIDIAN_VAULT_PATH=auto`.
-3. Register the workflow skill for Claude Code (skip for Codex and OpenCode — they load skills automatically from the plugin directory):
-   - Run this one-liner to copy the bundled skill file into Claude Code's skills directory:
-     python -c "import obsidian_vault_mcp, shutil, pathlib; src=pathlib.Path(obsidian_vault_mcp.__file__).parent/'skills'/'obsidian-vault'/'SKILL.md'; dst=pathlib.Path.home()/'.claude'/'skills'/'obsidian-vault'/'SKILL.md'; dst.parent.mkdir(parents=True, exist_ok=True); shutil.copy(src, dst); print('Skill registered:', dst)"
-   - Restart Claude Code so the skill appears in the available skill list.
+3. Register the bundled skills for Claude Code (skip for Codex and OpenCode — they load skills automatically from the plugin directory):
+   - Run this one-liner to copy the packaged `skills/` directory into Claude Code's skills directory:
+     python -c "import obsidian_vault_mcp, shutil, pathlib; src=pathlib.Path(obsidian_vault_mcp.__file__).parent/'skills'; dst=pathlib.Path.home()/'.claude'/'skills'; dst.mkdir(parents=True, exist_ok=True); shutil.copytree(src, dst, dirs_exist_ok=True); print('Skills registered:', dst)"
+   - Restart Claude Code so the new skills appear in the available skill list.
 4. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me
    for my local Obsidian vault path and configure it only in my local
    MCP/plugin settings.

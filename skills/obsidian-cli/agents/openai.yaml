@@ -1,0 +1,4 @@
+interface:
+  display_name: "Obsidian CLI"
+  short_description: "Use the Obsidian app CLI and wrappers safely"
+  default_prompt: "Use $obsidian-cli to inspect backlinks, properties, tasks, or screenshots through the Obsidian desktop CLI."
