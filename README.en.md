@@ -305,11 +305,11 @@ etc.):
 Install and configure the Obsidian Vault MCP plugin from
 https://github.com/luffysolution-svg/obsidian-vault-mcp.
 
-1. Install `zotero-obsidian-mcp` with `pip install zotero-obsidian-mcp`, or use `pip install -e .` for a source checkout.
+1. Install the PyPI package `zotero-obsidian-mcp` with `pip install zotero-obsidian-mcp`, or use `pip install -e .` for a source checkout. Do not install the unrelated PyPI package `obsidian-vault-mcp`; `obsidian-vault-mcp` is the executable command, not the package name.
 2. Keep `OBSIDIAN_VAULT_PATH=auto` unless auto-detection fails.
 3. Set up the client I am using:
    - Codex: use `.codex-plugin/plugin.json` and `.mcp.json`.
-   - Claude Code: run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add the `.mcp.json` server block manually. If skills are not auto-loaded, copy the packaged `skills/` directory into `~/.claude/skills/`.
+   - Claude Code: first install `zotero-obsidian-mcp`, then run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add the `.mcp.json` server block manually. If skills are not auto-loaded, copy the packaged `skills/` directory into `~/.claude/skills/`.
    - OpenCode: copy `.opencode.json` into the project, or merge its `mcp` block into `~/.opencode.json`.
 4. Keep vault paths, Zotero storage paths, and tokens in local config only.
 5. Run `obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault`.
@@ -343,6 +343,8 @@ pip install -e .
 pip install zotero-obsidian-mcp
 claude mcp add obsidian-vault obsidian-vault-mcp
 ```
+
+Important: the PyPI package name is `zotero-obsidian-mcp`, not `obsidian-vault-mcp`. `obsidian-vault-mcp` is the installed executable name.
 
 **After source install:**
 
