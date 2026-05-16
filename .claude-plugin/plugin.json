@@ -1,0 +1,49 @@
+{
+  "name": "obsidian-vault",
+  "version": "1.0.18",
+  "description": "Work with local Obsidian vaults: files, properties, wikilinks, Canvas, Bases, graph data, and the Obsidian CLI.",
+  "author": {
+    "name": "Obsidian Vault MCP Contributors",
+    "url": "https://github.com/luffysolution-svg/obsidian-vault-mcp"
+  },
+  "homepage": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+  "repository": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+  "license": "MIT",
+  "keywords": [
+    "obsidian",
+    "vault",
+    "markdown",
+    "canvas",
+    "bases",
+    "wiki",
+    "zotero",
+    "mineru",
+    "dataview",
+    "cli"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "displayName": "Obsidian Vault",
+  "shortDescription": "Maintain local Obsidian vaults as persistent linked wikis.",
+  "longDescription": "Provides local MCP tools plus a bundled skill suite for maintaining Obsidian vaults as persistent linked wikis. The plugin covers vault file reads and writes, YAML properties, wikilinks, graph analysis, batch edit plans, schema checks, JSON Canvas, Bases, Dataview notes, Karpathy-style index/log maintenance, literature and source ingestion, direct Zotero Desktop local API imports, optional MinerU extraction workflows, and app-backed Obsidian CLI wrappers. The packaged skills split the domain into general vault work, Zotero import, MinerU extraction, views, and CLI workflows so Claude Code can trigger more precise guidance automatically.",
+  "developerName": "Obsidian Vault MCP Contributors",
+  "category": "Productivity",
+  "capabilities": [
+    "Read",
+    "Write",
+    "Analyze",
+    "Interactive"
+  ],
+  "websiteURL": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+  "privacyPolicyURL": "https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/PRIVACY.md",
+  "termsOfServiceURL": "https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/LICENSE",
+  "defaultPrompt": [
+    "Show me the structure of this Obsidian vault.",
+    "Create a linked wiki note with YAML properties.",
+    "Import a Zotero item with annotations into my Obsidian vault.",
+    "Extract a PDF with MinerU and attach the Markdown to my literature note.",
+    "Build a Canvas graph for these vault notes."
+  ],
+  "brandColor": "#7C3AED",
+  "screenshots": []
+}

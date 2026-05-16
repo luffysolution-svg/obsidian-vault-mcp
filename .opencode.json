@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "obsidian-vault": {
+      "type": "local",
+      "command": ["python", "./scripts/obsidian_vault_mcp.py"],
+      "environment": {
+        "OBSIDIAN_VAULT_PATH": "auto",
+        "OBSIDIAN_CLI_COMMAND": "obsidian"
+      },
+      "enabled": true,
+      "timeout": 60000
+    }
+  }
+}

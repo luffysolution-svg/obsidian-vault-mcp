@@ -321,7 +321,7 @@ claude mcp add obsidian-vault obsidian-vault-mcp
 }
 ```
 
-根目录的 `plugin.json` 是供 Claude Code 插件系统使用的清单文件。
+`.claude-plugin/plugin.json` 是供 Claude Code 插件系统使用的清单文件；`.codex-plugin/plugin.json` 供 Codex 使用。
 
 ## 通过 OpenCode 部署
 
@@ -332,7 +332,7 @@ claude mcp add obsidian-vault obsidian-vault-mcp
   "mcp": {
     "obsidian-vault": {
       "type": "local",
-      "command": ["obsidian-vault-mcp"],
+      "command": ["python", "./scripts/obsidian_vault_mcp.py"],
       "environment": {
         "OBSIDIAN_VAULT_PATH": "auto",
         "OBSIDIAN_CLI_COMMAND": "obsidian"

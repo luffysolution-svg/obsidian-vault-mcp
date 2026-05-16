@@ -382,7 +382,7 @@ Or add it manually to your Claude Code settings (`~/.claude/settings.json`):
 }
 ```
 
-The root-level `plugin.json` declares this plugin for Claude Code's plugin system.
+`.claude-plugin/plugin.json` declares this plugin for Claude Code's plugin system, while `.codex-plugin/plugin.json` is the Codex manifest.
 
 ## Deploy With OpenCode
 
@@ -395,7 +395,7 @@ your project directory, or merge the `mcp` block into your global
   "mcp": {
     "obsidian-vault": {
       "type": "local",
-      "command": ["obsidian-vault-mcp"],
+      "command": ["python", "./scripts/obsidian_vault_mcp.py"],
       "environment": {
         "OBSIDIAN_VAULT_PATH": "auto",
         "OBSIDIAN_CLI_COMMAND": "obsidian"
