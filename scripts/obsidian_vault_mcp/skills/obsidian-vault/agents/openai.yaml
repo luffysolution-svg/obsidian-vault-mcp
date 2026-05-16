@@ -1,0 +1,4 @@
+interface:
+  display_name: "Obsidian Vault"
+  short_description: "Maintain local Obsidian vault notes and graph"
+  default_prompt: "Use $obsidian-vault to inspect, edit, and maintain notes, frontmatter, and links in my local Obsidian vault."
