@@ -7,11 +7,11 @@
 ```text
 obsidian-vault-mcp/
   .codex-plugin/plugin.json
+  .claude-plugin/plugin.json
   .mcp.json
   .opencode.json
   .gitignore
   LICENSE
-  plugin.json
   pyproject.toml
   README.md
   README.zh-CN.md
@@ -37,7 +37,7 @@ obsidian-vault-mcp/
 
 不要发布本地 vault 文件、生成的备份、虚拟环境、`__pycache__` 或会写入真实 vault 的临时脚本。
 
-`.codex-plugin/plugin.json` 是 Codex 插件清单。根目录的 `plugin.json` 是 Claude Code 插件清单。`.opencode.json` 是 OpenCode 的 MCP server 配置。三个文件都应提交，方便各客户端用户直接连接。
+`.codex-plugin/plugin.json` 是 Codex 插件清单。`.claude-plugin/plugin.json` 是 Claude Code 插件清单。`.opencode.json` 是 OpenCode 的 MCP server 配置。三个文件都应提交，方便各客户端用户直接连接。
 
 `scripts/obsidian_vault_mcp.py` 是保留的兼容入口，与实现包并列存放。`pyproject.toml` 用于 editable install 和 `obsidian-vault-mcp` 控制台命令。`scripts/smoke_integrations.py` 是发布前使用的只读集成检查脚本。
 
@@ -79,11 +79,11 @@ Codex 会把 marketplace 插件安装到：
 
 并加载缓存副本。修改插件后，需要更新 marketplace 指向的源目录并重启 Codex。
 
-只有 `plugin.json` 应放在 `.codex-plugin/` 下。`skills/`、`.mcp.json`、`docs/`、`scripts/` 和 assets 都应位于插件根目录。
+只有 Codex 清单应放在 `.codex-plugin/` 下。Claude Code 清单位于 `.claude-plugin/`。`skills/`、`.mcp.json`、`.opencode.json`、`docs/`、`scripts/` 和 assets 都应位于插件根目录。
 
 ## 发布前检查
 
-1. 确认 `.codex-plugin/plugin.json` 中的 `repository`、`homepage`、`websiteURL`、`privacyPolicyURL`、`termsOfServiceURL` 正确。确认根目录 `plugin.json` 中的对应字段与之一致（供 Claude Code 使用）。
+1. 确认 `.codex-plugin/plugin.json` 中的 `repository`、`homepage`、`websiteURL`、`privacyPolicyURL`、`termsOfServiceURL` 正确。确认 `.claude-plugin/plugin.json` 中的对应字段也保持一致（供 Claude Code 使用）。
 2. 保持 `.mcp.json` 可移植：使用 `obsidian-vault-mcp` 入口命令，默认 `OBSIDIAN_VAULT_PATH=auto`。用户需先执行 `pip install -e .` 再连接任何 MCP 客户端。
 3. 安装开发依赖并运行检查：
 

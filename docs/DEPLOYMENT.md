@@ -8,11 +8,11 @@ root should be the plugin root.
 ```text
 obsidian-vault-mcp/
   .codex-plugin/plugin.json
+  .claude-plugin/plugin.json
   .mcp.json
   .opencode.json
   .gitignore
   LICENSE
-  plugin.json
   pyproject.toml
   README.md
   requirements.txt
@@ -38,8 +38,9 @@ obsidian-vault-mcp/
 Do not publish local vault files, generated backups, virtual environments,
 `__pycache__`, or ad-hoc scripts that write to a real vault.
 
-`.codex-plugin/plugin.json` is the Codex plugin manifest. `plugin.json` at the
-root is the Claude Code plugin manifest. `.opencode.json` is the OpenCode MCP
+`.codex-plugin/plugin.json` is the Codex plugin manifest.
+`.claude-plugin/plugin.json` is the Claude Code plugin manifest.
+`.opencode.json` is the OpenCode MCP
 server configuration. Keep all three checked in so users of each client can
 connect without extra setup.
 
@@ -68,7 +69,7 @@ Only `.codex-plugin/plugin.json` belongs under `.codex-plugin/`. Keep
 
 1. Confirm `.codex-plugin/plugin.json` has the correct `repository`,
    `homepage`, `websiteURL`, `privacyPolicyURL`, and `termsOfServiceURL`.
-   Confirm `plugin.json` at the root has matching values for Claude Code.
+   Confirm `.claude-plugin/plugin.json` has matching Claude Code metadata.
 2. Ensure `.mcp.json` remains portable. It uses the `obsidian-vault-mcp` entry point
    and `OBSIDIAN_VAULT_PATH=auto`. Users must run `pip install -e .` before
    connecting any MCP client.

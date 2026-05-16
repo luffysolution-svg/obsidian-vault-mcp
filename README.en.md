@@ -299,55 +299,43 @@ a working route.
 ## AI-Assisted Setup
 
 Paste this prompt into any AI coding assistant (Codex, Claude Code, OpenCode,
-etc.) to have it install and configure the plugin automatically:
+etc.):
 
 ```text
-Install and configure the open-source Obsidian Vault MCP plugin from
+Install and configure the Obsidian Vault MCP plugin from
 https://github.com/luffysolution-svg/obsidian-vault-mcp.
 
-Please:
-1. Install the package with `pip install zotero-obsidian-mcp`, or clone the repository and run `pip install -e .` for a development install.
-2. Register it as a local MCP server. Use the method that matches the AI client
-   you are running in:
-   - Codex: register using the checked-in `.mcp.json` as a local Codex plugin.
-   - Claude Code: run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add
-     the server block from `.mcp.json` to `~/.claude/settings.json`.
-   - OpenCode: copy `.opencode.json` from the repository root to the project
-     directory, or merge its `mcp` block into `~/.opencode.json`.
-   - Trae: add the server block from `.mcp.json` to `.trae/mcp.json` in the
-     project root, or paste it in Trae's MCP settings UI.
-   - CodeBuddy: the checked-in `.mcp.json` is picked up automatically from the
-     project root; or paste the server block in CodeBuddy's MCP settings UI.
-   - Kimi Code: run `kimi mcp add --transport stdio obsidian-vault obsidian-vault-mcp`
-     and set env `OBSIDIAN_VAULT_PATH=auto`, or edit `~/.kimi/mcp.json` directly.
-   - Other MCP clients: register a stdio server with command
-     `obsidian-vault-mcp` and env `OBSIDIAN_VAULT_PATH=auto`.
-3. Register the bundled skills for Claude Code (skip for Codex and OpenCode — they load skills automatically from the plugin directory):
-   - Run this one-liner to copy the packaged `skills/` directory into Claude Code's skills directory:
-     python -c "import obsidian_vault_mcp, shutil, pathlib; src=pathlib.Path(obsidian_vault_mcp.__file__).parent/'skills'; dst=pathlib.Path.home()/'.claude'/'skills'; dst.mkdir(parents=True, exist_ok=True); shutil.copytree(src, dst, dirs_exist_ok=True); print('Skills registered:', dst)"
-   - Restart Claude Code so the new skills appear in the available skill list.
-4. Use `OBSIDIAN_VAULT_PATH=auto` by default. If auto-detection fails, ask me
-   for my local Obsidian vault path and configure it only in my local
-   MCP/plugin settings.
-5. Do not modify or publish my Obsidian vault contents.
-6. Verify the server can start, then run `python -m unittest discover -s tests`.
-7. Tell me how to restart/reload the AI client so the new MCP tools become
-   available.
-
-Optional: if I want Zotero features, remind me to open Zotero Desktop so its
-local API at `http://127.0.0.1:23119/api` is reachable. For best results,
-also install Better BibTeX for Zotero (https://retorque.re/zotero-better-bibtex/)
-to enable stable citekeys. If I use Ethereal Style (ZoteroStyle) to assign
-custom color labels to annotations, those labels will be picked up automatically.
-
-Optional: if I want MinerU document parsing, check whether `mineru-open-api`
-is installed. If it is not installed, tell me how to install it. Do not store
-or commit MinerU tokens in the repository. Use `flash-extract` when I do not
-have a token, and use precision `extract` only when I have configured MinerU
-authentication locally.
+1. Install `zotero-obsidian-mcp` with `pip install zotero-obsidian-mcp`, or use `pip install -e .` for a source checkout.
+2. Keep `OBSIDIAN_VAULT_PATH=auto` unless auto-detection fails.
+3. Set up the client I am using:
+   - Codex: use `.codex-plugin/plugin.json` and `.mcp.json`.
+   - Claude Code: run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add the `.mcp.json` server block manually. If skills are not auto-loaded, copy the packaged `skills/` directory into `~/.claude/skills/`.
+   - OpenCode: copy `.opencode.json` into the project, or merge its `mcp` block into `~/.opencode.json`.
+4. Keep vault paths, Zotero storage paths, and tokens in local config only.
+5. Run `obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault`.
+6. If I need Zotero features, remind me to open Zotero Desktop. If I need MinerU parsing, check whether `mineru-open-api` is installed.
 ```
 
-## Deploy With Claude Code
+## Client Setup
+
+### Codex
+
+- Use the repository as a local plugin root with `.codex-plugin/plugin.json`, `.mcp.json`, and `skills/` at the top level.
+- For most users, install the package first:
+
+```bash
+pip install zotero-obsidian-mcp
+```
+
+- For source-based development:
+
+```bash
+git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git
+cd obsidian-vault-mcp
+pip install -e .
+```
+
+### Claude Code
 
 **After PyPI install:**
 
@@ -365,7 +353,7 @@ pip install -e .
 claude mcp add obsidian-vault obsidian-vault-mcp
 ```
 
-Or add it manually to your Claude Code settings (`~/.claude/settings.json`):
+Or add it manually to `~/.claude/settings.json`:
 
 ```json
 {
@@ -382,13 +370,12 @@ Or add it manually to your Claude Code settings (`~/.claude/settings.json`):
 }
 ```
 
-`.claude-plugin/plugin.json` declares this plugin for Claude Code's plugin system, while `.codex-plugin/plugin.json` is the Codex manifest.
+- `.claude-plugin/plugin.json` is the Claude Code plugin manifest.
+- If Claude Code does not auto-load skills, copy the packaged `skills/` directory into `~/.claude/skills/`.
 
-## Deploy With OpenCode
+### OpenCode
 
-Install the package, then copy `.opencode.json` from the repository root to
-your project directory, or merge the `mcp` block into your global
-`~/.opencode.json`:
+- Copy `.opencode.json` from the repository root into your project, or merge the `mcp` block into global `~/.opencode.json`.
 
 ```json
 {
@@ -405,31 +392,14 @@ your project directory, or merge the `mcp` block into your global
 }
 ```
 
-## Public Release Safety
+## Portability and Safety
 
-This repository is intended to be reusable by other users. The checked-in
-configuration is portable by default:
-
-- `.mcp.json` uses the installed `obsidian-vault-mcp` entry point instead of
-  an absolute script path. Users install the package with `pip install zotero-obsidian-mcp`
-  (or `pip install -e .` for source); all three clients then share the same command.
-- `OBSIDIAN_VAULT_PATH` defaults to `auto`; users can set their own local vault
-  path without committing it.
-- Zotero integration points at the user's own local Zotero Desktop API.
-- File tools reject non-vault folders unless `OBSIDIAN_ALLOW_NON_VAULT=true` is
-  explicitly set by the user.
-- Unit tests create temporary vaults and do not write to a real vault.
-
-## Portability Notes
-
-- The plugin does not hard-code a vault path. `auto` follows the vault currently active in the local Obsidian CLI.
-- All file operations are constrained to the resolved vault root.
-- Existing files are not overwritten unless the tool call passes `overwrite=true`.
-- Write tools support `dry_run=true` to return a unified diff without modifying files.
-- Wiki workflow tools keep generated sections inside marker comments so hand-written note content can stay outside the managed block.
-- Obsidian CLI features require Obsidian Desktop to be running. Direct file tools still work when the CLI is unavailable if `OBSIDIAN_VAULT_PATH` is set.
-- `.mcp.json` uses the installed `obsidian-vault-mcp` entry point. Install the
-  package with `pip install zotero-obsidian-mcp` (or `pip install -e .`) before starting any MCP client.
+- `.mcp.json` uses the installed `obsidian-vault-mcp` entry point; for most users, `pip install zotero-obsidian-mcp` is the most reliable deployment path.
+- `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, and `.opencode.json` are the checked-in manifests for the three supported clients.
+- The plugin does not hard-code a vault path; `auto` follows the vault currently active in the local Obsidian CLI.
+- All file operations are constrained to the resolved vault root, and existing files are not overwritten unless the tool call passes `overwrite=true`.
+- Write tools support `dry_run=true`, and wiki workflows keep generated content inside marker comments so hand-written note content can stay outside the managed block.
+- Local vault paths, Zotero storage paths, tokens, and private note contents should remain in local config and never be committed.
 
 ## Contributing and Publishing
 
@@ -440,24 +410,10 @@ See [Deployment Guide](./docs/DEPLOYMENT.md) for the full release checklist and 
 - "Show me the structure of this Obsidian vault."
 - "Create a linked wiki note with YAML properties."
 - "Add wikilinks between these notes and report orphans."
-- "Preview the changes before updating these vault notes."
-- "Preview and apply a batch edit plan, then rollback if needed."
 - "Lint this vault and show unresolved links, dead ends, and missing index/log files."
-- "Validate frontmatter, Canvas, and Base schemas across this vault."
-- "Preview schema default fixes for notes that are missing frontmatter."
-- "Suggest graph improvements for unresolved and weakly linked pages."
-- "Refresh the wiki index and append a log entry."
-- "Ingest this source into linked source, entity, and concept notes."
-- "Ingest this BibTeX entry or MinerU extraction into the literature wiki."
-- "Check whether MinerU CLI is available for this vault."
+- "Ingest this BibTeX entry or Zotero item into Obsidian."
 - "Use MinerU flash-extract on this PDF and ingest the result into Obsidian."
-- "Search Zotero and ingest this Zotero item into Obsidian."
-- "Create a source note for this PDF attachment."
-- "Create an equipment or economics Base template for this project."
-- "Create a Dataview equipment table note."
-- "Create a Canvas map of this topic cluster."
-- "Generate a Canvas knowledge map from this vault's wikilinks."
-- "Create a Base view for all project notes."
+- "Create a Base view or Dataview note for this project."
 - "Use the Obsidian CLI to read backlinks or query a Base."
 
 ## References
