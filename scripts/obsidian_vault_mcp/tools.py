@@ -623,6 +623,48 @@ def obsidian_lint_vault(
 
 
 @tool()
+def obsidian_find_orphans(
+    vault_path: str = "",
+    folder: str = "",
+    exclude_index: bool = True,
+) -> dict[str, Any]:
+    """Return all Markdown notes that have no incoming wikilinks, with file metadata."""
+    vault = _vault(vault_path)
+    graph = obsidian_build_graph(vault_path=str(vault), folder=folder, include_tags=True)
+
+    excluded: set[str] = set()
+    if exclude_index:
+        index_path = _configured_path(vault, "indexPath", "index.md", "index.md")
+        log_path = _configured_path(vault, "logPath", "log.md", "log.md")
+        excluded = {index_path.lower(), log_path.lower()}
+
+    nodes_by_id = {n["id"]: n for n in graph["nodes"]}
+    orphan_details: list[dict[str, Any]] = []
+    for orphan_id in graph["orphans"]:
+        if orphan_id.lower() in excluded:
+            continue
+        node = nodes_by_id.get(orphan_id, {})
+        full = _safe_path(vault, orphan_id)
+        stat = full.stat() if full.exists() else None
+        orphan_details.append(
+            {
+                "path": orphan_id,
+                "title": node.get("title") or Path(orphan_id).stem,
+                "tags": node.get("tags", []),
+                "size": stat.st_size if stat else 0,
+                "modified": int(stat.st_mtime) if stat else 0,
+            }
+        )
+
+    return {
+        "vaultPath": str(vault),
+        "orphanCount": len(orphan_details),
+        "totalNotes": graph["nodeCount"],
+        "orphans": orphan_details,
+    }
+
+
+@tool()
 def obsidian_update_wiki_index(
     vault_path: str = "",
     folder: str = "",

@@ -1514,6 +1514,37 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(results[0]["contextAfter"], [])
         self.assertEqual(results[0]["contextBefore"], ["line1", "line2"])
 
+    def test_find_orphans_returns_notes_with_no_incoming_links(self):
+        self.write_note("linked.md", "---\ntitle: Linked\n---\n")
+        self.write_note("orphan.md", "---\ntitle: Orphan\n---\n")
+        self.write_note("hub.md", "---\ntitle: Hub\n---\n[[linked]]\n")
+        result = self.module.obsidian_find_orphans(str(self.vault))
+        paths = [o["path"] for o in result["orphans"]]
+        self.assertIn("orphan.md", paths)
+        self.assertNotIn("linked.md", paths)
+        self.assertIn("orphanCount", result)
+        self.assertIn("totalNotes", result)
+
+    def test_find_orphans_excludes_index_and_log_by_default(self):
+        self.write_note("index.md", "# Index\n")
+        self.write_note("log.md", "# Log\n")
+        self.write_note("regular.md", "---\ntitle: R\n---\n")
+        result = self.module.obsidian_find_orphans(str(self.vault), exclude_index=True)
+        paths = [o["path"] for o in result["orphans"]]
+        self.assertNotIn("index.md", paths)
+        self.assertNotIn("log.md", paths)
+        self.assertIn("regular.md", paths)
+
+    def test_find_orphans_includes_file_metadata(self):
+        self.write_note("alone.md", "---\ntitle: Alone Note\ntags: [solo]\n---\n")
+        result = self.module.obsidian_find_orphans(str(self.vault))
+        orphan = next((o for o in result["orphans"] if o["path"] == "alone.md"), None)
+        self.assertIsNotNone(orphan)
+        self.assertEqual(orphan["title"], "Alone Note")
+        self.assertIn("solo", orphan["tags"])
+        self.assertIn("size", orphan)
+        self.assertIn("modified", orphan)
+
 
 if __name__ == "__main__":
     unittest.main()
