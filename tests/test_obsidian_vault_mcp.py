@@ -1160,5 +1160,53 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             m._load_ethereal_color_labels = original_ethereal
 
 
+    def test_zotero_annotations_structured_format(self):
+        m = self.module._tools
+        children = {
+            "notes": [],
+            "annotations": [
+                {
+                    "annotationType": "highlight",
+                    "annotationColor": "#ffd400",
+                    "annotationText": "Deep learning changed everything.",
+                    "annotationComment": "Core thesis",
+                    "annotationPageLabel": "3",
+                },
+                {
+                    "annotationType": "highlight",
+                    "annotationColor": "#e56eee",
+                    "annotationText": "Our method outperforms baseline.",
+                    "annotationComment": "",
+                    "annotationPageLabel": "12",
+                },
+                {
+                    "annotationType": "note",
+                    "annotationColor": None,
+                    "annotationText": "",
+                    "annotationComment": "Check this later",
+                    "annotationPageLabel": "7",
+                },
+            ],
+        }
+        color_labels = {"#ffd400": "背景", "#e56eee": "结论"}
+        result = m._zotero_annotations_structured(children, color_labels)
+
+        # p.3 highlight with comment
+        self.assertIn("> [!quote]+ 🟡 背景 — p.3", result)
+        self.assertIn("> Deep learning changed everything.", result)
+        self.assertIn("> *Core thesis*", result)
+
+        # p.7 note (no highlight text) — should appear between p.3 and p.12
+        self.assertIn("> [!note]+ 📝 — p.7", result)
+        self.assertIn("> Check this later", result)
+
+        # p.12 highlight without comment
+        self.assertIn("> [!quote]+ 🩷 结论 — p.12", result)
+
+        # sorted: p.3 appears before p.7 which appears before p.12
+        self.assertLess(result.index("p.3"), result.index("p.7"))
+        self.assertLess(result.index("p.7"), result.index("p.12"))
+
+
 if __name__ == "__main__":
     unittest.main()

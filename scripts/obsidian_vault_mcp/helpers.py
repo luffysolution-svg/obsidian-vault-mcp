@@ -1509,6 +1509,79 @@ def _zotero_notes_and_annotations(children: dict[str, list[dict[str, Any]]]) -> 
     return "\n".join(lines).strip()
 
 
+def _zotero_annotations_structured(
+    children: dict[str, list[dict[str, Any]]],
+    color_labels: dict[str, str],
+) -> str:
+    """Render annotations as foldable callouts sorted by page, with color emoji and semantic labels."""
+    lines: list[str] = []
+    notes = children.get("notes", [])
+    annotations = children.get("annotations", [])
+
+    if notes:
+        lines.extend(["## Zotero Notes", ""])
+        for note in notes:
+            lines.extend([f"### Note {note.get('key')}", "", str(note.get("note") or "").strip(), ""])
+
+    if annotations:
+        lines.extend(["## Annotations", ""])
+
+        def _page_sort_key(ann: dict[str, Any]) -> tuple[int, Any]:
+            page = str(ann.get("annotationPageLabel") or "")
+            try:
+                return (0, int(page))
+            except ValueError:
+                return (1, page)
+
+        for annotation in sorted(annotations, key=_page_sort_key):
+            text = str(annotation.get("annotationText") or "").strip()
+            comment = str(annotation.get("annotationComment") or "").strip()
+            ann_type = str(annotation.get("annotationType") or "highlight")
+            page = str(annotation.get("annotationPageLabel") or "").strip()
+            color = annotation.get("annotationColor")
+
+            emoji = _annotation_emoji(color)
+            label = ""
+            if color:
+                key = color.lower()
+                if key in color_labels:
+                    label = color_labels[key]
+                elif color_labels:
+                    nearest = min(
+                        ((lbl, _color_distance(key, cfg)) for cfg, lbl in color_labels.items()),
+                        key=lambda x: x[1],
+                    )
+                    if nearest[1] <= 20:
+                        label = nearest[0]
+
+            header_parts = [emoji]
+            if label:
+                header_parts.append(label)
+            if page:
+                header_parts.append(f"— p.{page}")
+            header = " ".join(header_parts)
+
+            if ann_type == "note" and not text:
+                if comment:
+                    lines.append(f"> [!note]+ {header}")
+                    lines.append(f"> {comment}")
+                    lines.append("")
+            else:
+                if text:
+                    lines.append(f"> [!quote]+ {header}")
+                    lines.append(f"> {text}")
+                    if comment:
+                        lines.append("> ")
+                        lines.append(f"> *{comment}*")
+                    lines.append("")
+                elif comment:
+                    lines.append(f"> [!note]+ {header}")
+                    lines.append(f"> {comment}")
+                    lines.append("")
+
+    return "\n".join(lines).strip()
+
+
 _ZOTERO_OWNED_FIELDS = frozenset({
     "title", "authors", "year", "abstract", "doi", "DOI",
     "zoteroKey", "zoteroVersion", "zoteroSelect", "zoteroLinks",
