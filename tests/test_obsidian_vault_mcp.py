@@ -1413,6 +1413,47 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("error", result)
 
+    def test_search_regex_matches_pattern(self):
+        self.write_note("A.md", "---\ntitle: A\n---\n\nThe year 2024 was pivotal. So was 1999.\n")
+
+        results = self.module.obsidian_search(
+            r"\b\d{4}\b", str(self.vault), use_regex=True
+        )
+
+        snippets = [r["snippet"] for r in results]
+        self.assertTrue(any("2024" in s for s in snippets))
+        self.assertTrue(any("1999" in s for s in snippets))
+
+    def test_search_regex_case_sensitive(self):
+        self.write_note("B.md", "---\ntitle: B\n---\n\nHello World. hello world.\n")
+
+        results_insensitive = self.module.obsidian_search(
+            r"hello", str(self.vault), use_regex=True, case_sensitive=False
+        )
+        results_sensitive = self.module.obsidian_search(
+            r"hello", str(self.vault), use_regex=True, case_sensitive=True
+        )
+
+        self.assertEqual(len(results_insensitive), 2)
+        self.assertEqual(len(results_sensitive), 1)
+        self.assertIn("hello world", results_sensitive[0]["snippet"])
+
+    def test_search_regex_invalid_pattern_returns_error(self):
+        results = self.module.obsidian_search(
+            r"[unclosed", str(self.vault), use_regex=True
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertIn("error", results[0])
+        self.assertIn("Invalid regex", results[0]["error"])
+
+    def test_search_regex_false_preserves_existing_behavior(self):
+        self.write_note("C.md", "---\ntitle: C\n---\n\nPlain text search target.\n")
+
+        results = self.module.obsidian_search("Plain text", str(self.vault))
+
+        self.assertTrue(any("Plain text" in r["snippet"] for r in results))
+
 
 if __name__ == "__main__":
     unittest.main()

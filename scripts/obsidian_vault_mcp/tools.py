@@ -59,13 +59,23 @@ def obsidian_search(
     folder: str = "",
     extensions: str = ".md",
     case_sensitive: bool = False,
+    use_regex: bool = False,
     limit: int = 50,
     context_chars: int = 140,
 ) -> list[dict[str, Any]]:
-    """Search text files in a vault and return matching line snippets."""
+    """Search text files in a vault and return matching line snippets. Set use_regex=true for regular expression matching."""
     vault = _vault(vault_path)
     wanted = _extension_set(extensions)
-    needle = query if case_sensitive else query.lower()
+    compiled: re.Pattern[str] | None = None
+    needle: str = ""
+    if use_regex:
+        try:
+            flags = 0 if case_sensitive else re.IGNORECASE
+            compiled = re.compile(query, flags)
+        except re.error as exc:
+            return [{"error": f"Invalid regex: {exc}"}]
+    else:
+        needle = query if case_sensitive else query.lower()
     matches: list[dict[str, Any]] = []
     for path in _iter_files(vault, folder):
         if wanted and path.suffix.lower() not in wanted:
@@ -75,15 +85,25 @@ def obsidian_search(
         except UnicodeDecodeError:
             continue
         for number, line in enumerate(lines, start=1):
-            haystack = line if case_sensitive else line.lower()
-            index = haystack.find(needle)
-            if index == -1:
-                continue
-            start = max(0, index - context_chars // 2)
-            end = min(len(line), index + len(query) + context_chars // 2)
-            matches.append({"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()})
-            if len(matches) >= max(1, limit):
-                return matches
+            if compiled is not None:
+                for m in compiled.finditer(line):
+                    index = m.start()
+                    matched_len = m.end() - m.start()
+                    start = max(0, index - context_chars // 2)
+                    end = min(len(line), index + matched_len + context_chars // 2)
+                    matches.append({"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()})
+                    if len(matches) >= max(1, limit):
+                        return matches
+            else:
+                haystack = line if case_sensitive else line.lower()
+                index = haystack.find(needle)
+                if index == -1:
+                    continue
+                start = max(0, index - context_chars // 2)
+                end = min(len(line), index + len(query) + context_chars // 2)
+                matches.append({"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()})
+                if len(matches) >= max(1, limit):
+                    return matches
     return matches
 
 
