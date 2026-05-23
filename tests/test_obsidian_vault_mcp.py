@@ -1208,5 +1208,77 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertLess(result.index("p.7"), result.index("p.12"))
 
 
+    def test_ingest_zotero_item_structured_annotations(self):
+        def fake_api(path, params=None, api_base=""):
+            if path == "users/0/items/ANN1":
+                return {
+                    "key": "ANN1",
+                    "data": {
+                        "key": "ANN1",
+                        "itemType": "journalArticle",
+                        "title": "Annotation Test Paper",
+                        "creators": [{"lastName": "Smith"}],
+                        "date": "2025",
+                    },
+                }
+            if path == "users/0/items/ANN1/children":
+                return [
+                    {
+                        "key": "A1",
+                        "data": {
+                            "key": "A1",
+                            "itemType": "annotation",
+                            "annotationType": "highlight",
+                            "annotationColor": "#ffd400",
+                            "annotationText": "Key finding here.",
+                            "annotationComment": "Important",
+                            "annotationPageLabel": "5",
+                        },
+                    }
+                ]
+            return []
+
+        original = self.module._tools._zotero_api
+        self.module._tools._zotero_api = fake_api
+        try:
+            result = self.module.obsidian_ingest_zotero_item(
+                "ANN1",
+                str(self.vault),
+                overwrite=True,
+                annotations_mode="structured",
+                color_labels_json='{"#ffd400": "背景"}',
+            )
+        finally:
+            self.module._tools._zotero_api = original
+
+        self.assertTrue(result["ok"])
+        note_path = self.vault / "literature" / "Smith (2025) - Annotation Test Paper.md"
+        note = note_path.read_text(encoding="utf-8")
+        self.assertIn("> [!quote]+ 🟡 背景 — p.5", note)
+        self.assertIn("> Key finding here.", note)
+        self.assertIn("> *Important*", note)
+
+    def test_ingest_zotero_item_flat_mode_unchanged(self):
+        """flat mode (default) must not produce the new foldable format."""
+        def fake_api(path, params=None, api_base=""):
+            if path == "users/0/items/FLAT1":
+                return {"key": "FLAT1", "data": {"key": "FLAT1", "itemType": "journalArticle", "title": "Flat Paper", "creators": [{"lastName": "Doe"}], "date": "2025"}}
+            if path == "users/0/items/FLAT1/children":
+                return [{"key": "A1", "data": {"key": "A1", "itemType": "annotation", "annotationType": "highlight", "annotationColor": "#ffd400", "annotationText": "Some text.", "annotationComment": "", "annotationPageLabel": "2"}}]
+            return []
+
+        original = self.module._tools._zotero_api
+        self.module._tools._zotero_api = fake_api
+        try:
+            result = self.module.obsidian_ingest_zotero_item("FLAT1", str(self.vault), overwrite=True)
+        finally:
+            self.module._tools._zotero_api = original
+
+        self.assertTrue(result["ok"])
+        note = (self.vault / "literature" / "Doe (2025) - Flat Paper.md").read_text(encoding="utf-8")
+        # flat mode uses existing format (no + foldable)
+        self.assertNotIn("[!quote]+", note)
+
+
 if __name__ == "__main__":
     unittest.main()

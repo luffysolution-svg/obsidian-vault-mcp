@@ -883,7 +883,6 @@ def obsidian_ingest_mineru_markdown(
     return result
 
 
-
 @tool()
 def obsidian_mineru_status(
     cli_command: str = "",
@@ -1315,6 +1314,8 @@ def obsidian_ingest_zotero_item(
     copy_pdf_attachments: bool = False,
     include_child_notes: bool = True,
     include_annotations: bool = True,
+    annotations_mode: str = "flat",
+    color_labels_json: str = "{}",
     include_pdf_text: bool = False,
     max_pdf_pages: int = 5,
     folder_by_collection: bool = False,
@@ -1399,12 +1400,15 @@ def obsidian_ingest_zotero_item(
                 }
                 overwrite = True
 
-    notes_content = _zotero_notes_and_annotations(
-        {
-            "notes": children.get("notes", []) if include_child_notes else [],
-            "annotations": children.get("annotations", []) if include_annotations else [],
-        }
-    )
+    _ann_children = {
+        "notes": children.get("notes", []) if include_child_notes else [],
+        "annotations": children.get("annotations", []) if include_annotations else [],
+    }
+    if annotations_mode == "structured":
+        _color_labels = _resolve_annotation_color_labels(vault, color_labels_json)
+        notes_content = _zotero_annotations_structured(_ann_children, _color_labels)
+    else:
+        notes_content = _zotero_notes_and_annotations(_ann_children)
     attachment_path = ""
     copied_attachments: list[str] = []
     linked_attachments: list[str] = []
@@ -2310,15 +2314,18 @@ def obsidian_cli(
     for flag in flags:
         args.append(str(flag))
     run_cwd = str(_vault(cwd)) if cwd else None
-    completed = subprocess.run(
-        args,
-        cwd=run_cwd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=max(1, timeout_seconds),
-    )
+    try:
+        completed = subprocess.run(
+            args,
+            cwd=run_cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=max(1, timeout_seconds),
+        )
+    except Exception as exc:
+        return {"ok": False, "command": args, "returnCode": -1, "stdout": "", "stderr": "", "error": f"Obsidian CLI failed to run: {exc}"}
     stdout = completed.stdout.strip()
     stderr = completed.stderr.strip()
     fatal_output = stdout in {"Vault not found.", "File not found.", "Command not found."} or stderr in {"Vault not found.", "File not found.", "Command not found."}
