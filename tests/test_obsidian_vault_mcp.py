@@ -1123,6 +1123,37 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         # entity is layer 0, literature is layer 1 → entity.x < literature.x
         self.assertLess(file_nodes["B.md"]["x"], file_nodes["A.md"]["x"])
 
+    def test_annotation_emoji_returns_correct_emoji_for_known_colors(self):
+        m = self.module._tools  # access helpers via tools module
+        self.assertEqual(m._annotation_emoji("#ffd400"), "🟡")
+        self.assertEqual(m._annotation_emoji("#ff6666"), "🔴")
+        self.assertEqual(m._annotation_emoji("#5fb236"), "🟢")
+        self.assertEqual(m._annotation_emoji("#2ea8e5"), "🔵")
+        self.assertEqual(m._annotation_emoji("#a28ae5"), "🟣")
+        self.assertEqual(m._annotation_emoji("#e56eee"), "🩷")
+        self.assertEqual(m._annotation_emoji("#f19837"), "🟠")
+        self.assertEqual(m._annotation_emoji("#aaaaaa"), "⬜")
+        self.assertEqual(m._annotation_emoji(None), "📝")
+        self.assertEqual(m._annotation_emoji(""), "📝")
+
+    def test_resolve_annotation_color_labels_layers_sources(self):
+        # vault config overrides built-in
+        config_path = self.vault / ".obsidian" / "obsidian-vault-mcp.json"
+        config_path.write_text(
+            '{"annotationColorLabels": {"#ffd400": "背景", "#ff6666": "理论"}}',
+            encoding="utf-8",
+        )
+        m = self.module._tools
+        labels = m._resolve_annotation_color_labels(self.vault, "{}")
+        self.assertEqual(labels["#ffd400"], "背景")
+        self.assertEqual(labels["#ff6666"], "理论")
+        # per-call JSON overrides vault config
+        labels2 = m._resolve_annotation_color_labels(
+            self.vault, '{"#ffd400": "context"}'
+        )
+        self.assertEqual(labels2["#ffd400"], "context")
+        self.assertEqual(labels2["#ff6666"], "理论")  # vault config still applies
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1313,6 +1313,47 @@ _ANNOTATION_COLOR_NAMES: dict[str, str] = {
     "#aaaaaa": "gray",
 }
 
+_ANNOTATION_COLOR_EMOJIS: dict[str, str] = {
+    "#ffd400": "🟡",
+    "#ff6666": "🔴",
+    "#5fb236": "🟢",
+    "#2ea8e5": "🔵",
+    "#a28ae5": "🟣",
+    "#e56eee": "🩷",
+    "#f19837": "🟠",
+    "#aaaaaa": "⬜",
+}
+
+
+def _annotation_emoji(color: str | None) -> str:
+    if not color:
+        return "📝"
+    key = color.lower()
+    if key in _ANNOTATION_COLOR_EMOJIS:
+        return _ANNOTATION_COLOR_EMOJIS[key]
+    nearest_emoji, nearest_dist = min(
+        ((emoji, _color_distance(key, hex_c)) for hex_c, emoji in _ANNOTATION_COLOR_EMOJIS.items()),
+        key=lambda x: x[1],
+    )
+    return nearest_emoji if nearest_dist <= 20 else "📝"
+
+
+def _resolve_annotation_color_labels(vault: Path, color_labels_json: str) -> dict[str, str]:
+    labels: dict[str, str] = dict(_ANNOTATION_COLOR_NAMES)
+    labels.update(_load_ethereal_color_labels())
+    vault_cfg = _vault_config(vault).get("annotationColorLabels", {})
+    if isinstance(vault_cfg, dict):
+        labels.update({k.lower(): str(v) for k, v in vault_cfg.items()})
+    if color_labels_json and color_labels_json.strip() not in ("{}", ""):
+        try:
+            param_labels = json.loads(color_labels_json)
+            if isinstance(param_labels, dict):
+                labels.update({k.lower(): str(v) for k, v in param_labels.items()})
+        except json.JSONDecodeError:
+            pass
+    return labels
+
+
 # Cache for Ethereal Style color labels loaded from prefs.js
 _ethereal_color_labels: dict[str, str] = {}
 _ethereal_color_labels_mtime: float = 0.0
