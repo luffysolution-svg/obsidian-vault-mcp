@@ -157,6 +157,68 @@ def obsidian_delete_file(
 
 
 @tool()
+def obsidian_move_file(
+    path: str,
+    to: str,
+    vault_path: str = "",
+    update_wikilinks: bool = False,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Move a vault-relative file to a different directory. Pass update_wikilinks=true to rewrite [[links]] across the vault."""
+    vault = _vault(vault_path)
+    src_full = _safe_path(vault, path)
+    src_rel = _rel(vault, src_full)
+    if not src_full.exists():
+        return {"ok": False, "path": src_rel, "error": "File does not exist."}
+    to_dir = _safe_path(vault, to)
+    dest_full = to_dir / src_full.name
+    dest_rel = (Path(to.strip("/")) / src_full.name).as_posix()
+    if not dry_run and dest_full.exists():
+        return {"ok": False, "path": src_rel, "error": f"Destination already exists: {dest_rel}"}
+    if dry_run:
+        return {"ok": True, "from": src_rel, "to": dest_rel, "dryRun": True}
+    dest_full.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src_full), str(dest_full))
+    result: dict[str, Any] = {"ok": True, "from": src_rel, "to": dest_rel, "dryRun": False}
+    if update_wikilinks:
+        rewrites = _rewrite_wikilinks(vault, src_rel, dest_rel)
+        result["updatedFiles"] = rewrites["files"]
+        result["replacementCount"] = rewrites["count"]
+    return result
+
+
+@tool()
+def obsidian_rename_file(
+    path: str,
+    name: str,
+    vault_path: str = "",
+    update_wikilinks: bool = False,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Rename a vault-relative file in place. Pass update_wikilinks=true to rewrite [[links]] across the vault."""
+    vault = _vault(vault_path)
+    src_full = _safe_path(vault, path)
+    src_rel = _rel(vault, src_full)
+    if not src_full.exists():
+        return {"ok": False, "path": src_rel, "error": "File does not exist."}
+    if "/" in name or "\\" in name:
+        return {"ok": False, "path": src_rel, "error": "name must be a filename only, not a path. Use obsidian_move_file to change directories."}
+    dest_full = src_full.parent / name
+    dest_rel = _rel(vault, dest_full)
+    if not dry_run and dest_full.exists():
+        return {"ok": False, "path": src_rel, "error": f"Destination already exists: {dest_rel}"}
+    if dry_run:
+        return {"ok": True, "from": src_rel, "to": dest_rel, "dryRun": True}
+    src_full.rename(dest_full)
+    result: dict[str, Any] = {"ok": True, "from": src_rel, "to": dest_rel, "dryRun": False}
+    if update_wikilinks:
+        rewrites = _rewrite_wikilinks(vault, src_rel, dest_rel)
+        result["updatedFiles"] = rewrites["files"]
+        result["replacementCount"] = rewrites["count"]
+    return result
+
+
+@tool()
 def obsidian_create_note(
     path: str,
     title: str = "",

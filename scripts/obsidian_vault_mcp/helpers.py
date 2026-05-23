@@ -535,6 +535,42 @@ def _collect_markdown(vault: Path) -> list[Path]:
     return [path for path in _iter_files(vault) if path.suffix.lower() == ".md"]
 
 
+def _rewrite_wikilinks(vault: Path, old_rel: str, new_rel: str) -> dict[str, Any]:
+    """Rewrite [[wikilinks]] across all .md files after a file move or rename."""
+    old_stem = Path(old_rel).stem
+    new_stem = Path(new_rel).stem
+    old_no_ext = re.sub(r"\.md$", "", old_rel)
+    new_no_ext = re.sub(r"\.md$", "", new_rel)
+
+    patterns: list[tuple[re.Pattern[str], str]] = [
+        (re.compile(rf"\[\[{re.escape(old_no_ext)}\]\]"), f"[[{new_no_ext}]]"),
+        (re.compile(rf"\[\[{re.escape(old_no_ext)}\|([^\]]+)\]\]"), rf"[[{new_no_ext}|\1]]"),
+    ]
+    if old_stem != old_no_ext:
+        patterns.extend([
+            (re.compile(rf"\[\[{re.escape(old_stem)}\]\]"), f"[[{new_stem}]]"),
+            (re.compile(rf"\[\[{re.escape(old_stem)}\|([^\]]+)\]\]"), rf"[[{new_stem}|\1]]"),
+        ])
+
+    updated_files: list[str] = []
+    total_count = 0
+    for md_path in _collect_markdown(vault):
+        rel = _rel(vault, md_path)
+        if rel == old_rel:
+            continue
+        text = _read_text(md_path)
+        new_text = text
+        count = 0
+        for pattern, replacement in patterns:
+            new_text, n = pattern.subn(replacement, new_text)
+            count += n
+        if count > 0:
+            _write_text(md_path, new_text)
+            updated_files.append(rel)
+            total_count += count
+    return {"files": updated_files, "count": total_count}
+
+
 def _add_note_key(index: dict[str, set[str]], key: str, rel_path: str) -> None:
     normalized = _normalize_note_key(key)
     if normalized:

@@ -1345,6 +1345,66 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("error", result)
 
+    def test_move_file_relocates_file(self):
+        self.write_note("notes/paper.md", "# Paper\n")
+
+        result = self.module.obsidian_move_file("notes/paper.md", "archive", str(self.vault))
+
+        self.assertTrue(result["ok"])
+        self.assertFalse((self.vault / "notes" / "paper.md").exists())
+        self.assertTrue((self.vault / "archive" / "paper.md").exists())
+        self.assertEqual(result["from"], "notes/paper.md")
+        self.assertEqual(result["to"], "archive/paper.md")
+
+    def test_move_file_dry_run(self):
+        self.write_note("notes/dry.md", "content\n")
+
+        result = self.module.obsidian_move_file("notes/dry.md", "archive", str(self.vault), dry_run=True)
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["dryRun"])
+        self.assertTrue((self.vault / "notes" / "dry.md").exists())
+        self.assertFalse((self.vault / "archive" / "dry.md").exists())
+
+    def test_move_file_updates_wikilinks(self):
+        self.write_note("notes/moved.md", "# Moved\n")
+        self.write_note("ref.md", "---\ntitle: Ref\n---\n\nSee [[moved]] and [[notes/moved]].\n")
+
+        result = self.module.obsidian_move_file(
+            "notes/moved.md", "archive", str(self.vault), update_wikilinks=True
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertGreater(result["replacementCount"], 0)
+        ref = (self.vault / "ref.md").read_text(encoding="utf-8")
+        self.assertIn("[[archive/moved]]", ref)
+        self.assertNotIn("[[notes/moved]]", ref)
+
+    def test_rename_file_renames_in_place(self):
+        self.write_note("notes/old_name.md", "# Old\n")
+
+        result = self.module.obsidian_rename_file("notes/old_name.md", "new_name.md", str(self.vault))
+
+        self.assertTrue(result["ok"])
+        self.assertFalse((self.vault / "notes" / "old_name.md").exists())
+        self.assertTrue((self.vault / "notes" / "new_name.md").exists())
+        self.assertEqual(result["from"], "notes/old_name.md")
+        self.assertEqual(result["to"], "notes/new_name.md")
+
+    def test_rename_file_updates_wikilinks(self):
+        self.write_note("docs/alpha.md", "# Alpha\n")
+        self.write_note("index.md", "---\ntitle: Index\n---\n\nSee [[alpha]] and [[docs/alpha]].\n")
+
+        result = self.module.obsidian_rename_file(
+            "docs/alpha.md", "beta.md", str(self.vault), update_wikilinks=True
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertGreater(result["replacementCount"], 0)
+        index = (self.vault / "index.md").read_text(encoding="utf-8")
+        self.assertIn("[[beta]]", index)
+        self.assertNotIn("[[alpha]]", index)
+
 
 if __name__ == "__main__":
     unittest.main()
