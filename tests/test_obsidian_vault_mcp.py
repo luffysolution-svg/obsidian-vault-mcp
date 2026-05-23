@@ -1144,15 +1144,20 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             encoding="utf-8",
         )
         m = self.module._tools
-        labels = m._resolve_annotation_color_labels(self.vault, "{}")
-        self.assertEqual(labels["#ffd400"], "背景")
-        self.assertEqual(labels["#ff6666"], "理论")
-        # per-call JSON overrides vault config
-        labels2 = m._resolve_annotation_color_labels(
-            self.vault, '{"#ffd400": "context"}'
-        )
-        self.assertEqual(labels2["#ffd400"], "context")
-        self.assertEqual(labels2["#ff6666"], "理论")  # vault config still applies
+        original_ethereal = m._load_ethereal_color_labels
+        m._load_ethereal_color_labels = lambda: {}
+        try:
+            labels = m._resolve_annotation_color_labels(self.vault, "{}")
+            self.assertEqual(labels["#ffd400"], "背景")
+            self.assertEqual(labels["#ff6666"], "理论")
+            # per-call JSON overrides vault config
+            labels2 = m._resolve_annotation_color_labels(
+                self.vault, '{"#ffd400": "context"}'
+            )
+            self.assertEqual(labels2["#ffd400"], "context")
+            self.assertEqual(labels2["#ff6666"], "理论")  # vault config still applies
+        finally:
+            m._load_ethereal_color_labels = original_ethereal
 
 
 if __name__ == "__main__":

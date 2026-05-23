@@ -1335,7 +1335,7 @@ def _annotation_emoji(color: str | None) -> str:
         ((emoji, _color_distance(key, hex_c)) for hex_c, emoji in _ANNOTATION_COLOR_EMOJIS.items()),
         key=lambda x: x[1],
     )
-    return nearest_emoji if nearest_dist <= 20 else "📝"
+    return nearest_emoji if nearest_dist <= 20 else "📝"  # spec: ±20 tolerance for color matching
 
 
 def _resolve_annotation_color_labels(vault: Path, color_labels_json: str) -> dict[str, str]:
