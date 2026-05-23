@@ -1309,6 +1309,42 @@ class ObsidianVaultMcpTests(unittest.TestCase):
 
         self.assertEqual(calls, ["structured"])
 
+    def test_delete_file_creates_backup_and_removes_file(self):
+        self.write_note("to_delete.md", "# Delete me\n")
+
+        result = self.module.obsidian_delete_file("to_delete.md", str(self.vault))
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["dryRun"])
+        self.assertFalse((self.vault / "to_delete.md").exists())
+        self.assertTrue(result["backup"])
+        backup_path = self.vault / result["backup"]
+        self.assertTrue(backup_path.exists())
+        self.assertEqual(backup_path.read_text(encoding="utf-8"), "# Delete me\n")
+
+    def test_delete_file_dry_run_does_not_delete(self):
+        self.write_note("keep.md", "# Keep me\n")
+
+        result = self.module.obsidian_delete_file("keep.md", str(self.vault), dry_run=True)
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["dryRun"])
+        self.assertTrue((self.vault / "keep.md").exists())
+
+    def test_delete_file_no_backup_option(self):
+        self.write_note("no_backup.md", "content\n")
+
+        result = self.module.obsidian_delete_file("no_backup.md", str(self.vault), backup=False)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse((self.vault / "no_backup.md").exists())
+        self.assertEqual(result["backup"], "")
+
+    def test_delete_file_missing_returns_error(self):
+        result = self.module.obsidian_delete_file("ghost.md", str(self.vault))
+        self.assertFalse(result["ok"])
+        self.assertIn("error", result)
+
 
 if __name__ == "__main__":
     unittest.main()

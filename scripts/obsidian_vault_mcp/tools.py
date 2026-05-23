@@ -132,6 +132,31 @@ def obsidian_write_file(
 
 
 @tool()
+def obsidian_delete_file(
+    path: str,
+    vault_path: str = "",
+    backup: bool = True,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Delete a vault-relative file, optionally backing it up to .obsidian-vault-backups/ first."""
+    vault = _vault(vault_path)
+    full = _safe_path(vault, path)
+    rel = _rel(vault, full)
+    if not full.exists():
+        return {"ok": False, "path": rel, "error": "File does not exist."}
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup_rel = f"{BACKUP_DIR}/manual/{timestamp}/{rel}" if backup else ""
+    if dry_run:
+        return {"ok": True, "path": rel, "backup": backup_rel, "dryRun": True}
+    if backup:
+        backup_full = vault / backup_rel
+        backup_full.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(full, backup_full)
+    full.unlink()
+    return {"ok": True, "path": rel, "backup": backup_rel, "dryRun": False}
+
+
+@tool()
 def obsidian_create_note(
     path: str,
     title: str = "",
