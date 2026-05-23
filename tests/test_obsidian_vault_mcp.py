@@ -1280,5 +1280,35 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertNotIn("[!quote]+", note)
 
 
+    def test_ingest_zotero_collection_forwards_annotations_mode(self):
+        """annotations_mode and color_labels_json must reach obsidian_ingest_zotero_item."""
+        calls = []
+        original_item = self.module._tools.obsidian_ingest_zotero_item
+
+        def fake_ingest_item(key, **kwargs):
+            calls.append(kwargs.get("annotations_mode"))
+            return {"ok": True, "upToDate": False, "duplicate": False, "changed": False}
+
+        def fake_api(path, params=None, api_base=""):
+            if path == "users/0/collections/COL1/items/top":
+                return [{"key": "K1", "data": {"key": "K1", "itemType": "journalArticle"}}]
+            return []
+
+        orig_api = self.module._tools._zotero_api
+        self.module._tools._zotero_api = fake_api
+        self.module._tools.obsidian_ingest_zotero_item = fake_ingest_item
+        try:
+            self.module.obsidian_ingest_zotero_collection(
+                collection_key="COL1",
+                vault_path=str(self.vault),
+                annotations_mode="structured",
+            )
+        finally:
+            self.module._tools._zotero_api = orig_api
+            self.module._tools.obsidian_ingest_zotero_item = original_item
+
+        self.assertEqual(calls, ["structured"])
+
+
 if __name__ == "__main__":
     unittest.main()
