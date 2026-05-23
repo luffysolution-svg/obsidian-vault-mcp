@@ -1405,6 +1405,14 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("[[beta]]", index)
         self.assertNotIn("[[alpha]]", index)
 
+    def test_rename_file_rejects_path_in_name(self):
+        self.write_note("docs/file.md", "# File\n")
+
+        result = self.module.obsidian_rename_file("docs/file.md", "subdir/new.md", str(self.vault))
+
+        self.assertFalse(result["ok"])
+        self.assertIn("error", result)
+
 
 if __name__ == "__main__":
     unittest.main()
