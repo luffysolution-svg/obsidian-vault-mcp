@@ -23,6 +23,51 @@ def obsidian_vault_status(vault_path: str = "") -> dict[str, Any]:
 
 
 @tool()
+def obsidian_vault_stats(
+    vault_path: str = "",
+    top_tags: int = 20,
+    top_linked: int = 10,
+) -> dict[str, Any]:
+    """Return per-folder note counts, top tags by frequency, and most-linked notes."""
+    vault = _vault(vault_path)
+    graph = obsidian_build_graph(vault_path=str(vault), include_tags=True)
+
+    by_folder: dict[str, int] = {}
+    for path in _iter_files(vault):
+        if path.suffix.lower() != ".md":
+            continue
+        parts = path.relative_to(vault).parts
+        folder_key = parts[0] if len(parts) > 1 else "/"
+        by_folder[folder_key] = by_folder.get(folder_key, 0) + 1
+
+    sorted_tags = sorted(graph.get("tags", []), key=lambda x: x["count"], reverse=True)
+    top_tag_list = sorted_tags[:max(1, top_tags)]
+
+    nodes_by_id = {n["id"]: n for n in graph["nodes"]}
+    backlinks = graph.get("backlinks", {})
+    hub_candidates = [
+        {
+            "path": node_id,
+            "title": nodes_by_id.get(node_id, {}).get("title") or Path(node_id).stem,
+            "incomingLinks": len(sources),
+        }
+        for node_id, sources in backlinks.items()
+        if sources
+    ]
+    top_linked_list = sorted(hub_candidates, key=lambda x: x["incomingLinks"], reverse=True)[:max(1, top_linked)]
+
+    return {
+        "vaultPath": str(vault),
+        "markdownCount": graph["nodeCount"],
+        "edgeCount": graph["edgeCount"],
+        "orphanCount": len(graph["orphans"]),
+        "byFolder": by_folder,
+        "topTags": top_tag_list,
+        "topLinked": top_linked_list,
+    }
+
+
+@tool()
 def obsidian_list_files(
     vault_path: str = "",
     folder: str = "",

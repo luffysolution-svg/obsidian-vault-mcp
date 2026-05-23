@@ -1484,6 +1484,30 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(results[0]["contextBefore"], ["beta"])
         self.assertEqual(results[0]["contextAfter"], ["gamma"])
 
+    def test_vault_stats_groups_notes_by_top_level_folder(self):
+        self.write_note("papers/A.md", "---\ntitle: A\ntags: [science]\n---\n[[B]]\n")
+        self.write_note("notes/B.md", "---\ntitle: B\ntags: [math]\n---\n")
+        result = self.module.obsidian_vault_stats(str(self.vault))
+        self.assertEqual(result["byFolder"].get("papers"), 1)
+        self.assertEqual(result["byFolder"].get("notes"), 1)
+
+    def test_vault_stats_returns_tag_frequency(self):
+        self.write_note("A.md", "---\ntitle: A\ntags: [alpha, beta]\n---\n")
+        self.write_note("B.md", "---\ntitle: B\ntags: [alpha]\n---\n")
+        result = self.module.obsidian_vault_stats(str(self.vault))
+        tags = {t["tag"]: t["count"] for t in result["topTags"]}
+        self.assertEqual(tags.get("alpha"), 2)
+        self.assertEqual(tags.get("beta"), 1)
+
+    def test_vault_stats_finds_knowledge_hub_nodes(self):
+        self.write_note("hub.md", "---\ntitle: Hub\n---\n")
+        self.write_note("A.md", "---\ntitle: A\n---\n[[hub]]\n")
+        self.write_note("B.md", "---\ntitle: B\n---\n[[hub]]\n")
+        result = self.module.obsidian_vault_stats(str(self.vault))
+        hub = next((e for e in result["topLinked"] if e["path"] == "hub.md"), None)
+        self.assertIsNotNone(hub)
+        self.assertEqual(hub["incomingLinks"], 2)
+
     def test_search_context_lines_last_line_boundary(self):
         self.write_note("last.md", "line1\nline2\nTARGET\n")
         results = self.module.obsidian_search("TARGET", str(self.vault), context_lines=2)
