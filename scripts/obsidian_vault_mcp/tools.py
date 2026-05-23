@@ -62,6 +62,7 @@ def obsidian_search(
     use_regex: bool = False,
     limit: int = 50,
     context_chars: int = 140,
+    context_lines: int = 0,
 ) -> list[dict[str, Any]]:
     """Search text files in a vault and return matching line snippets. Set use_regex=true for regular expression matching."""
     vault = _vault(vault_path)
@@ -91,7 +92,14 @@ def obsidian_search(
                     matched_len = m.end() - m.start()
                     start = max(0, index - context_chars // 2)
                     end = min(len(line), index + matched_len + context_chars // 2)
-                    matches.append({"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()})
+                    match_dict = {"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()}
+                    if context_lines > 0:
+                        line_idx = number - 1
+                        before_start = max(0, line_idx - context_lines)
+                        after_end = min(len(lines), line_idx + context_lines + 1)
+                        match_dict["contextBefore"] = lines[before_start:line_idx]
+                        match_dict["contextAfter"] = lines[line_idx + 1:after_end]
+                    matches.append(match_dict)
                     if len(matches) >= max(1, limit):
                         return matches
             else:
@@ -101,7 +109,14 @@ def obsidian_search(
                     continue
                 start = max(0, index - context_chars // 2)
                 end = min(len(line), index + len(query) + context_chars // 2)
-                matches.append({"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()})
+                match_dict = {"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()}
+                if context_lines > 0:
+                    line_idx = number - 1
+                    before_start = max(0, line_idx - context_lines)
+                    after_end = min(len(lines), line_idx + context_lines + 1)
+                    match_dict["contextBefore"] = lines[before_start:line_idx]
+                    match_dict["contextAfter"] = lines[line_idx + 1:after_end]
+                matches.append(match_dict)
                 if len(matches) >= max(1, limit):
                     return matches
     return matches

@@ -1454,6 +1454,27 @@ class ObsidianVaultMcpTests(unittest.TestCase):
 
         self.assertTrue(any("Plain text" in r["snippet"] for r in results))
 
+    def test_search_context_lines_returns_surrounding_lines(self):
+        self.write_note("doc.md", "line1\nline2\nTARGET\nline4\nline5\n")
+        results = self.module.obsidian_search(
+            "TARGET", str(self.vault), context_lines=1
+        )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["contextBefore"], ["line2"])
+        self.assertEqual(results[0]["contextAfter"], ["line4"])
+
+    def test_search_context_lines_zero_preserves_old_format(self):
+        self.write_note("doc.md", "line1\nTARGET\nline3\n")
+        results = self.module.obsidian_search("TARGET", str(self.vault), context_lines=0)
+        self.assertNotIn("contextBefore", results[0])
+        self.assertNotIn("contextAfter", results[0])
+
+    def test_search_context_lines_clips_at_file_boundaries(self):
+        self.write_note("doc.md", "TARGET\nline2\nline3\n")
+        results = self.module.obsidian_search("TARGET", str(self.vault), context_lines=3)
+        self.assertEqual(results[0]["contextBefore"], [])
+        self.assertEqual(results[0]["contextAfter"], ["line2", "line3"])
+
 
 if __name__ == "__main__":
     unittest.main()
