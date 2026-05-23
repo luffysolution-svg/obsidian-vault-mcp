@@ -1475,6 +1475,21 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(results[0]["contextBefore"], [])
         self.assertEqual(results[0]["contextAfter"], ["line2", "line3"])
 
+    def test_search_context_lines_with_regex(self):
+        self.write_note("regex_doc.md", "alpha\nbeta\nTARGET_X\ngamma\n")
+        results = self.module.obsidian_search(
+            r"TARGET_\w+", str(self.vault), use_regex=True, context_lines=1
+        )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["contextBefore"], ["beta"])
+        self.assertEqual(results[0]["contextAfter"], ["gamma"])
+
+    def test_search_context_lines_last_line_boundary(self):
+        self.write_note("last.md", "line1\nline2\nTARGET\n")
+        results = self.module.obsidian_search("TARGET", str(self.vault), context_lines=2)
+        self.assertEqual(results[0]["contextAfter"], [])
+        self.assertEqual(results[0]["contextBefore"], ["line1", "line2"])
+
 
 if __name__ == "__main__":
     unittest.main()

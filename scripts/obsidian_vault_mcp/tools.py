@@ -86,30 +86,22 @@ def obsidian_search(
         except UnicodeDecodeError:
             continue
         for number, line in enumerate(lines, start=1):
+            match_dicts: list[dict[str, Any]] = []
             if compiled is not None:
                 for m in compiled.finditer(line):
                     index = m.start()
                     matched_len = m.end() - m.start()
                     start = max(0, index - context_chars // 2)
                     end = min(len(line), index + matched_len + context_chars // 2)
-                    match_dict = {"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()}
-                    if context_lines > 0:
-                        line_idx = number - 1
-                        before_start = max(0, line_idx - context_lines)
-                        after_end = min(len(lines), line_idx + context_lines + 1)
-                        match_dict["contextBefore"] = lines[before_start:line_idx]
-                        match_dict["contextAfter"] = lines[line_idx + 1:after_end]
-                    matches.append(match_dict)
-                    if len(matches) >= max(1, limit):
-                        return matches
+                    match_dicts.append({"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()})
             else:
                 haystack = line if case_sensitive else line.lower()
                 index = haystack.find(needle)
-                if index == -1:
-                    continue
-                start = max(0, index - context_chars // 2)
-                end = min(len(line), index + len(query) + context_chars // 2)
-                match_dict = {"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()}
+                if index != -1:
+                    start = max(0, index - context_chars // 2)
+                    end = min(len(line), index + len(query) + context_chars // 2)
+                    match_dicts.append({"path": _rel(vault, path), "line": number, "snippet": line[start:end].strip()})
+            for match_dict in match_dicts:
                 if context_lines > 0:
                     line_idx = number - 1
                     before_start = max(0, line_idx - context_lines)
