@@ -1694,6 +1694,59 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("error", result)
 
+    def test_build_citation_network_resolves_zotero_uri_relations(self):
+        self.write_note(
+            "lit/paper1.md",
+            "---\ntitle: Paper 1\nzoteroKey: AAAAAA\n---\n",
+        )
+        self.write_note(
+            "lit/paper2.md",
+            "---\ntitle: Paper 2\nzoteroKey: BBBBBB\nrelations:\n  - 'zotero://select/library/items/AAAAAA'\n---\n",
+        )
+        result = self.module.obsidian_build_citation_network(
+            str(self.vault), source_folder="lit", dry_run=False
+        )
+        self.assertEqual(result["updatedCount"], 1)
+        content = (self.vault / "lit" / "paper2.md").read_text(encoding="utf-8")
+        self.assertIn("lit/paper1.md", content)
+
+    def test_build_citation_network_dry_run_does_not_write(self):
+        self.write_note("lit/A.md", "---\nzoteroKey: KEY1\n---\n")
+        self.write_note(
+            "lit/B.md",
+            "---\nzoteroKey: KEY2\nrelations:\n  - 'zotero://select/library/items/KEY1'\n---\n",
+        )
+        original = (self.vault / "lit" / "B.md").read_text(encoding="utf-8")
+        result = self.module.obsidian_build_citation_network(
+            str(self.vault), source_folder="lit", dry_run=True
+        )
+        self.assertEqual(result["updatedCount"], 1)
+        self.assertEqual((self.vault / "lit" / "B.md").read_text(encoding="utf-8"), original)
+
+    def test_build_citation_network_skips_self_references(self):
+        self.write_note(
+            "lit/self.md",
+            "---\nzoteroKey: SELFKEY\nrelations:\n  - 'zotero://select/library/items/SELFKEY'\n---\n",
+        )
+        result = self.module.obsidian_build_citation_network(
+            str(self.vault), source_folder="lit", dry_run=False
+        )
+        self.assertEqual(result["updatedCount"], 0)
+
+    def test_build_citation_network_preserves_existing_cites(self):
+        self.write_note("lit/A.md", "---\nzoteroKey: AAAA\n---\n")
+        self.write_note("lit/B.md", "---\nzoteroKey: BBBB\n---\n")
+        self.write_note(
+            "lit/C.md",
+            "---\nzoteroKey: CCCC\ncites:\n  - '[[lit/A.md]]'\nrelations:\n  - 'zotero://select/library/items/BBBB'\n---\n",
+        )
+        self.module.obsidian_build_citation_network(
+            str(self.vault), source_folder="lit", dry_run=False
+        )
+        content = (self.vault / "lit" / "C.md").read_text(encoding="utf-8")
+        self.assertIn("lit/A.md", content)
+        self.assertIn("lit/B.md", content)
+
 
 if __name__ == "__main__":
     unittest.main()

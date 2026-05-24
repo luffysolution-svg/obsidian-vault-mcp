@@ -2172,6 +2172,88 @@ def obsidian_ingest_zotero_collection(
 
 
 @tool()
+def obsidian_build_citation_network(
+    vault_path: str = "",
+    source_folder: str = "literature",
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Scan literature notes for Zotero relations and write [[wikilinks]] into the cites frontmatter field.
+
+    Reads the 'relations' frontmatter list (values may be zotero://select/library/items/KEY URIs).
+    Resolves each relation key to a vault note via the zoteroKey index.
+    Adds unresolved targets as [[path]] entries to the note's 'cites' list.
+    dry_run=true (default): report planned updates without writing.
+    """
+    vault = _vault(vault_path)
+    root = _safe_path(vault, source_folder) if source_folder else vault
+
+    # Build zoteroKey → vault-relative-path index from all notes in source_folder
+    key_to_path: dict[str, str] = {}
+    if root.exists():
+        for path in root.rglob("*.md"):
+            if any(part in DEFAULT_EXCLUDES or part.startswith(".") for part in path.relative_to(vault).parts):
+                continue
+            props, _ = _split_frontmatter(_read_text(path))
+            zk = str(props.get("zoteroKey") or "").strip()
+            if zk:
+                key_to_path[zk.upper()] = _rel(vault, path)
+
+    _ZOTERO_KEY_RE = re.compile(r"items/([A-Z0-9]+)", re.IGNORECASE)
+
+    updated_notes: list[dict[str, Any]] = []
+
+    if root.exists():
+        for path in root.rglob("*.md"):
+            if any(part in DEFAULT_EXCLUDES or part.startswith(".") for part in path.relative_to(vault).parts):
+                continue
+            rel = _rel(vault, path)
+            props, body = _split_frontmatter(_read_text(path))
+
+            # Collect referenced keys from 'relations' field
+            relation_keys: set[str] = set()
+            for val in _listify(props.get("relations")):
+                val_str = str(val).strip()
+                m = _ZOTERO_KEY_RE.search(val_str)
+                if m:
+                    relation_keys.add(m.group(1).upper())
+                elif val_str:
+                    relation_keys.add(val_str.upper())
+
+            if not relation_keys:
+                continue
+
+            # Resolve keys to vault paths (skip self)
+            new_wikilinks: list[str] = []
+            for key in relation_keys:
+                resolved = key_to_path.get(key)
+                if resolved and resolved != rel:
+                    new_wikilinks.append(f"[[{resolved}]]")
+
+            if not new_wikilinks:
+                continue
+
+            # Merge with existing 'cites' list, avoiding duplicates
+            existing_cites: list[str] = [str(v) for v in _listify(props.get("cites")) if v]
+            existing_set = set(existing_cites)
+            added = [link for link in new_wikilinks if link not in existing_set]
+            if not added:
+                continue
+
+            props["cites"] = existing_cites + added
+            new_text = _join_frontmatter(props, body)
+            if not dry_run:
+                _write_text(path, new_text)
+            updated_notes.append({"path": rel, "addedLinks": added})
+
+    return {
+        "ok": True,
+        "updatedCount": len(updated_notes),
+        "dryRun": dry_run,
+        "updatedNotes": updated_notes,
+    }
+
+
+@tool()
 def obsidian_list_schema_presets() -> dict[str, Any]:
     """List built-in frontmatter schema presets."""
     return dict(SCHEMA_PRESETS)
