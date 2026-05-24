@@ -1545,6 +1545,45 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("size", orphan)
         self.assertIn("modified", orphan)
 
+    def test_find_broken_links_detects_unresolved_wikilinks(self):
+        self.write_note("A.md", "---\ntitle: A\n---\nSee [[NonExistent]].\n")
+        result = self.module.obsidian_find_broken_links(str(self.vault))
+        self.assertGreater(result["totalBroken"], 0)
+        targets = [e["target"] for e in result["brokenWikilinks"]]
+        self.assertIn("NonExistent", targets)
+
+    def test_find_broken_links_detects_dead_local_markdown_links(self):
+        self.write_note("A.md", "See [label](missing_file.md).\n")
+        result = self.module.obsidian_find_broken_links(str(self.vault))
+        targets = [e["target"] for e in result["brokenMarkdownLinks"]]
+        self.assertIn("missing_file.md", targets)
+
+    def test_find_broken_links_skips_external_urls(self):
+        self.write_note("A.md", "See [Google](https://google.com) and [Mail](mailto:x@y.com).\n")
+        result = self.module.obsidian_find_broken_links(str(self.vault))
+        self.assertEqual(len(result["brokenMarkdownLinks"]), 0)
+
+    def test_find_broken_links_skips_existing_local_links(self):
+        self.write_note("A.md", "See [B](B.md).\n")
+        self.write_note("B.md", "# B\n")
+        result = self.module.obsidian_find_broken_links(str(self.vault))
+        self.assertEqual(len(result["brokenMarkdownLinks"]), 0)
+
+    def test_find_broken_links_fix_replaces_dead_wikilink_with_text(self):
+        self.write_note("A.md", "---\ntitle: A\n---\nSee [[Ghost]] here.\n")
+        self.module.obsidian_find_broken_links(str(self.vault), fix=True, dry_run=False)
+        content = (self.vault / "A.md").read_text(encoding="utf-8")
+        self.assertNotIn("[[Ghost]]", content)
+        self.assertIn("Ghost", content)
+
+    def test_find_broken_links_fix_keeps_alias_text(self):
+        self.write_note("A.md", "---\ntitle: A\n---\nSee [[Ghost|Haunted]] here.\n")
+        self.module.obsidian_find_broken_links(str(self.vault), fix=True, dry_run=False)
+        content = (self.vault / "A.md").read_text(encoding="utf-8")
+        self.assertNotIn("[[Ghost|Haunted]]", content)
+        self.assertIn("Haunted", content)
+        self.assertNotIn("Ghost", content)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -665,6 +665,86 @@ def obsidian_find_orphans(
 
 
 @tool()
+def obsidian_find_broken_links(
+    vault_path: str = "",
+    folder: str = "",
+    fix: bool = False,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Scan for broken [[wikilinks]] and [markdown](links), with optional fix to strip dead links.
+
+    fix=True: replace [[DeadTarget]] with DeadTarget and [[DeadTarget|Label]] with Label.
+    dry_run=True (default): report only, do not write files.
+    """
+    vault = _vault(vault_path)
+    graph = obsidian_build_graph(vault_path=str(vault), folder=folder)
+
+    # Broken wikilinks from graph
+    broken_wikilinks: list[dict[str, Any]] = [
+        {"file": source, "target": target, "type": "wikilink"}
+        for target, sources in graph["unresolved"].items()
+        for source in sources
+    ]
+
+    # Broken local markdown links: scan files for [label](path) that don't exist
+    broken_md_links: list[dict[str, Any]] = []
+    _url_schemes = ("http://", "https://", "ftp://", "mailto:", "zotero:", "#", "obsidian://")
+    for path in _iter_files(vault, folder):
+        if path.suffix.lower() != ".md":
+            continue
+        rel = _rel(vault, path)
+        text = _read_text(path)
+        for m in MARKDOWN_LINK_RE.finditer(text):
+            raw_target = m.group(1)
+            if any(raw_target.startswith(scheme) for scheme in _url_schemes):
+                continue
+            target_clean = unquote(raw_target.split("#")[0].split("?")[0])
+            if not target_clean:
+                continue
+            candidate_rel = path.parent / target_clean
+            candidate_abs = vault / target_clean
+            if not candidate_rel.exists() and not candidate_abs.exists():
+                broken_md_links.append({"file": rel, "target": raw_target, "type": "markdown"})
+
+    all_broken = broken_wikilinks + broken_md_links
+    fixed_count = 0
+
+    if fix:
+        # Build set of broken wikilink targets (normalized)
+        broken_targets: set[str] = {_normalize_note_key(e["target"]) for e in broken_wikilinks}
+
+        files_with_dead_wikilinks: set[str] = {e["file"] for e in broken_wikilinks}
+        for rel_path in files_with_dead_wikilinks:
+            full = _safe_path(vault, rel_path)
+            if not full.exists():
+                continue
+            original = _read_text(full)
+
+            def _replacer(m: re.Match, _broken: set[str] = broken_targets) -> str:
+                inner = m.group(1)
+                raw = _target_from_link(inner)
+                if _normalize_note_key(raw) in _broken:
+                    parts = inner.split("|", 1)
+                    return parts[1].strip() if len(parts) > 1 else raw
+                return m.group(0)
+
+            new_text = WIKILINK_RE.sub(_replacer, original)
+            if new_text != original:
+                if not dry_run:
+                    _write_text(full, new_text)
+                fixed_count += 1
+
+    return {
+        "vaultPath": str(vault),
+        "totalBroken": len(all_broken),
+        "brokenWikilinks": broken_wikilinks,
+        "brokenMarkdownLinks": broken_md_links,
+        "fixed": fixed_count,
+        "dryRun": dry_run,
+    }
+
+
+@tool()
 def obsidian_update_wiki_index(
     vault_path: str = "",
     folder: str = "",
