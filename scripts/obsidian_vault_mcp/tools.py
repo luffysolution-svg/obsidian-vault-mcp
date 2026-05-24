@@ -1491,6 +1491,119 @@ def obsidian_mineru_extract_and_ingest(
 
 
 @tool()
+def obsidian_mineru_extract_folder(
+    input_folder: str,
+    vault_path: str = "",
+    output_folder: str = "mineru",
+    mode: str = "",
+    language: str = "ch",
+    skip_extracted: bool = True,
+    ingest: bool = False,
+    token: str = "",
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Batch-extract all PDF files in a folder using MinerU.
+
+    skip_extracted=true (default): skip any PDF whose output directory already contains a .md file.
+    ingest=true: automatically call obsidian_ingest_mineru_markdown after each successful extraction.
+    dry_run=true: enumerate PDFs and show skip/extract decisions without running MinerU.
+    """
+    vault = _vault(vault_path)
+    if Path(input_folder).is_absolute():
+        input_full = Path(input_folder)
+    else:
+        input_full = _safe_path(vault, input_folder)
+
+    if not input_full.is_dir():
+        return {
+            "ok": False,
+            "error": f"Not a directory: {input_folder}",
+            "total": 0,
+            "extracted": 0,
+            "skipped": 0,
+            "errors": 0,
+            "dryRun": dry_run,
+            "results": [],
+        }
+
+    pdf_files = sorted(
+        set(list(input_full.rglob("*.pdf")) + list(input_full.rglob("*.PDF"))),
+        key=lambda p: str(p).lower(),
+    )
+
+    output_base = vault / output_folder if output_folder else vault / "mineru"
+    results: list[dict[str, Any]] = []
+    extracted = 0
+    skipped = 0
+    errors = 0
+
+    for pdf_path in pdf_files:
+        pdf_rel = _rel(vault, pdf_path) if pdf_path.is_relative_to(vault) else str(pdf_path)
+        stem = pdf_path.stem
+
+        if skip_extracted:
+            expected_md = output_base / stem / f"{stem}.md"
+            if expected_md.exists():
+                skipped += 1
+                results.append({
+                    "input": pdf_rel,
+                    "status": "skipped",
+                    "reason": "already_extracted",
+                    "outputPath": _rel(vault, expected_md),
+                })
+                continue
+
+        if dry_run:
+            results.append({"input": pdf_rel, "status": "would_extract"})
+            continue
+
+        try:
+            res = obsidian_mineru_extract(
+                input_path=str(pdf_path),
+                vault_path=str(vault),
+                output_path=output_folder,
+                mode=mode,
+                language=language,
+                token=token,
+                dry_run=False,
+            )
+            if res.get("ok"):
+                extracted += 1
+                entry: dict[str, Any] = {
+                    "input": pdf_rel,
+                    "status": "extracted",
+                    "outputPath": res.get("markdownPath", ""),
+                }
+                if ingest and res.get("markdownPath"):
+                    ingest_res = obsidian_ingest_mineru_markdown(
+                        markdown_path=res["markdownPath"],
+                        vault_path=str(vault),
+                    )
+                    entry["ingested"] = ingest_res.get("ok", False)
+                results.append(entry)
+            else:
+                errors += 1
+                results.append({
+                    "input": pdf_rel,
+                    "status": "error",
+                    "error": res.get("error", "MinerU extraction failed"),
+                })
+        except Exception as exc:
+            errors += 1
+            results.append({"input": pdf_rel, "status": "error", "error": str(exc)})
+
+    return {
+        "ok": errors == 0,
+        "total": len(pdf_files),
+        "extracted": extracted,
+        "skipped": skipped,
+        "errors": errors,
+        "dryRun": dry_run,
+        "results": results,
+    }
+
+
+@tool()
 def obsidian_ingest_pdf_attachment(
     pdf_attachment_path: str,
     vault_path: str = "",

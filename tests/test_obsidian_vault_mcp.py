@@ -1661,6 +1661,39 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(result["skipped"], 1)
         self.assertEqual(result["total"], 1)
 
+    def test_mineru_extract_folder_dry_run_lists_pdfs(self):
+        (self.vault / "pdfs").mkdir()
+        (self.vault / "pdfs" / "paper1.pdf").write_bytes(b"%PDF-1.4\n")
+        (self.vault / "pdfs" / "paper2.pdf").write_bytes(b"%PDF-1.4\n")
+        result = self.module.obsidian_mineru_extract_folder(
+            "pdfs", str(self.vault), dry_run=True
+        )
+        self.assertTrue(result["dryRun"])
+        self.assertEqual(result["total"], 2)
+        statuses = [r["status"] for r in result["results"]]
+        self.assertIn("would_extract", statuses)
+
+    def test_mineru_extract_folder_skips_already_extracted(self):
+        (self.vault / "pdfs").mkdir()
+        (self.vault / "pdfs" / "paper.pdf").write_bytes(b"%PDF-1.4\n")
+        # Simulate an already-extracted output marker
+        out_dir = self.vault / "mineru" / "paper"
+        out_dir.mkdir(parents=True)
+        (out_dir / "paper.md").write_text("# Extracted\n", encoding="utf-8")
+        result = self.module.obsidian_mineru_extract_folder(
+            "pdfs", str(self.vault), output_folder="mineru",
+            skip_extracted=True, dry_run=True
+        )
+        self.assertEqual(result["skipped"], 1)
+        self.assertEqual(result["total"], 1)
+
+    def test_mineru_extract_folder_returns_error_on_missing_dir(self):
+        result = self.module.obsidian_mineru_extract_folder(
+            "nonexistent_folder", str(self.vault)
+        )
+        self.assertFalse(result["ok"])
+        self.assertIn("error", result)
+
 
 if __name__ == "__main__":
     unittest.main()
