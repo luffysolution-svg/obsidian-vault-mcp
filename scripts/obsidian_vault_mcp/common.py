@@ -36,7 +36,6 @@ GENERATED_END = "<!-- obsidian-vault:generated:end -->"
 
 
 
-
 REGISTERED_TOOLS: list[Any] = []
 
 def tool():
