@@ -1974,11 +1974,26 @@ def obsidian_ingest_zotero_collection(
 
     # Filter to real parent items (exclude attachments/notes/annotations)
     skip_types = {"attachment", "note", "annotation"}
-    keys = [
-        item.get("key")
+    items_by_key = {
+        item["key"]: item
         for item in raw_items
         if item.get("key") and item.get("data", {}).get("itemType") not in skip_types
-    ]
+    }
+
+    # Build a zoteroKey → (path, stored_version) index from vault notes once.
+    # This avoids O(N*M) _find_existing_reference calls for large collections.
+    _key_to_stored: dict[str, tuple[Any, Any]] = {}
+    if skip_up_to_date and not overwrite:
+        vault = _vault(vault_path)
+        _lit_root = _safe_path(vault, source_folder) if source_folder else vault
+        if _lit_root.exists():
+            for _p in _lit_root.rglob("*.md"):
+                if any(part in DEFAULT_EXCLUDES or part.startswith(".") for part in _p.relative_to(vault).parts):
+                    continue
+                _props, _ = _split_frontmatter(_read_text(_p))
+                _zk = str(_props.get("zoteroKey") or "").strip()
+                if _zk:
+                    _key_to_stored[_zk] = (_p, _props.get("zoteroVersion"))
 
     results: list[dict[str, Any]] = []
     skipped = 0
@@ -1986,8 +2001,16 @@ def obsidian_ingest_zotero_collection(
     created = 0
     errors = 0
 
-    for item_key in keys:
+    for item_key, raw_item in items_by_key.items():
         try:
+            # Fast pre-check: if version matches stored note, skip without any API call.
+            if skip_up_to_date and not overwrite and item_key in _key_to_stored:
+                _stored_path, _stored_version = _key_to_stored[item_key]
+                if _stored_version == raw_item.get("version") and raw_item.get("version") is not None:
+                    skipped += 1
+                    results.append({"key": item_key, "ok": True, "upToDate": True, "referencePath": _rel(vault, _stored_path)})
+                    continue
+
             res = obsidian_ingest_zotero_item(
                 key=item_key,
                 vault_path=vault_path,
@@ -2025,7 +2048,7 @@ def obsidian_ingest_zotero_collection(
 
     return {
         "ok": errors == 0,
-        "total": len(keys),
+        "total": len(items_by_key),
         "created": created,
         "updated": updated,
         "skipped": skipped,

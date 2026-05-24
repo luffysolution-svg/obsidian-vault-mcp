@@ -1627,6 +1627,40 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(result["errorCount"], 1)
 
+    def test_zotero_incremental_skips_unchanged_items_without_api_call(self):
+        """Items already at the current version must be skipped before obsidian_ingest_zotero_item is called."""
+        # Create an existing note that looks like it was ingested at version 7
+        self.write_note(
+            "literature/Paper One.md",
+            "---\ntitle: Paper One\nzoteroKey: AAABBB\nzoteroVersion: 7\ntags: [zotero]\n---\n",
+        )
+
+        fake_items = [
+            {"key": "AAABBB", "version": 7, "data": {"itemType": "journalArticle", "title": "Paper One"}},
+        ]
+
+        ingest_called = []
+
+        def fake_ingest_item(key, **kwargs):
+            ingest_called.append(key)
+            return {"ok": True, "upToDate": True}
+
+        original_api = self.module._tools._zotero_api
+        original_ingest = self.module._tools.obsidian_ingest_zotero_item
+        self.module._tools._zotero_api = lambda path, params=None, api_base="": fake_items
+        self.module._tools.obsidian_ingest_zotero_item = fake_ingest_item
+        try:
+            result = self.module.obsidian_ingest_zotero_collection(
+                query="paper", vault_path=str(self.vault), skip_up_to_date=True
+            )
+        finally:
+            self.module._tools._zotero_api = original_api
+            self.module._tools.obsidian_ingest_zotero_item = original_ingest
+
+        self.assertEqual(ingest_called, [], "obsidian_ingest_zotero_item should not have been called")
+        self.assertEqual(result["skipped"], 1)
+        self.assertEqual(result["total"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
