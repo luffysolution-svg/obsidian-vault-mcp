@@ -3168,3 +3168,120 @@ def obsidian_cli_move_or_rename(
     return result
 
 
+@tool()
+def obsidian_build_reading_digest(
+    vault_path: str = "",
+    folder: str = "literature",
+    output_path: str = "reading-digest.md",
+    since_days: int = 7,
+    group_by: str = "tag",
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Aggregate [!quote], [!highlight], [!important], and [!note] callout blocks from recently
+    modified notes into a digest file grouped by tag or callout type.
+
+    since_days: only scan notes modified within the last N days.
+    group_by: "tag" groups by frontmatter/inline tags; "type" groups by callout type.
+    dry_run=True: return a preview without writing the output file.
+    """
+    import time as _time
+
+    vault = _vault(vault_path)
+    cutoff = _time.time() - since_days * 86400
+
+    _CALLOUT_BLOCK_RE = re.compile(
+        r"(^> \[!(?:quote|highlight|important|note)[^\]]*\][ \t]*.*?(?:\n(?:> .*|>))*)",
+        re.IGNORECASE | re.MULTILINE,
+    )
+    _CALLOUT_TYPE_RE = re.compile(r"\[!([^\]]+)\]", re.IGNORECASE)
+
+    excerpts: list[dict[str, Any]] = []
+
+    for path in _iter_files(vault, folder):
+        if path.suffix.lower() != ".md":
+            continue
+        if path.stat().st_mtime < cutoff:
+            continue
+        rel = _rel(vault, path)
+        props, body = _split_frontmatter(_read_text(path))
+        title = str(props.get("title") or path.stem)
+        tags = _frontmatter_tags(props) + _inline_tags(body)
+
+        for m in _CALLOUT_BLOCK_RE.finditer(body):
+            block = m.group(0)
+            type_match = _CALLOUT_TYPE_RE.search(block)
+            callout_type = type_match.group(1).lower() if type_match else "note"
+            content_lines = []
+            for raw_line in block.split("\n"):
+                stripped = raw_line.lstrip(">").strip()
+                if stripped and not _CALLOUT_TYPE_RE.search(stripped):
+                    content_lines.append(stripped)
+            content = "\n".join(content_lines).strip()
+            if content:
+                excerpts.append(
+                    {
+                        "source": rel,
+                        "title": title,
+                        "tags": tags,
+                        "type": callout_type,
+                        "content": content,
+                    }
+                )
+
+    result: dict[str, Any] = {
+        "ok": True,
+        "excerptCount": len(excerpts),
+        "outputPath": output_path,
+        "dryRun": dry_run,
+    }
+
+    if not excerpts:
+        result["message"] = "No callout excerpts found in the specified date range."
+        return result
+
+    # Group excerpts
+    groups: dict[str, list[dict[str, Any]]] = {}
+    if group_by == "tag":
+        for exc in excerpts:
+            for tag in (exc["tags"] or ["untagged"]):
+                groups.setdefault(tag, []).append(exc)
+    else:
+        for exc in excerpts:
+            groups.setdefault(exc["type"], []).append(exc)
+
+    # Build digest Markdown
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    lines: list[str] = [
+        "---",
+        "title: Reading Digest",
+        f"generated: {now_iso}",
+        "tags: [digest]",
+        "---",
+        "",
+        f"# Reading Digest — Last {since_days} day{'s' if since_days != 1 else ''}",
+        "",
+    ]
+    for group_name in sorted(groups):
+        lines.append(f"## {group_name}")
+        lines.append("")
+        for exc in groups[group_name]:
+            lines.append(f"**From** [[{exc['source']}|{exc['title']}]]")
+            lines.append("")
+            lines.append(f"> [!{exc['type']}]")
+            for content_line in exc["content"].split("\n"):
+                lines.append(f"> {content_line}")
+            lines.append("")
+
+    content = "\n".join(lines)
+
+    if dry_run:
+        result["preview"] = content[:600]
+        return result
+
+    output_full = _safe_path(vault, output_path)
+    output_full.parent.mkdir(parents=True, exist_ok=True)
+    _write_text(output_full, content)
+    result["writtenTo"] = output_path
+    return result
+
+

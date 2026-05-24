@@ -1747,6 +1747,52 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("lit/A.md", content)
         self.assertIn("lit/B.md", content)
 
+    def test_reading_digest_extracts_quote_callout(self):
+        self.write_note(
+            "lit/paper.md",
+            "---\ntitle: Paper\ntags: [science]\n---\n\n> [!quote]\n> Important finding here.\n\n",
+        )
+        result = self.module.obsidian_build_reading_digest(
+            str(self.vault), folder="lit", since_days=9999, dry_run=False
+        )
+        self.assertEqual(result["excerptCount"], 1)
+        digest_path = self.vault / "reading-digest.md"
+        self.assertTrue(digest_path.exists())
+        digest = digest_path.read_text(encoding="utf-8")
+        self.assertIn("Important finding here.", digest)
+
+    def test_reading_digest_dry_run_does_not_write(self):
+        self.write_note(
+            "lit/p.md",
+            "---\ntitle: P\n---\n\n> [!quote]\n> Quote text.\n\n",
+        )
+        result = self.module.obsidian_build_reading_digest(
+            str(self.vault), folder="lit", since_days=9999, dry_run=True
+        )
+        self.assertFalse((self.vault / "reading-digest.md").exists())
+        self.assertIn("preview", result)
+
+    def test_reading_digest_skips_files_outside_since_days(self):
+        self.write_note("lit/old.md", "---\ntitle: Old\n---\n\n> [!quote]\n> Old quote.\n\n")
+        import os, time
+        old_mtime = time.time() - 30 * 86400
+        os.utime(self.vault / "lit" / "old.md", (old_mtime, old_mtime))
+        result = self.module.obsidian_build_reading_digest(
+            str(self.vault), folder="lit", since_days=7, dry_run=True
+        )
+        self.assertEqual(result["excerptCount"], 0)
+
+    def test_reading_digest_includes_source_wikilink(self):
+        self.write_note(
+            "lit/source.md",
+            "---\ntitle: My Source\n---\n\n> [!highlight]\n> A highlight.\n\n",
+        )
+        result = self.module.obsidian_build_reading_digest(
+            str(self.vault), folder="lit", since_days=9999, dry_run=False
+        )
+        digest = (self.vault / "reading-digest.md").read_text(encoding="utf-8")
+        self.assertIn("lit/source.md", digest)
+
 
 if __name__ == "__main__":
     unittest.main()
