@@ -291,6 +291,99 @@ def obsidian_rename_file(
 
 
 @tool()
+def obsidian_batch_move_files(
+    to: str,
+    vault_path: str = "",
+    paths_json: str = "[]",
+    glob_pattern: str = "",
+    tag: str = "",
+    folder: str = "",
+    update_wikilinks: bool = False,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Move multiple vault files to a target directory.
+
+    Specify which files to move via at least one of:
+      paths_json: JSON array of vault-relative paths, e.g. '["papers/A.md","papers/B.md"]'
+      glob_pattern: shell glob matched against each file's name, e.g. "*.md"
+      tag: move all .md files that carry this frontmatter or inline tag
+      folder: move all files found in this vault-relative folder
+
+    update_wikilinks=true rewrites [[links]] after each move (slow for large vaults).
+    dry_run=true (default): report planned moves without executing them.
+    """
+    vault = _vault(vault_path)
+    files_to_move: list[str] = []
+
+    if paths_json and paths_json != "[]":
+        try:
+            parsed = json.loads(paths_json)
+        except json.JSONDecodeError as exc:
+            return {
+                "ok": False,
+                "error": f"Invalid paths_json: {exc}",
+                "total": 0,
+                "movedCount": 0,
+                "errorCount": 0,
+                "moved": [],
+                "errors": [],
+                "dryRun": dry_run,
+            }
+        files_to_move.extend(str(p) for p in parsed)
+
+    if glob_pattern:
+        import fnmatch
+        for path in _iter_files(vault, folder):
+            if fnmatch.fnmatch(path.name, glob_pattern) or fnmatch.fnmatch(_rel(vault, path), glob_pattern):
+                rel = _rel(vault, path)
+                if rel not in files_to_move:
+                    files_to_move.append(rel)
+
+    if tag:
+        for path in _iter_files(vault, folder):
+            if path.suffix.lower() != ".md":
+                continue
+            props, body = _split_frontmatter(_read_text(path))
+            all_tags = _frontmatter_tags(props) + _inline_tags(body)
+            if tag in all_tags:
+                rel = _rel(vault, path)
+                if rel not in files_to_move:
+                    files_to_move.append(rel)
+
+    if folder and not glob_pattern and not tag and not (paths_json and paths_json != "[]"):
+        for path in _iter_files(vault, folder):
+            rel = _rel(vault, path)
+            if rel not in files_to_move:
+                files_to_move.append(rel)
+
+    moved: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+
+    for file_path in files_to_move:
+        res = obsidian_move_file(
+            path=file_path,
+            to=to,
+            vault_path=str(vault),
+            update_wikilinks=update_wikilinks,
+            dry_run=dry_run,
+        )
+        if res.get("ok"):
+            moved.append({"from": res["from"], "to": res["to"]})
+        else:
+            errors.append({"path": file_path, "error": res.get("error", "unknown error")})
+
+    return {
+        "ok": len(errors) == 0,
+        "total": len(files_to_move),
+        "movedCount": len(moved),
+        "errorCount": len(errors),
+        "moved": moved,
+        "errors": errors,
+        "dryRun": dry_run,
+    }
+
+
+@tool()
 def obsidian_create_note(
     path: str,
     title: str = "",

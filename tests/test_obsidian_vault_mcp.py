@@ -1584,6 +1584,49 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("Haunted", content)
         self.assertNotIn("Ghost", content)
 
+    def test_batch_move_dry_run_reports_without_moving(self):
+        self.write_note("inbox/A.md", "# A")
+        self.write_note("inbox/B.md", "# B")
+        result = self.module.obsidian_batch_move_files(
+            "archive", str(self.vault), folder="inbox", dry_run=True
+        )
+        self.assertTrue(result["dryRun"])
+        self.assertEqual(result["total"], 2)
+        self.assertTrue((self.vault / "inbox" / "A.md").exists())
+
+    def test_batch_move_by_tag_moves_matching_only(self):
+        self.write_note("A.md", "---\ntags: [archive]\n---\n")
+        self.write_note("B.md", "---\ntags: [keep]\n---\n")
+        result = self.module.obsidian_batch_move_files(
+            "archived", str(self.vault), tag="archive", dry_run=False
+        )
+        self.assertEqual(result["movedCount"], 1)
+        self.assertTrue((self.vault / "archived" / "A.md").exists())
+        self.assertTrue((self.vault / "B.md").exists())
+
+    def test_batch_move_by_paths_json(self):
+        import json
+        self.write_note("X.md", "# X")
+        self.write_note("Y.md", "# Y")
+        self.write_note("Z.md", "# Z")
+        result = self.module.obsidian_batch_move_files(
+            "done", str(self.vault),
+            paths_json=json.dumps(["X.md", "Y.md"]),
+            dry_run=False,
+        )
+        self.assertEqual(result["movedCount"], 2)
+        self.assertTrue((self.vault / "done" / "X.md").exists())
+        self.assertTrue((self.vault / "Z.md").exists())
+
+    def test_batch_move_reports_errors_on_missing_files(self):
+        result = self.module.obsidian_batch_move_files(
+            "dest", str(self.vault),
+            paths_json='["does_not_exist.md"]',
+            dry_run=False,
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["errorCount"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
