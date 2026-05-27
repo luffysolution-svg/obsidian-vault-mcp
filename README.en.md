@@ -2,6 +2,10 @@
 
 Local MCP plugin for Codex, Claude Code, and OpenCode — maintain Obsidian vaults as persistent linked wikis.
 
+[![PyPI](https://img.shields.io/pypi/v/zotero-obsidian-mcp?label=PyPI)](https://pypi.org/project/zotero-obsidian-mcp/)
+[![Python](https://img.shields.io/pypi/pyversions/zotero-obsidian-mcp)](https://pypi.org/project/zotero-obsidian-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
 [中文 README](./README.md) | [中文文档站](./docs/index.md)
 
 ## Quick Start
@@ -38,7 +42,10 @@ It provides:
 - Schema and format validation for Markdown frontmatter, Canvas JSON, and Base YAML files.
 - Graph improvement suggestions for unresolved links, reciprocal links (capped via `max_reciprocal` to avoid noise), possible duplicate pages (word-boundary-aware, so "My Note" and "MyNote" are not false positives), Markdown links, and attachment embeds.
 - Karpathy-style wiki workflow tools for refreshing `index.md`, appending `log.md`, and ingesting source notes into linked source/entity/concept pages.
-- Literature and extraction ingestion from BibTeX/reference metadata, existing MinerU Markdown output, optional MinerU CLI extraction, and PDF attachments.
+- Citation network builder that reads Zotero `relations` fields and inserts wikilink citation edges between literature notes (`obsidian_build_citation_network`).
+- Reading digest aggregator that collects callout blocks (highlights, notes, annotations) across a folder and groups them by tag or callout type (`obsidian_build_reading_digest`).
+- Literature and extraction ingestion from BibTeX/reference metadata, existing MinerU Markdown output, optional MinerU CLI extraction, and PDF attachments; batch folder extraction via `obsidian_mineru_extract_folder`.
+- Caption-based semantic rename of MinerU-extracted images using figure captions found in the parsed Markdown; Chinese characters preserved verbatim for knowledge-graph node indexing (`obsidian_mineru_rename_images`).
 - Direct Zotero Desktop local API integration for collection listing, search, item metadata, child notes, annotations, PDF attachments, PDF text extraction, and one-step item ingestion.
 - Zotero round-trip metadata with `zotero://` select/PDF links, duplicate detection by Zotero key, DOI, citekey, or title, and configurable PDF attachment naming.
 - Collection names resolved to human-readable labels at import time (`collections` stores names like `苯乙烯优化`, not raw keys like `HXSD675W`); type-specific fields omitted from frontmatter when empty.
@@ -55,7 +62,7 @@ It provides:
 
 - `obsidian-vault`: general vault maintenance, frontmatter, wikilinks, graph checks, edit plans, and wiki-style index/log upkeep.
 - `obsidian-zotero`: Zotero search, single-item import, collection import, attachments, annotations, and re-ingest behavior.
-- `obsidian-mineru`: MinerU extraction, Markdown ingestion, vault PDF source notes, and Zotero-linked full-text attachment.
+- `obsidian-mineru`: MinerU extraction, batch folder extraction, image semantic rename, Markdown ingestion, vault PDF source notes, and Zotero-linked full-text attachment.
 - `obsidian-views`: JSON Canvas, Obsidian Bases, built-in Base templates, and Dataview note generation.
 - `obsidian-cli`: app-backed Obsidian CLI operations such as backlinks, properties, tasks, screenshots, plugin reloads, and link-aware move/rename.
 

@@ -2,6 +2,10 @@
 
 面向 Codex、Claude Code 和 OpenCode 的本地 MCP 插件，将本地 Obsidian vault 维护成可持续增长的双链知识库。
 
+[![PyPI](https://img.shields.io/pypi/v/zotero-obsidian-mcp?label=PyPI)](https://pypi.org/project/zotero-obsidian-mcp/)
+[![Python](https://img.shields.io/pypi/pyversions/zotero-obsidian-mcp)](https://pypi.org/project/zotero-obsidian-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
 [English README](./README.en.md) | [安装配置教程](./docs/SETUP_GUIDE.zh-CN.md) | [技术文档](./docs/TECHNICAL_GUIDE.md) | [文档站](./docs/index.md)
 
 ## 快速开始
@@ -36,8 +40,11 @@ obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 - 校验 Markdown frontmatter、Canvas JSON 和 Base YAML 格式。
 - 建议未解析链接、互链（可通过 `max_reciprocal` 限制数量）、可能重复页面（词边界感知，避免 "My Note" 与 "MyNote" 误判）、Markdown 链接和附件嵌入的图谱改进。
 - Karpathy 风格 wiki 工作流：刷新 `index.md`、追加 `log.md`、将来源整理进 source/entity/concept 页面。
+- 从 Zotero `relations` 字段构建文献引用网络，自动生成笔记间引用边（`obsidian_build_citation_network`）。
+- 将 vault callout 块（高亮、笔记、批注等）按标签或类型聚合为可读阅读摘要（`obsidian_build_reading_digest`）。
 - 从 BibTeX、参考文献元数据、MinerU Markdown、PDF 附件和 Zotero 条目导入文献。
-- 可选调用 MinerU Open API CLI 直接解析 PDF/文档后导入。
+- 可选调用 MinerU Open API CLI 直接解析 PDF/文档后导入；支持 `obsidian_mineru_extract_folder` 批量处理整个 PDF 目录。
+- MinerU 解析图片按正文图注自动重命名为语义文件名，保留中文字符，便于知识图谱节点索引（`obsidian_mineru_rename_images`）。
 - 直接访问 Zotero Desktop 本地 API：列出文库分类、搜索、元数据、子笔记、标注、PDF 附件、PDF 文本提取和一步导入。
 - Zotero `zotero://` 链接、重复检测（key/DOI/citekey/标题）和可配置 PDF 附件命名策略。
 - 导入时自动解析 Zotero 集合名称（`collections` 字段存储可读名称而非内部 key），仅写入有值的类型专用字段，空字段不写入 frontmatter。
@@ -54,7 +61,7 @@ obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 
 - `obsidian-vault`：通用 vault 维护、frontmatter、双链、图谱检查、批量编辑计划、index/log 维护。
 - `obsidian-zotero`：Zotero 搜索、单条导入、合集批量导入、附件、批注与重导入同步。
-- `obsidian-mineru`：MinerU 文档解析、Markdown 导入、vault PDF 来源笔记、Zotero 全文挂接。
+- `obsidian-mineru`：MinerU 文档解析、批量文件夹提取、图片语义重命名、Markdown 导入、vault PDF 来源笔记、Zotero 全文挂接。
 - `obsidian-views`：JSON Canvas、Obsidian Bases、内置 Base 模板和 Dataview 查询笔记。
 - `obsidian-cli`：backlinks、properties、tasks、截图、plugin reload、带链接更新的 move/rename 等 Obsidian CLI 操作。
 
