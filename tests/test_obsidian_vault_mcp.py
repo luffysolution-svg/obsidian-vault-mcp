@@ -2168,5 +2168,68 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("community:", content)
 
 
+    # ----------------------------------------------- #
+    # Task 3: obsidian_graph_insights                  #
+    # ----------------------------------------------- #
+
+    def test_graph_insights_returns_expected_keys(self):
+        self.write_note("A.md", "---\ntitle: A\n---\n")
+        result = self.module.obsidian_graph_insights(str(self.vault))
+        self.assertTrue(result["ok"])
+        self.assertIn("bridgeNodes", result)
+        self.assertIn("surprisingLinks", result)
+        self.assertIn("sparseClusters", result)
+        self.assertIn("isolatedHubs", result)
+
+    def test_graph_insights_detects_isolated_hubs(self):
+        # hub.md links to 5 notes but nothing links back to it
+        self.write_note("hub.md", "---\ntitle: Hub\n---\n[[N1]]\n[[N2]]\n[[N3]]\n[[N4]]\n[[N5]]\n")
+        for i in range(1, 6):
+            self.write_note(f"N{i}.md", f"---\ntitle: N{i}\n---\n")
+        result = self.module.obsidian_graph_insights(str(self.vault))
+        hub_paths = [h["path"] for h in result["isolatedHubs"]]
+        self.assertIn("hub.md", hub_paths)
+        hub = next(h for h in result["isolatedHubs"] if h["path"] == "hub.md")
+        self.assertEqual(hub["outDegree"], 5)
+        self.assertEqual(hub["inDegree"], 0)
+
+    def test_graph_insights_detects_bridge_nodes(self):
+        # bridge.md connects two otherwise-disconnected clusters
+        self.write_note("A.md", "---\ntitle: A\n---\n[[B]]\n")
+        self.write_note("B.md", "---\ntitle: B\n---\n[[C]]\n")
+        self.write_note("C.md", "---\ntitle: C\n---\n[[A]]\n")
+        self.write_note("bridge.md", "---\ntitle: Bridge\n---\n[[C]]\n[[D]]\n")
+        self.write_note("D.md", "---\ntitle: D\n---\n[[E]]\n")
+        self.write_note("E.md", "---\ntitle: E\n---\n[[F]]\n")
+        self.write_note("F.md", "---\ntitle: F\n---\n[[D]]\n")
+        result = self.module.obsidian_graph_insights(str(self.vault))
+        bridge_paths = [b["path"] for b in result["bridgeNodes"]]
+        self.assertIn("bridge.md", bridge_paths)
+
+    def test_graph_insights_detects_surprising_cross_community_links(self):
+        # A and B share a source but are (likely) in different communities
+        self.write_note("shared_source.md", "---\ntitle: Shared\n---\n")
+        self.write_note("A.md", "---\ntitle: A\ncites:\n  - '[[shared_source.md]]'\n---\n[[B1]]\n[[B2]]\n[[B3]]\n")
+        self.write_note("B.md", "---\ntitle: B\ncites:\n  - '[[shared_source.md]]'\n---\n[[C1]]\n[[C2]]\n[[C3]]\n")
+        for name in ["B1", "B2", "B3", "C1", "C2", "C3"]:
+            self.write_note(f"{name}.md", f"---\ntitle: {name}\n---\n")
+        result = self.module.obsidian_graph_insights(str(self.vault))
+        self.assertIsInstance(result["surprisingLinks"], list)
+        for link in result["surprisingLinks"]:
+            self.assertIn("from", link)
+            self.assertIn("to", link)
+            self.assertIn("sourceOverlapScore", link)
+            self.assertIn("reason", link)
+
+    def test_graph_insights_isolated_hubs_threshold(self):
+        # A note with only 2 outgoing links should NOT appear (threshold is outDegree >= 5)
+        self.write_note("small_hub.md", "---\ntitle: Small Hub\n---\n[[X]]\n[[Y]]\n")
+        self.write_note("X.md", "---\ntitle: X\n---\n")
+        self.write_note("Y.md", "---\ntitle: Y\n---\n")
+        result = self.module.obsidian_graph_insights(str(self.vault))
+        hub_paths = [h["path"] for h in result["isolatedHubs"]]
+        self.assertNotIn("small_hub.md", hub_paths)
+
+
 if __name__ == "__main__":
     unittest.main()

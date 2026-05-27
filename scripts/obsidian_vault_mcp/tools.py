@@ -3576,3 +3576,160 @@ def obsidian_build_graph_communities(
     }
 
 
+@tool()
+def obsidian_graph_insights(
+    vault_path: str = "",
+    folder: str = "",
+    top_n: int = 20,
+) -> dict[str, Any]:
+    """Detect structural patterns in the vault knowledge graph.
+
+    Returns four insight categories:
+    - bridgeNodes: low-degree but high-betweenness nodes (cross-community connectors)
+    - surprisingLinks: unconnected node pairs from different communities with high source overlap
+    - sparseClusters: Louvain communities with low internal edge density (< 0.2)
+    - isolatedHubs: notes with high outDegree (>= 5) but very low inDegree (<= 1)
+
+    top_n: max results per category (default 20).
+    Requires networkx>=3.0.
+    """
+    try:
+        import networkx as nx
+        from networkx.algorithms.community import louvain_communities
+    except ImportError:
+        return {"ok": False, "error": "networkx>=3.0 is required. Install with: pip install 'networkx>=3.0'"}
+
+    vault = _vault(vault_path)
+    graph = obsidian_build_graph(vault_path=str(vault), folder=folder, include_tags=True)
+    G = _build_nx_graph(graph)
+    nodes_by_id = {n["id"]: n for n in graph["nodes"]}
+
+    if G.number_of_nodes() < 3:
+        return {"ok": True, "bridgeNodes": [], "surprisingLinks": [], "sparseClusters": [], "isolatedHubs": []}
+
+    source_index = _build_source_index(graph)
+    backlinks = graph.get("backlinks", {})
+
+    # Directed outgoing counts (from edges list)
+    outgoing_counts: dict[str, int] = {}
+    for edge in graph["edges"]:
+        outgoing_counts[edge["source"]] = outgoing_counts.get(edge["source"], 0) + 1
+
+    # ------------------------------------------------------------------ #
+    # 1. Bridge Nodes: high betweenness, low-to-median degree             #
+    # ------------------------------------------------------------------ #
+    betweenness = nx.betweenness_centrality(G, normalized=True)
+    degrees = dict(G.degree())
+    sorted_degrees = sorted(degrees.values())
+    median_degree = sorted_degrees[len(sorted_degrees) // 2] if sorted_degrees else 0
+
+    bridge_nodes: list[dict[str, Any]] = []
+    for nid, bt in sorted(betweenness.items(), key=lambda x: -x[1]):
+        if bt > 0.05 and degrees.get(nid, 0) <= max(median_degree, 1):
+            node = nodes_by_id.get(nid, {})
+            bridge_nodes.append({
+                "path": nid,
+                "title": str(node.get("title") or Path(nid).stem),
+                "betweenness": round(bt, 4),
+                "degree": degrees.get(nid, 0),
+            })
+            if len(bridge_nodes) >= top_n:
+                break
+
+    # ------------------------------------------------------------------ #
+    # 2. Isolated Hubs: high outDegree, very low inDegree                 #
+    # ------------------------------------------------------------------ #
+    isolated_hubs: list[dict[str, Any]] = []
+    for node in graph["nodes"]:
+        nid = node["id"]
+        out_deg = outgoing_counts.get(nid, 0)
+        in_deg = len(backlinks.get(nid, []))
+        if out_deg >= 5 and in_deg <= 1:
+            isolated_hubs.append({
+                "path": nid,
+                "title": str(node.get("title") or Path(nid).stem),
+                "outDegree": out_deg,
+                "inDegree": in_deg,
+            })
+    isolated_hubs.sort(key=lambda x: -x["outDegree"])
+    isolated_hubs = isolated_hubs[:top_n]
+
+    # ------------------------------------------------------------------ #
+    # 3. Louvain communities for cross-community analysis                 #
+    # ------------------------------------------------------------------ #
+    raw_communities: list[Any] = []
+    node_to_community: dict[str, int] = {}
+    try:
+        raw_communities = list(louvain_communities(G, seed=42))
+        for comm_id, comm_set in enumerate(raw_communities):
+            for nid in comm_set:
+                node_to_community[nid] = comm_id
+    except Exception:
+        pass
+
+    # ------------------------------------------------------------------ #
+    # 4. Surprising Cross-Community Links                                 #
+    # ------------------------------------------------------------------ #
+    surprising_links: list[dict[str, Any]] = []
+    if node_to_community:
+        existing_pairs: set[tuple[str, str]] = set()
+        for edge in graph["edges"]:
+            existing_pairs.add((edge["source"], edge["target"]))
+            existing_pairs.add((edge["target"], edge["source"]))
+
+        node_ids = [n["id"] for n in graph["nodes"]]
+        for i, u in enumerate(node_ids):
+            if len(surprising_links) >= top_n * 3:
+                break
+            for v in node_ids[i + 1:]:
+                if (u, v) in existing_pairs:
+                    continue
+                comm_u = node_to_community.get(u)
+                comm_v = node_to_community.get(v)
+                if comm_u is None or comm_v is None or comm_u == comm_v:
+                    continue
+                overlap = _compute_source_overlap(source_index.get(u, set()), source_index.get(v, set()))
+                if overlap * 4.0 >= 2.0:
+                    shared = source_index.get(u, set()) & source_index.get(v, set())
+                    surprising_links.append({
+                        "from": u,
+                        "to": v,
+                        "sourceOverlapScore": round(overlap * 4.0, 2),
+                        "fromCommunity": comm_u,
+                        "toCommunity": comm_v,
+                        "reason": f"共享来源 {len(shared)} 项",
+                    })
+        surprising_links.sort(key=lambda x: -x["sourceOverlapScore"])
+        surprising_links = surprising_links[:top_n]
+
+    # ------------------------------------------------------------------ #
+    # 5. Sparse Clusters: low intra-community edge density                #
+    # ------------------------------------------------------------------ #
+    sparse_clusters: list[dict[str, Any]] = []
+    for comm_id, comm_set in enumerate(raw_communities):
+        comm_list = list(comm_set)
+        if len(comm_list) < 3:
+            continue
+        subgraph = G.subgraph(comm_list)
+        n = len(comm_list)
+        max_possible = n * (n - 1) / 2
+        density = subgraph.number_of_edges() / max_possible if max_possible > 0 else 0.0
+        if density < 0.2:
+            top_node = max(comm_list, key=lambda nid: len(backlinks.get(nid, [])))
+            label = str(nodes_by_id.get(top_node, {}).get("title") or Path(top_node).stem)
+            sparse_clusters.append({
+                "communityId": comm_id,
+                "community": label,
+                "density": round(density, 3),
+                "nodeCount": n,
+                "suggestion": "考虑拆分为子社区或在内部添加更多关联链接",
+            })
+
+    return {
+        "ok": True,
+        "bridgeNodes": bridge_nodes,
+        "surprisingLinks": surprising_links,
+        "sparseClusters": sparse_clusters,
+        "isolatedHubs": isolated_hubs,
+    }
+
