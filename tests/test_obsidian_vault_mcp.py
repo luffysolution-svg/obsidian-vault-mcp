@@ -1774,7 +1774,8 @@ class ObsidianVaultMcpTests(unittest.TestCase):
 
     def test_reading_digest_skips_files_outside_since_days(self):
         self.write_note("lit/old.md", "---\ntitle: Old\n---\n\n> [!quote]\n> Old quote.\n\n")
-        import os, time
+        import os
+        import time
         old_mtime = time.time() - 30 * 86400
         os.utime(self.vault / "lit" / "old.md", (old_mtime, old_mtime))
         result = self.module.obsidian_build_reading_digest(
@@ -1787,7 +1788,7 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             "lit/source.md",
             "---\ntitle: My Source\n---\n\n> [!highlight]\n> A highlight.\n\n",
         )
-        result = self.module.obsidian_build_reading_digest(
+        self.module.obsidian_build_reading_digest(
             str(self.vault), folder="lit", since_days=9999, dry_run=False
         )
         digest = (self.vault / "reading-digest.md").read_text(encoding="utf-8")
