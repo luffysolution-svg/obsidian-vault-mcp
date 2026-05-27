@@ -1604,6 +1604,164 @@ def obsidian_mineru_extract_folder(
 
 
 @tool()
+def obsidian_mineru_rename_images(
+    markdown_path: str,
+    vault_path: str = "",
+    doc_slug: str = "",
+    caption_window: int = 3,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Rename MinerU-extracted images using figure captions found in the Markdown.
+
+    Scans the Markdown for image references (![alt](path) and ![[path]]), extracts
+    captions via a sliding-window heuristic, and renames each image file in-place,
+    updating all references in the Markdown.
+
+    Caption extraction priority:
+    1. Non-empty alt text (>3 chars)
+    2. Lines AFTER image within caption_window (strong pattern, then weak)
+    3. Lines BEFORE image within caption_window (strong pattern, then weak)
+    4. Any line in window matching strong caption pattern
+    5. Fallback: {doc_slug}_img_{N:03d}
+
+    dry_run=True (default): return planned renames without touching any files.
+    """
+    vault = _vault(vault_path)
+    md_full = _safe_path(vault, markdown_path)
+    if not md_full.exists():
+        return {"ok": False, "error": f"Markdown file not found: {markdown_path}",
+                "markdownPath": markdown_path, "totalImages": 0,
+                "renamed": 0, "fallback": 0, "skipped": 0,
+                "errors": [], "dryRun": dry_run, "renames": []}
+
+    content = _read_text(md_full)
+    lines = content.splitlines()
+    md_dir = md_full.parent
+
+    # Auto-infer doc_slug from markdown filename stem if not provided
+    effective_slug = doc_slug.strip() or _slug_filename(md_full.stem)
+
+    # Collect all image references; deduplicate by img_path (keep first occurrence)
+    all_refs = _mineru_find_images(lines)
+    first_occurrence: dict[str, tuple[int, str, str, str]] = {}
+    for entry in all_refs:
+        line_idx, raw_ref, img_path, alt = entry
+        if img_path not in first_occurrence:
+            first_occurrence[img_path] = entry
+
+    used_names: set[str] = set()
+    renames: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    renamed = 0
+    fallback_count = 0
+    skipped = 0
+    fallback_counter = 0
+
+    # Process images in document order (by line_idx of first occurrence)
+    ordered = sorted(first_occurrence.values(), key=lambda e: e[0])
+
+    for line_idx, raw_ref, img_path, alt in ordered:
+        ext = Path(img_path).suffix
+        img_stem = Path(img_path).stem
+        img_full = md_dir / img_path
+
+        # Idempotency: already renamed (stem starts with doc_slug prefix)
+        if img_stem.startswith(f"{effective_slug}_"):
+            skipped += 1
+            continue
+
+        # For non-dry-run: check image file actually exists
+        if not dry_run and not img_full.exists():
+            errors.append({"path": img_path, "error": "Image file not found on disk"})
+            continue
+
+        # Caption extraction
+        caption = ""
+        strategy = "fallback"
+
+        # Priority 1: alt text
+        if alt.strip() and len(alt.strip()) > 3:
+            caption = alt.strip()
+            strategy = "alt"
+        else:
+            caption, strategy = _mineru_extract_caption(lines, line_idx, caption_window)
+
+        if not caption:
+            fallback_counter += 1
+            new_name = f"{effective_slug}_img_{fallback_counter:03d}{ext}"
+            while new_name in used_names:
+                fallback_counter += 1
+                new_name = f"{effective_slug}_img_{fallback_counter:03d}{ext}"
+            used_names.add(new_name)
+            strategy = "fallback"
+            fallback_count += 1
+        else:
+            new_name = _mineru_caption_to_slug(caption, effective_slug, ext, used_names)
+            renamed += 1
+
+        new_img_path = str(Path(img_path).parent / new_name).replace("\\", "/")
+        renames.append({
+            "old": img_path,
+            "new": new_img_path,
+            "caption": caption,
+            "strategy": strategy,
+        })
+
+    result: dict[str, Any] = {
+        "ok": True,
+        "markdownPath": markdown_path,
+        "totalImages": len(first_occurrence),
+        "renamed": renamed,
+        "fallback": fallback_count,
+        "skipped": skipped,
+        "errors": errors,
+        "dryRun": dry_run,
+        "renames": renames,
+    }
+
+    if dry_run:
+        return result
+
+    # Apply renames: rename files and patch markdown text
+    new_content = content
+    for entry in renames:
+        old_path = entry["old"]
+        new_path = entry["new"]
+        img_full_old = md_dir / old_path
+        img_full_new = md_dir / new_path
+
+        if not img_full_old.exists():
+            errors.append({"path": old_path, "error": "Image file not found on disk"})
+            result["ok"] = False
+            continue
+
+        try:
+            img_full_new.parent.mkdir(parents=True, exist_ok=True)
+            img_full_old.rename(img_full_new)
+        except OSError as exc:
+            errors.append({"path": old_path, "error": str(exc)})
+            result["ok"] = False
+            continue
+
+        # Replace all occurrences in markdown (handles repeated references)
+        new_content = new_content.replace(old_path, new_path)
+        # Also handle bare wikilink format  ![[old_name.ext]]
+        old_name = Path(old_path).name
+        new_name_only = Path(new_path).name
+        if old_name != new_name_only:
+            new_content = new_content.replace(f"![[{old_name}]]", f"![[{new_name_only}]]")
+
+    try:
+        _write_text(md_full, new_content)
+    except Exception as exc:
+        result["ok"] = False
+        result["error"] = f"Failed to write updated markdown: {exc}"
+
+    result["errors"] = errors
+    return result
+
+
+@tool()
 def obsidian_ingest_pdf_attachment(
     pdf_attachment_path: str,
     vault_path: str = "",

@@ -1794,5 +1794,170 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("lit/source.md", digest)
 
 
+    # ── obsidian_mineru_rename_images ────────────────────────────────────────────
+
+    def _make_mineru_dir(self, slug: str) -> tuple:
+        """Helper: create a temp MinerU output directory with a markdown file and images folder."""
+        md_dir = self.vault / "mineru" / slug
+        md_dir.mkdir(parents=True, exist_ok=True)
+        img_dir = md_dir / "images"
+        img_dir.mkdir(exist_ok=True)
+        return md_dir, img_dir
+
+    def test_rename_images_uses_alt_text(self):
+        md_dir, img_dir = self._make_mineru_dir("p1")
+        (img_dir / "abc.png").write_bytes(b"\x89PNG\r\n")
+        (md_dir / "p1.md").write_text("![图1 示意图](images/abc.png)\n\n", encoding="utf-8")
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/p1/p1.md", str(self.vault), dry_run=False
+        )
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["renames"][0]["strategy"], "alt")
+        self.assertIn("图1", result["renames"][0]["new"])
+        # Old file gone, new file exists
+        self.assertFalse((img_dir / "abc.png").exists())
+        new_stem = result["renames"][0]["new"].split("/")[-1]
+        self.assertTrue((img_dir / new_stem).exists())
+
+    def test_rename_images_caption_after(self):
+        md_dir, img_dir = self._make_mineru_dir("p2")
+        (img_dir / "uuid001.png").write_bytes(b"\x89PNG\r\n")
+        (md_dir / "p2.md").write_text(
+            "![](images/uuid001.png)\n\n图2 反应器示意图\n", encoding="utf-8"
+        )
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/p2/p2.md", str(self.vault), dry_run=False
+        )
+        self.assertEqual(result["renames"][0]["strategy"], "caption_after")
+        new_stem = result["renames"][0]["new"].split("/")[-1]
+        self.assertTrue((img_dir / new_stem).exists())
+
+    def test_rename_images_caption_before(self):
+        md_dir, img_dir = self._make_mineru_dir("p3")
+        (img_dir / "uuid002.png").write_bytes(b"\x89PNG\r\n")
+        (md_dir / "p3.md").write_text(
+            "图3 温度曲线\n\n![](images/uuid002.png)\n\nSome text after\n", encoding="utf-8"
+        )
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/p3/p3.md", str(self.vault), dry_run=False
+        )
+        self.assertEqual(result["renames"][0]["strategy"], "caption_before")
+        self.assertIn("图3", result["renames"][0]["new"])
+
+    def test_rename_images_fallback_positional(self):
+        md_dir, img_dir = self._make_mineru_dir("p4")
+        (img_dir / "noid.png").write_bytes(b"\x89PNG\r\n")
+        (md_dir / "p4.md").write_text(
+            "![](images/noid.png)\n\nSome unrelated text here\n", encoding="utf-8"
+        )
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/p4/p4.md", str(self.vault), dry_run=False
+        )
+        self.assertEqual(result["renames"][0]["strategy"], "fallback")
+        self.assertIn("_img_001", result["renames"][0]["new"])
+        self.assertEqual(result["fallback"], 1)
+        self.assertEqual(result["renamed"], 0)
+
+    def test_rename_images_dry_run_no_write(self):
+        md_dir, img_dir = self._make_mineru_dir("p5")
+        (img_dir / "img001.png").write_bytes(b"\x89PNG\r\n")
+        (md_dir / "p5.md").write_text(
+            "![](images/img001.png)\n\n图1 压力温度曲线\n", encoding="utf-8"
+        )
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/p5/p5.md", str(self.vault), dry_run=True
+        )
+        self.assertTrue(result["dryRun"])
+        # Original file still exists
+        self.assertTrue((img_dir / "img001.png").exists())
+        self.assertEqual(len(result["renames"]), 1)
+        self.assertTrue(result["ok"])
+
+    def test_rename_images_updates_markdown_references(self):
+        md_dir, img_dir = self._make_mineru_dir("p6")
+        (img_dir / "xyz.png").write_bytes(b"\x89PNG\r\n")
+        # Image appears twice in the document
+        (md_dir / "p6.md").write_text(
+            "![](images/xyz.png)\n\n图3 流程图\n\nSee also: ![](images/xyz.png)\n",
+            encoding="utf-8",
+        )
+        self.module.obsidian_mineru_rename_images(
+            "mineru/p6/p6.md", str(self.vault), dry_run=False
+        )
+        new_text = (md_dir / "p6.md").read_text(encoding="utf-8")
+        # Old name no longer anywhere in the file
+        self.assertNotIn("xyz.png", new_text)
+
+    def test_rename_images_dedup_conflict(self):
+        md_dir, img_dir = self._make_mineru_dir("p7")
+        (img_dir / "a.png").write_bytes(b"\x89PNG\r\n")
+        (img_dir / "b.png").write_bytes(b"\x89PNG\r\n")
+        (md_dir / "p7.md").write_text(
+            "![](images/a.png)\n\n图1 相同图注\n\n![](images/b.png)\n\n图1 相同图注\n",
+            encoding="utf-8",
+        )
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/p7/p7.md", str(self.vault), dry_run=False
+        )
+        new_names = [r["new"] for r in result["renames"]]
+        self.assertEqual(len(set(new_names)), 2, "Duplicate filenames detected")
+
+    def test_rename_images_idempotent_skip(self):
+        md_dir, img_dir = self._make_mineru_dir("p8")
+        (img_dir / "p8_图1-示意图.png").write_bytes(b"\x89PNG\r\n")
+        (md_dir / "p8.md").write_text(
+            "![](images/p8_图1-示意图.png)\n\n图1 示意图\n", encoding="utf-8"
+        )
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/p8/p8.md", str(self.vault), dry_run=False
+        )
+        self.assertEqual(result["skipped"], 1)
+        self.assertEqual(result["renamed"] + result["fallback"], 0)
+
+    def test_rename_images_missing_file_recorded_in_errors(self):
+        md_dir, img_dir = self._make_mineru_dir("p9")
+        # Markdown references a file that does NOT exist on disk
+        (md_dir / "p9.md").write_text(
+            "![](images/ghost.png)\n\n图1 幽灵图\n", encoding="utf-8"
+        )
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/p9/p9.md", str(self.vault), dry_run=False
+        )
+        self.assertGreater(len(result["errors"]), 0)
+        self.assertEqual(result["errors"][0]["path"], "images/ghost.png")
+
+    def test_rename_images_chinese_caption_kept(self):
+        md_dir, img_dir = self._make_mineru_dir("p10")
+        (img_dir / "cn001.png").write_bytes(b"\x89PNG\r\n")
+        (md_dir / "p10.md").write_text(
+            "![](images/cn001.png)\n\n图1 二氧化碳吸收速率对比分析\n", encoding="utf-8"
+        )
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/p10/p10.md", str(self.vault), dry_run=False
+        )
+        new_name = result["renames"][0]["new"]
+        self.assertIn("二氧化碳", new_name)
+
+    def test_rename_images_markdown_not_found(self):
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/nonexistent/nonexistent.md", str(self.vault)
+        )
+        self.assertFalse(result["ok"])
+        self.assertIn("error", result)
+
+    def test_rename_images_custom_doc_slug(self):
+        md_dir, img_dir = self._make_mineru_dir("p11")
+        (img_dir / "img.png").write_bytes(b"\x89PNG\r\n")
+        (md_dir / "p11.md").write_text(
+            "![](images/img.png)\n\n图1 结果对比\n", encoding="utf-8"
+        )
+        result = self.module.obsidian_mineru_rename_images(
+            "mineru/p11/p11.md", str(self.vault),
+            doc_slug="my-paper",
+            dry_run=False,
+        )
+        self.assertTrue(result["renames"][0]["new"].startswith("images/my-paper_"))
+
+
 if __name__ == "__main__":
     unittest.main()
