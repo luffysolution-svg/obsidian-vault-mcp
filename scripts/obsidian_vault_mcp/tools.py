@@ -3489,3 +3489,90 @@ def obsidian_build_reading_digest(
     return result
 
 
+@tool()
+def obsidian_build_graph_communities(
+    vault_path: str = "",
+    folder: str = "",
+    min_community_size: int = 3,
+    write_frontmatter: bool = False,
+    dry_run: bool = True,
+    resolution: float = 1.0,
+) -> dict[str, Any]:
+    """Detect Louvain community structure in the vault knowledge graph.
+
+    Returns community labels, sizes, modularity score, and top nodes per community.
+    write_frontmatter=True adds a 'community' YAML field to each note (label = highest-inDegree node's title).
+    dry_run=True (default): analysis only, no file writes.
+    resolution: higher values produce smaller, more granular communities (default 1.0).
+    min_community_size: communities smaller than this are excluded from results.
+    """
+    try:
+        import networkx as nx  # noqa: F401
+        from networkx.algorithms.community import louvain_communities
+        from networkx.algorithms.community.quality import modularity as nx_modularity
+    except ImportError:
+        return {"ok": False, "error": "networkx>=3.0 is required. Install with: pip install 'networkx>=3.0'"}
+
+    vault = _vault(vault_path)
+    graph = obsidian_build_graph(vault_path=str(vault), folder=folder, include_tags=True)
+    G = _build_nx_graph(graph)
+
+    if G.number_of_nodes() < 2:
+        return {"ok": True, "communityCount": 0, "modularity": 0.0, "communities": [], "written": 0, "dryRun": dry_run}
+
+    raw_communities = louvain_communities(G, resolution=resolution, seed=42)
+    try:
+        mod_score = round(nx_modularity(G, raw_communities), 4)
+    except Exception:
+        mod_score = 0.0
+
+    nodes_by_id = {n["id"]: n for n in graph["nodes"]}
+    backlinks = graph.get("backlinks", {})
+
+    communities_out: list[dict[str, Any]] = []
+    for comm_id, comm_set in enumerate(raw_communities):
+        if len(comm_set) < min_community_size:
+            continue
+        sorted_by_indegree = sorted(comm_set, key=lambda nid: -len(backlinks.get(nid, [])))
+        top_node = sorted_by_indegree[0]
+        label = str(nodes_by_id.get(top_node, {}).get("title") or Path(top_node).stem)
+        tag_freq: dict[str, int] = {}
+        for nid in comm_set:
+            for tag in nodes_by_id.get(nid, {}).get("tags", []):
+                tag_freq[tag] = tag_freq.get(tag, 0) + 1
+        dominant_tags = [t for t, _ in sorted(tag_freq.items(), key=lambda x: -x[1])[:3]]
+        communities_out.append({
+            "id": comm_id,
+            "size": len(comm_set),
+            "label": label,
+            "topNodes": sorted_by_indegree[:3],
+            "dominantTags": dominant_tags,
+            "_members": sorted(comm_set),
+        })
+
+    written = 0
+    if write_frontmatter:
+        for comm in communities_out:
+            for node_path in comm["_members"]:
+                full = _safe_path(vault, node_path)
+                if not full.exists() or full.suffix.lower() != ".md":
+                    continue
+                props, body = _split_frontmatter(_read_text(full))
+                props["community"] = comm["label"]
+                if not dry_run:
+                    _write_text(full, _join_frontmatter(props, body))
+                written += 1
+
+    for comm in communities_out:
+        del comm["_members"]
+
+    return {
+        "ok": True,
+        "communityCount": len(communities_out),
+        "modularity": mod_score,
+        "communities": communities_out,
+        "written": written,
+        "dryRun": dry_run,
+    }
+
+

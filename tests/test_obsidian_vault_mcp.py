@@ -2106,5 +2106,67 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(ab["signals"]["typeAffinity"], 1.0)
 
 
+    # ------------------------------------------------------- #
+    # Task 2: obsidian_build_graph_communities                 #
+    # ------------------------------------------------------- #
+
+    def test_build_graph_communities_returns_community_list(self):
+        # 6 notes forming two clusters: {A,B,C} and {D,E,F}
+        self.write_note("A.md", "---\ntitle: A\n---\n[[B]]\n[[C]]\n")
+        self.write_note("B.md", "---\ntitle: B\n---\n[[C]]\n")
+        self.write_note("C.md", "---\ntitle: C\n---\n")
+        self.write_note("D.md", "---\ntitle: D\n---\n[[E]]\n[[F]]\n")
+        self.write_note("E.md", "---\ntitle: E\n---\n[[F]]\n")
+        self.write_note("F.md", "---\ntitle: F\n---\n")
+        result = self.module.obsidian_build_graph_communities(str(self.vault))
+        self.assertTrue(result["ok"])
+        self.assertGreater(result["communityCount"], 0)
+        self.assertIn("communities", result)
+        self.assertIn("modularity", result)
+        self.assertIsInstance(result["modularity"], float)
+        for community in result["communities"]:
+            self.assertIn("id", community)
+            self.assertIn("size", community)
+            self.assertIn("label", community)
+            self.assertIn("topNodes", community)
+            self.assertIn("dominantTags", community)
+
+    def test_build_graph_communities_min_size_filters_small_groups(self):
+        # solo.md is isolated (community size 1) and should be filtered with min_community_size=3
+        self.write_note("solo.md", "---\ntitle: Solo\n---\n")
+        self.write_note("A.md", "---\ntitle: A\n---\n[[B]]\n[[C]]\n[[D]]\n")
+        self.write_note("B.md", "---\ntitle: B\n---\n[[C]]\n")
+        self.write_note("C.md", "---\ntitle: C\n---\n[[D]]\n")
+        self.write_note("D.md", "---\ntitle: D\n---\n")
+        result = self.module.obsidian_build_graph_communities(str(self.vault), min_community_size=3)
+        for community in result["communities"]:
+            self.assertGreaterEqual(community["size"], 3)
+
+    def test_build_graph_communities_dry_run_does_not_write_frontmatter(self):
+        self.write_note("A.md", "---\ntitle: A\n---\n[[B]]\n[[C]]\n[[D]]\n")
+        self.write_note("B.md", "---\ntitle: B\n---\n[[C]]\n")
+        self.write_note("C.md", "---\ntitle: C\n---\n")
+        self.write_note("D.md", "---\ntitle: D\n---\n")
+        original = (self.vault / "A.md").read_text(encoding="utf-8")
+        result = self.module.obsidian_build_graph_communities(
+            str(self.vault), write_frontmatter=True, dry_run=True, min_community_size=1
+        )
+        self.assertTrue(result["dryRun"])
+        self.assertEqual((self.vault / "A.md").read_text(encoding="utf-8"), original)
+
+    def test_build_graph_communities_write_frontmatter_adds_community_field(self):
+        # 4 notes all linked to each other — definitely one community
+        for name in ["P", "Q", "R", "S"]:
+            others = "".join(f"[[{x}]]" for x in ["P", "Q", "R", "S"] if x != name)
+            self.write_note(f"{name}.md", f"---\ntitle: {name}\n---\n{others}\n")
+        result = self.module.obsidian_build_graph_communities(
+            str(self.vault), write_frontmatter=True, dry_run=False, min_community_size=1
+        )
+        self.assertFalse(result["dryRun"])
+        self.assertGreater(result["written"], 0)
+        content = (self.vault / "P.md").read_text(encoding="utf-8")
+        self.assertIn("community:", content)
+
+
 if __name__ == "__main__":
     unittest.main()
