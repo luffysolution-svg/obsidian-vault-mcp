@@ -361,6 +361,10 @@ claude mcp add obsidian-vault obsidian-vault-mcp
 - "检查这个 vault，显示未解析链接、死链和缺失的 index/log 文件。"
 - "将这条 BibTeX 条目或 Zotero 条目导入 Obsidian。"
 - "用 MinerU flash-extract 解析这个 PDF 并导入 Obsidian。"
+- "批量解析这个文件夹内所有 PDF 并导入 Obsidian。"
+- "用图注重命名这个 Markdown 文件里的 MinerU 提取图片。"
+- "根据 Zotero relations 构建文献引用网络。"
+- "生成这个文献文件夹的阅读摘要（高亮 + 笔记）。"
 - "为这个项目创建 Base 视图或 Dataview 笔记。"
 - "用 Obsidian CLI 读取 backlinks 或查询 Base。"
 

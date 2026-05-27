@@ -422,6 +422,10 @@ See [Deployment Guide](./docs/DEPLOYMENT.md) for the full release checklist and 
 - "Lint this vault and show unresolved links, dead ends, and missing index/log files."
 - "Ingest this BibTeX entry or Zotero item into Obsidian."
 - "Use MinerU flash-extract on this PDF and ingest the result into Obsidian."
+- "Batch extract all PDFs in this folder with MinerU and ingest them."
+- "Rename MinerU-extracted images in this Markdown file using figure captions."
+- "Build a citation network from Zotero relations across my literature notes."
+- "Generate a reading digest of all highlights and notes in this literature folder."
 - "Create a Base view or Dataview note for this project."
 - "Use the Obsidian CLI to read backlinks or query a Base."
 

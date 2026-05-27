@@ -1,6 +1,6 @@
 # Obsidian Vault MCP — Technical Guide / 技术文档
 
-> Version 1.0.1 | Python 3.10+ | MIT License
+> Version 1.0.21 | Python 3.10+ | MIT License
 >
 > [English](#english) | [中文](#chinese)
 
@@ -17,7 +17,7 @@
 - **Kepano's Obsidian Skills** — domain split into Markdown, Canvas, Bases, CLI, and extraction workflows.
 - **Karpathy's LLM Wiki** — vault treated as a persistent, compounding wiki maintained by an LLM.
 
-The server runs as a `stdio` MCP process launched by Codex (or any MCP-compatible host). It provides **57 tools** covering vault file I/O, wikilink management, schema validation, wiki workflows, literature ingestion, Zotero integration, MinerU document extraction, Canvas/Bases creation, batch editing, and Obsidian CLI wrappers.
+The server runs as a `stdio` MCP process launched by Codex, Claude Code, OpenCode, or any MCP-compatible host. It provides **70 tools** covering vault file I/O, wikilink management, schema validation, wiki workflows, literature ingestion, Zotero integration, MinerU document extraction and image renaming, Canvas/Bases creation, batch editing, and Obsidian CLI wrappers.
 
 ---
 
@@ -36,8 +36,8 @@ obsidian-vault/
 │       ├── __init__.py
 │       ├── cli.py                   # CLI entry point
 │       ├── common.py                # Constants, tool registry
-│       ├── helpers.py               # Core logic (~1,933 lines)
-│       ├── tools.py                 # 57 MCP tool functions (~2,217 lines)
+│       ├── helpers.py               # Core logic
+│       ├── tools.py                 # 70 MCP tool functions
 │       └── server.py                # FastMCP server setup
 ├── skills/
 │   ├── obsidian-vault/SKILL.md      # General vault workflow skill
@@ -87,7 +87,7 @@ obsidian-vault/
 
 ---
 
-## All 57 MCP Tools
+## All 70 MCP Tools
 
 ### Vault Core (6 tools)
 
@@ -119,7 +119,7 @@ obsidian-vault/
 | `obsidian_list_schema_presets` | List available note-type schema presets |
 | `obsidian_suggest_graph_improvements` | Suggest reciprocal links, unresolved links, duplicate pages |
 
-### Wiki Workflow — Karpathy Pattern (4 tools)
+### Wiki Workflow — Karpathy Pattern (6 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -127,6 +127,8 @@ obsidian-vault/
 | `obsidian_append_wiki_log` | Append timestamped entry to `log.md` |
 | `obsidian_ingest_source_note` | Ingest source → update entities/concepts/index/log in one pass |
 | `obsidian_doctor` | Readiness check: vault, templates, dependencies, integrations |
+| `obsidian_build_citation_network` | Read Zotero `relations` fields and insert wikilink citation edges between literature notes |
+| `obsidian_build_reading_digest` | Aggregate callout blocks (highlights, notes, annotations) across a folder, grouped by tag or type |
 
 ### Literature & Reference Ingestion (6 tools)
 
@@ -139,13 +141,15 @@ obsidian-vault/
 | `obsidian_ingest_pdf_attachment` | Create source note for a vault PDF attachment |
 | `obsidian_ingest_zotero_item` | Fetch Zotero item, copy PDFs, and ingest as literature note |
 
-### MinerU Integration (3 tools)
+### MinerU Integration (5 tools)
 
 | Tool | Description |
 |------|-------------|
 | `obsidian_mineru_status` | Check MinerU CLI availability and token configuration |
 | `obsidian_mineru_extract` | Run MinerU extraction and save Markdown to vault |
-| `obsidian_mineru_extract_and_ingest` | Extract with MinerU then ingest result in one pass |
+| `obsidian_mineru_extract_and_ingest` | Extract with MinerU then ingest result in one pass; accepts `rename_images=True` |
+| `obsidian_mineru_extract_folder` | Batch-extract all PDFs in a folder; forwards `rename_images` to each extraction |
+| `obsidian_mineru_rename_images` | Rename MinerU-extracted images using figure captions; Chinese characters preserved verbatim |
 
 ### Zotero Integration (7 tools)
 
@@ -204,40 +208,35 @@ obsidian-vault/
 ### Prerequisites
 
 - Python 3.10 or newer
-- Git (or download ZIP from GitHub)
 - Obsidian Desktop with at least one local vault
-- Codex or another MCP-compatible host
+- Codex, Claude Code, OpenCode, or another MCP-compatible host
 
-### Step 1 — Clone the Repository
+### Option A — Install from PyPI (recommended)
+
+```bash
+pip install zotero-obsidian-mcp
+obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
+```
+
+**Claude Code:**
+
+```bash
+pip install zotero-obsidian-mcp
+claude mcp add obsidian-vault obsidian-vault-mcp
+```
+
+**Codex / OpenCode:** register via local marketplace (see Step 3 below) after installing the package.
+
+### Option B — Install from Source (developers / latest commits)
 
 ```bash
 git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git obsidian-vault
 cd obsidian-vault
-```
-
-Or download and extract the ZIP from GitHub.
-
-### Step 2 — Install Python Dependencies
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-For development (adds `obsidian-vault-mcp` CLI command):
-
-```bash
 python -m pip install -e ".[dev]"
+obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
-### Step 3 — Verify the Setup
-
-```bash
-python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path/to/your-vault
-```
-
-Expected output shows green checks for vault resolution, Python dependencies, and optional integrations.
-
-### Step 4 — Register as a Codex Plugin
+### Step 3 — Register as a Codex Plugin (Codex only)
 
 The plugin ships with `.codex-plugin/plugin.json` and `.mcp.json`. Register it via a local marketplace.
 
@@ -260,11 +259,11 @@ The plugin ships with `.codex-plugin/plugin.json` and `.mcp.json`. Register it v
 
 **Personal marketplace** — create `~/.agents/plugins/marketplace.json` pointing to your local copy.
 
-### Step 5 — Restart Codex
+### Step 4 — Restart Your MCP Client
 
-After registration, restart Codex (or reload MCP state) so the 57 tools become available.
+After registration (or after `claude mcp add`), restart or reload your MCP client so the 70 tools become available.
 
-### Step 6 — Run Smoke Checks (Optional)
+### Step 5 — Run Smoke Checks (Optional)
 
 With Obsidian and Zotero Desktop open:
 
@@ -465,7 +464,7 @@ Backups are stored under `.obsidian-vault-backups/` inside the vault.
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `python` not recognized | Python missing or not on PATH | Install Python; enable "Add Python to PATH" |
-| `No module named mcp` | Dependencies not installed | `python -m pip install -r requirements.txt` |
+| `No module named mcp` | Dependencies not installed | `pip install zotero-obsidian-mcp` or `pip install -e ".[dev]"` |
 | `Could not resolve an Obsidian vault` | `auto` cannot find vault | Open Obsidian or set `OBSIDIAN_VAULT_PATH` explicitly |
 | `Path does not look like an Obsidian vault root` | Path lacks `.obsidian` | Point to the vault root folder |
 | `Obsidian CLI command not found` | CLI not enabled or not on PATH | Enable CLI in Obsidian Settings → General; restart terminal |
@@ -504,6 +503,10 @@ Refresh the wiki index and append a log entry.
 Ingest this BibTeX entry into the literature wiki.
 Search Zotero and ingest this item into Obsidian.
 Use MinerU flash-extract on this PDF and ingest the result.
+Batch extract all PDFs in this folder with MinerU and ingest them.
+Rename MinerU-extracted images in this Markdown file using figure captions.
+Build a citation network from Zotero relations across my literature notes.
+Generate a reading digest of all highlights and notes in this literature folder.
 Create a Canvas map of this topic cluster from vault wikilinks.
 Preview and apply a batch edit plan, then rollback if needed.
 ```
@@ -521,7 +524,7 @@ Preview and apply a batch edit plan, then rollback if needed.
 - **Kepano 的 Obsidian Skills** — 领域拆分为 Markdown、Canvas、Bases、CLI 和文档提取工作流。
 - **Karpathy 的 LLM Wiki** — 将 vault 视为由 LLM 持续维护的、不断积累的 wiki。
 
-服务器以 `stdio` MCP 进程方式运行，由 Codex（或任何兼容 MCP 的 host）启动。提供 **57 个工具**，覆盖 vault 文件读写、wikilink 管理、schema 验证、wiki 工作流、文献导入、Zotero 集成、MinerU 文档提取、Canvas/Bases 创建、批量编辑和 Obsidian CLI 封装。
+服务器以 `stdio` MCP 进程方式运行，由 Codex、Claude Code、OpenCode 或任何兼容 MCP 的 host 启动。提供 **70 个工具**，覆盖 vault 文件读写、wikilink 管理、schema 验证、wiki 工作流、文献导入、Zotero 集成、MinerU 文档提取与图片重命名、Canvas/Bases 创建、批量编辑和 Obsidian CLI 封装。
 
 ---
 
@@ -539,8 +542,8 @@ obsidian-vault/
 │   └── obsidian_vault_mcp/          # 实现包
 │       ├── cli.py                   # CLI 入口
 │       ├── common.py                # 常量、工具注册表
-│       ├── helpers.py               # 核心逻辑（~1,933 行）
-│       ├── tools.py                 # 57 个 MCP 工具函数（~2,217 行）
+│       ├── helpers.py               # 核心逻辑
+│       ├── tools.py                 # 70 个 MCP 工具函数
 │       └── server.py                # FastMCP 服务器设置
 ├── skills/
 │   ├── obsidian-vault/SKILL.md      # 通用 vault 工作流 skill
@@ -584,7 +587,7 @@ obsidian-vault/
 
 ---
 
-## 全部 57 个 MCP 工具
+## 全部 70 个 MCP 工具
 
 ### Vault 核心（6 个）
 
@@ -616,7 +619,7 @@ obsidian-vault/
 | `obsidian_list_schema_presets` | 列出可用的笔记类型 schema 预设 |
 | `obsidian_suggest_graph_improvements` | 建议互链、未解析链接、重复页面 |
 
-### Wiki 工作流（4 个）
+### Wiki 工作流（6 个）
 
 | 工具 | 说明 |
 |------|------|
@@ -624,6 +627,8 @@ obsidian-vault/
 | `obsidian_append_wiki_log` | 向 `log.md` 追加带时间戳的条目 |
 | `obsidian_ingest_source_note` | 导入来源 → 一次性更新实体/概念/索引/日志 |
 | `obsidian_doctor` | 就绪检查：vault、模板、依赖、集成 |
+| `obsidian_build_citation_network` | 读取 Zotero `relations` 字段，在文献笔记之间插入 wikilink 引用边 |
+| `obsidian_build_reading_digest` | 将文件夹内 callout 块（高亮、笔记、批注）按标签或类型聚合为阅读摘要 |
 
 ### 文献导入（6 个）
 
@@ -636,7 +641,17 @@ obsidian-vault/
 | `obsidian_ingest_pdf_attachment` | 为 vault PDF 附件创建来源笔记 |
 | `obsidian_ingest_zotero_item` | 获取 Zotero 条目、复制 PDF、导入为文献笔记 |
 
-### MinerU 集成（3 个）、Zotero 集成（6 个）、Canvas/Bases（7 个）、批量编辑（3 个）、CLI 封装（14 个）
+### MinerU 集成（5 个）
+
+| 工具 | 说明 |
+|------|------|
+| `obsidian_mineru_status` | 检查 MinerU CLI 可用性和 token 配置 |
+| `obsidian_mineru_extract` | 运行 MinerU 提取，将 Markdown 保存到 vault |
+| `obsidian_mineru_extract_and_ingest` | MinerU 提取后一步导入；接受 `rename_images=True` |
+| `obsidian_mineru_extract_folder` | 批量提取文件夹内所有 PDF；`rename_images` 标志转发给每次提取 |
+| `obsidian_mineru_rename_images` | 用正文图注重命名 MinerU 提取图片；中文字符直通保留 |
+
+### Zotero 集成（7 个）、Canvas/Bases（7 个）、批量编辑（3 个）、CLI 封装（14 个）
 
 详见英文部分工具表格，工具名称与英文完全一致。
 
@@ -647,36 +662,35 @@ obsidian-vault/
 ### 前置条件
 
 - Python 3.10 或更高版本
-- Git（或从 GitHub 下载 ZIP）
 - Obsidian Desktop，至少有一个本地 vault
-- Codex 或其他兼容 MCP 的 host
+- Codex、Claude Code、OpenCode 或其他兼容 MCP 的 host
 
-### 第一步 — 克隆仓库
+### 方式 A — PyPI 安装（推荐）
+
+```bash
+pip install zotero-obsidian-mcp
+obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
+```
+
+**Claude Code：**
+
+```bash
+pip install zotero-obsidian-mcp
+claude mcp add obsidian-vault obsidian-vault-mcp
+```
+
+**Codex / OpenCode：** 安装包后，通过 local marketplace 注册（见第三步）。
+
+### 方式 B — 源码安装（开发者 / 跟进最新提交）
 
 ```bash
 git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git obsidian-vault
 cd obsidian-vault
-```
-
-### 第二步 — 安装 Python 依赖
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-开发模式（同时安装 `obsidian-vault-mcp` 命令行工具）：
-
-```bash
 python -m pip install -e ".[dev]"
+obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 ```
 
-### 第三步 — 验证安装
-
-```bash
-python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path/to/your-vault
-```
-
-### 第四步 — 注册为 Codex 插件
+### 第三步 — 注册为 Codex 插件（仅 Codex）
 
 **Repo marketplace** — 创建 `$REPO_ROOT/.agents/plugins/marketplace.json`：
 
@@ -697,9 +711,9 @@ python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault /path
 
 **个人 marketplace** — 创建 `~/.agents/plugins/marketplace.json`，`source.path` 指向你的本地副本。
 
-### 第五步 — 重启 Codex
+### 第四步 — 重启 MCP 客户端
 
-注册后重启 Codex（或重新加载 MCP 状态），57 个工具即可使用。
+注册后（或 `claude mcp add` 后）重启或重新加载客户端，70 个工具即可使用。
 
 ---
 
@@ -793,7 +807,7 @@ curl -fsSL https://cdn-mineru.openxlab.org.cn/open-api-cli/install.sh | sh
 | 现象 | 可能原因 | 处理方式 |
 |------|---------|---------|
 | `python` 无法识别 | Python 未安装或不在 PATH | 安装 Python 并启用 "Add Python to PATH" |
-| `No module named mcp` | 依赖未安装 | `python -m pip install -r requirements.txt` |
+| `No module named mcp` | 依赖未安装 | `pip install zotero-obsidian-mcp` 或 `pip install -e ".[dev]"` |
 | `Could not resolve an Obsidian vault` | `auto` 找不到 vault | 打开 Obsidian 或显式设置 `OBSIDIAN_VAULT_PATH` |
 | `Path does not look like an Obsidian vault root` | 路径缺少 `.obsidian` | 指向 vault 根目录 |
 | `Obsidian CLI command not found` | CLI 未启用或不在 PATH | 在 Obsidian 设置中启用 CLI；重启终端 |
@@ -801,6 +815,28 @@ curl -fsSL https://cdn-mineru.openxlab.org.cn/open-api-cli/install.sh | sh
 | MinerU Markdown 下载失败 | 代理/DNS 路由问题 | 检查 MinerU/OpenXLab 域名；修复 fake-IP 规则 |
 | MCP 工具不出现 | Codex 尚未重新加载插件 | 重启 Codex 或重新加载 MCP/plugin 状态 |
 | 写入提示文件已存在 | 默认保护已有文件 | 确认无误后传入 `overwrite=true` |
+
+---
+
+## 常用提示词
+
+```
+展示这个 Obsidian vault 的结构。
+创建一条带 YAML properties 的双链笔记。
+检查这个 vault，显示未解析链接、死链和缺失的 index/log 文件。
+校验整个 vault 的 frontmatter、Canvas 和 Base schema。
+建议图谱改进：补充互链、合并可能重复的页面。
+刷新 wiki 索引并追加一条日志。
+把这条 BibTeX 条目导入文献知识库。
+搜索 Zotero 并将该条目导入 Obsidian。
+用 MinerU flash-extract 解析这个 PDF 并导入 Obsidian。
+批量解析这个文件夹内所有 PDF 并导入 Obsidian。
+用图注重命名这个 Markdown 文件里的 MinerU 提取图片。
+根据 Zotero relations 构建文献引用网络。
+生成这个文献文件夹的阅读摘要（高亮 + 笔记）。
+从 vault wikilinks 生成 Canvas 知识图谱。
+预览并应用批量编辑计划，如有需要可回滚。
+```
 
 ---
 
