@@ -2220,6 +2220,9 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             self.assertIn("to", link)
             self.assertIn("sourceOverlapScore", link)
             self.assertIn("reason", link)
+        found_paths = {(lnk["from"], lnk["to"]) for lnk in result["surprisingLinks"]}
+        found_paths |= {(lnk["to"], lnk["from"]) for lnk in result["surprisingLinks"]}
+        self.assertIn(("A.md", "B.md"), found_paths)
 
     def test_graph_insights_isolated_hubs_threshold(self):
         # A note with only 2 outgoing links should NOT appear (threshold is outDegree >= 5)

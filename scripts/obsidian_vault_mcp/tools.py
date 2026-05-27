@@ -3725,6 +3725,9 @@ def obsidian_graph_insights(
                 "suggestion": "考虑拆分为子社区或在内部添加更多关联链接",
             })
 
+    sparse_clusters.sort(key=lambda x: x["density"])
+    sparse_clusters = sparse_clusters[:top_n]
+
     return {
         "ok": True,
         "bridgeNodes": bridge_nodes,
