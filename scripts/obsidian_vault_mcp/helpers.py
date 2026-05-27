@@ -2736,3 +2736,143 @@ def _compute_scored_suggestions(
 
     results.sort(key=lambda x: -x["score"])
     return results
+
+
+# ──────────────────────────────────────────────────────────────────────────── #
+# Wiki context helpers                                                         #
+# ──────────────────────────────────────────────────────────────────────────── #
+
+
+def _wiki_neighbors(
+    vault: Path,
+    topic_id: str,
+    graph: dict[str, Any],
+    max_n: int,
+    snippet_chars: int,
+) -> list[dict[str, Any]]:
+    """Return 1-hop wikilink neighbours of *topic_id* in *graph*, each with a body snippet."""
+    nodes_by_id = {n["id"]: n for n in graph.get("nodes", [])}
+    neighbor_ids: set[str] = set()
+    for edge in graph.get("edges", []):
+        if edge.get("source") == topic_id:
+            neighbor_ids.add(edge["target"])
+        elif edge.get("target") == topic_id:
+            neighbor_ids.add(edge["source"])
+
+    results: list[dict[str, Any]] = []
+    for nid in sorted(neighbor_ids):
+        if len(results) >= max_n:
+            break
+        node = nodes_by_id.get(nid, {})
+        title = str(node.get("title") or Path(nid).stem)
+        snippet = ""
+        try:
+            full = _safe_path(vault, nid)
+            if full.exists():
+                _, body = _split_frontmatter(_read_text(full))
+                snippet = body.strip()[:snippet_chars]
+        except Exception:
+            pass
+        results.append({"path": nid, "title": title, "snippet": snippet})
+    return results
+
+
+def _wiki_search_results(
+    vault: Path,
+    topic: str,
+    max_n: int,
+    context_chars: int = 140,
+) -> list[dict[str, Any]]:
+    """Full-text search across all .md files for *topic* (case-insensitive)."""
+    needle = topic.lower()
+    if not needle:
+        return []
+    results: list[dict[str, Any]] = []
+    for path in _iter_files(vault):
+        if path.suffix.lower() != ".md":
+            continue
+        try:
+            lines = _read_text(path).splitlines()
+        except UnicodeDecodeError:
+            continue
+        for number, line in enumerate(lines, start=1):
+            idx = line.lower().find(needle)
+            if idx != -1:
+                start = max(0, idx - context_chars // 2)
+                end = min(len(line), idx + len(needle) + context_chars // 2)
+                results.append({
+                    "path": _rel(vault, path),
+                    "line": number,
+                    "snippet": line[start:end].strip(),
+                })
+                if len(results) >= max_n:
+                    return results
+    return results
+
+
+def _wiki_zotero_items(
+    topic: str,
+    max_n: int,
+    api_base: str = "",
+) -> list[dict[str, Any]]:
+    """Search Zotero for *topic* and return title + abstract for each hit.
+
+    Raises on any network/timeout error — caller is responsible for catching.
+    """
+    params: dict[str, Any] = {"q": topic, "limit": max(1, min(max_n, 100)), "format": "json"}
+    raw_items = _zotero_api("users/0/items", params, api_base) or []
+    result: list[dict[str, Any]] = []
+    for item in raw_items:
+        data = item.get("data", {})
+        authors = [
+            c.get("lastName", "")
+            for c in data.get("creators", [])
+            if c.get("creatorType") == "author"
+        ]
+        raw_date = str(data.get("date", "") or "")
+        year = raw_date[:4] if raw_date else ""
+        result.append({
+            "key": item.get("key") or data.get("key"),
+            "title": data.get("title", ""),
+            "abstract": data.get("abstractNote", ""),
+            "authors": authors,
+            "year": year,
+        })
+    return result
+
+
+def _wiki_entity_concept_nodes(
+    vault: Path,
+    topic: str,
+    entities_folder: str,
+    concepts_folder: str,
+    max_n: int,
+    snippet_chars: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Search *entities_folder* and *concepts_folder* for notes matching *topic*."""
+    needle = topic.lower()
+
+    def _search(folder_name: str) -> list[dict[str, Any]]:
+        folder = vault / folder_name
+        if not folder.exists() or not folder.is_dir():
+            return []
+        hits: list[dict[str, Any]] = []
+        for path in sorted(folder.rglob("*.md")):
+            if len(hits) >= max_n:
+                break
+            rel = _rel(vault, path)
+            try:
+                text = _read_text(path)
+            except Exception:
+                continue
+            props, body = _split_frontmatter(text)
+            title = str(props.get("title") or path.stem)
+            if needle in (title + " " + body).lower():
+                hits.append({
+                    "path": rel,
+                    "title": title,
+                    "snippet": body.strip()[:snippet_chars],
+                })
+        return hits
+
+    return _search(entities_folder), _search(concepts_folder)

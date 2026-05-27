@@ -1,6 +1,6 @@
 # Obsidian Vault MCP — Technical Guide / 技术文档
 
-> Version 1.0.22 | Python 3.10+ | MIT License
+> Version 1.0.23 | Python 3.10+ | MIT License
 >
 > [English](#english) | [中文](#chinese)
 
@@ -17,7 +17,7 @@
 - **Kepano's Obsidian Skills** — domain split into Markdown, Canvas, Bases, CLI, and extraction workflows.
 - **Karpathy's LLM Wiki** — vault treated as a persistent, compounding wiki maintained by an LLM.
 
-The server runs as a `stdio` MCP process launched by Codex, Claude Code, OpenCode, or any MCP-compatible host. It provides **72 tools** covering vault file I/O, wikilink management, schema validation, wiki workflows, literature ingestion, Zotero integration, MinerU document extraction and image renaming, Canvas/Bases creation, batch editing, Obsidian CLI wrappers, and graph intelligence (Louvain community detection, 4-signal link scoring, bridge/hub/cluster insights).
+The server runs as a `stdio` MCP process launched by Codex, Claude Code, OpenCode, or any MCP-compatible host. It provides **74 tools** covering vault file I/O, wikilink management, schema validation, wiki workflows, literature ingestion, Zotero integration, MinerU document extraction and image renaming, Canvas/Bases creation, batch editing, Obsidian CLI wrappers, graph intelligence (Louvain community detection, 4-signal link scoring, bridge/hub/cluster insights), and LLM-driven wiki page generation.
 
 ---
 
@@ -122,7 +122,7 @@ obsidian-vault/
 | `obsidian_build_graph_communities` | Louvain community detection; returns communities with label, top nodes, dominant tags, and modularity score; optionally writes `community:` to note frontmatter |
 | `obsidian_graph_insights` | Detects bridge nodes, surprising cross-community links, sparse clusters, and isolated hubs using betweenness centrality and source-overlap scoring |
 
-### Wiki Workflow — Karpathy Pattern (6 tools)
+### Wiki Workflow — Karpathy Pattern (8 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -132,6 +132,8 @@ obsidian-vault/
 | `obsidian_doctor` | Readiness check: vault, templates, dependencies, integrations |
 | `obsidian_build_citation_network` | Read Zotero `relations` fields and insert wikilink citation edges between literature notes |
 | `obsidian_build_reading_digest` | Aggregate callout blocks (highlights, notes, annotations) across a folder, grouped by tag or type |
+| `obsidian_wiki_context` | Collect vault context for LLM-driven wiki generation: returns wikilink neighbours, full-text search results, Zotero literature items, and entity/concept nodes as a structured JSON bundle |
+| `obsidian_write_wiki_page` | Write LLM-generated Markdown to `wiki/<slug>.md` with standard frontmatter (type=wiki, tags=[wiki]); optionally updates index and log |
 
 ### Literature & Reference Ingestion (6 tools)
 
@@ -264,7 +266,7 @@ The plugin ships with `.codex-plugin/plugin.json` and `.mcp.json`. Register it v
 
 ### Step 4 — Restart Your MCP Client
 
-After registration (or after `claude mcp add`), restart or reload your MCP client so the 72 tools become available.
+After registration (or after `claude mcp add`), restart or reload your MCP client so the 74 tools become available.
 
 ### Step 5 — Run Smoke Checks (Optional)
 
@@ -530,7 +532,7 @@ Preview and apply a batch edit plan, then rollback if needed.
 - **Kepano 的 Obsidian Skills** — 领域拆分为 Markdown、Canvas、Bases、CLI 和文档提取工作流。
 - **Karpathy 的 LLM Wiki** — 将 vault 视为由 LLM 持续维护的、不断积累的 wiki。
 
-服务器以 `stdio` MCP 进程方式运行，由 Codex、Claude Code、OpenCode 或任何兼容 MCP 的 host 启动。提供 **72 个工具**，覆盖 vault 文件读写、wikilink 管理、schema 验证、wiki 工作流、文献导入、Zotero 集成、MinerU 文档提取与图片重命名、Canvas/Bases 创建、批量编辑、Obsidian CLI 封装，以及图谱智能（Louvain 社区检测、4 信号链接评分、桥接节点/孤立枢纽/稀疏社区洞察）。
+服务器以 `stdio` MCP 进程方式运行，由 Codex、Claude Code、OpenCode 或任何兼容 MCP 的 host 启动。提供 **74 个工具**，覆盖 vault 文件读写、wikilink 管理、schema 验证、wiki 工作流、文献导入、Zotero 集成、MinerU 文档提取与图片重命名、Canvas/Bases 创建、批量编辑、Obsidian CLI 封装、图谱智能（Louvain 社区检测、4 信号链接评分、桥接节点/孤立枢纽/稀疏社区洞察），以及 LLM 驱动的 wiki 页面生成。
 
 ---
 
@@ -628,7 +630,7 @@ obsidian-vault/
 | `obsidian_build_graph_communities` | Louvain 社区检测；返回带标签、核心节点、主导标签和模块度分值的社区列表；可选将 `community:` 写入笔记 frontmatter |
 | `obsidian_graph_insights` | 基于介数中心性和来源重叠评分，检测桥接节点、跨社区惊喜链接、稀疏社区和孤立枢纽 |
 
-### Wiki 工作流（6 个）
+### Wiki 工作流（8 个）
 
 | 工具 | 说明 |
 |------|------|
@@ -638,6 +640,8 @@ obsidian-vault/
 | `obsidian_doctor` | 就绪检查：vault、模板、依赖、集成 |
 | `obsidian_build_citation_network` | 读取 Zotero `relations` 字段，在文献笔记之间插入 wikilink 引用边 |
 | `obsidian_build_reading_digest` | 将文件夹内 callout 块（高亮、笔记、批注）按标签或类型聚合为阅读摘要 |
+| `obsidian_wiki_context` | 为 LLM 驱动的 wiki 生成收集 vault 上下文：返回 wikilink 邻居、全文搜索结果、Zotero 文献、实体/概念节点的结构化 JSON bundle |
+| `obsidian_write_wiki_page` | 将 LLM 生成的 Markdown 写入 `wiki/<slug>.md`，附标准 frontmatter（type=wiki, tags=[wiki]）；可选更新索引和日志 |
 
 ### 文献导入（6 个）
 
@@ -722,7 +726,7 @@ obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 
 ### 第四步 — 重启 MCP 客户端
 
-注册后（或 `claude mcp add` 后）重启或重新加载客户端，72 个工具即可使用。
+注册后（或 `claude mcp add` 后）重启或重新加载客户端，74 个工具即可使用。
 
 ---
 

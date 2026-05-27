@@ -3736,3 +3736,240 @@ def obsidian_graph_insights(
         "isolatedHubs": isolated_hubs,
     }
 
+
+@tool()
+def obsidian_wiki_context(
+    topic: str = "",
+    note_path: str = "",
+    vault_path: str = "",
+    max_neighbors: int = 10,
+    max_search_results: int = 10,
+    max_zotero_items: int = 5,
+    max_entity_nodes: int = 10,
+    neighbor_snippet_chars: int = 300,
+    zotero_api_base: str = "",
+    folder: str = "",
+) -> dict[str, Any]:
+    """Collect vault context for LLM-driven wiki page generation.
+
+    Given a topic string and/or an existing note path, gathers context from
+    four sources and returns a structured JSON bundle:
+    - neighbors: 1-hop wikilink neighbours with body snippets
+    - searchResults: full-text matches across the vault
+    - zoteroItems: matching Zotero literature items (title + abstract)
+    - entityNodes / conceptNodes: matching notes in entities/ and concepts/
+
+    Also returns suggestedFrontmatter and suggestedSections to guide the LLM.
+    Zotero is optional: if unavailable, zoteroItems is [] and zoteroAvailable is false.
+
+    The calling LLM uses the returned bundle to generate wiki page content,
+    which is then written to the vault via obsidian_write_wiki_page.
+    """
+    vault = _vault(vault_path)
+
+    if not _s(topic).strip() and not _s(note_path).strip():
+        raise ValueError("topic or note_path is required.")
+
+    # Resolve existing note
+    existing_note: dict[str, Any] | None = None
+    note_rel = ""
+    if _s(note_path).strip():
+        note_rel = _ensure_md_path(_s(note_path).strip())
+        try:
+            full = _safe_path(vault, note_rel)
+            if full.exists():
+                text = _read_text(full)
+                props, body = _split_frontmatter(text)
+                existing_note = {
+                    "path": _rel(vault, full),
+                    "properties": props,
+                    "body": body[:2000],
+                }
+        except Exception:
+            pass
+
+    # Determine effective topic
+    effective_topic = _s(topic).strip() or _note_title_from_path(note_rel)
+
+    # 1. Wikilink neighbours (requires a graph anchor)
+    neighbors: list[dict[str, Any]] = []
+    if note_rel:
+        try:
+            graph = obsidian_build_graph(vault_path=str(vault), folder=folder, include_tags=True)
+            neighbors = _wiki_neighbors(vault, note_rel, graph, max_neighbors, neighbor_snippet_chars)
+        except Exception:
+            pass
+
+    # 2. Full-text search
+    search_results = _wiki_search_results(vault, effective_topic, max_search_results)
+
+    # 3. Zotero items (graceful degradation)
+    zotero_items: list[dict[str, Any]] = []
+    zotero_available = False
+    try:
+        zotero_items = _wiki_zotero_items(effective_topic, max_zotero_items, zotero_api_base)
+        zotero_available = True
+    except Exception:
+        pass
+
+    # 4. Entity/concept nodes
+    entities_folder = _configured_path(vault, "entitiesFolder", "entities", "entities")
+    concepts_folder = _configured_path(vault, "conceptsFolder", "concepts", "concepts")
+    entity_nodes, concept_nodes = _wiki_entity_concept_nodes(
+        vault, effective_topic, entities_folder, concepts_folder,
+        max_entity_nodes, neighbor_snippet_chars,
+    )
+
+    # Assemble suggestedFrontmatter
+    seen_related: set[str] = set()
+    related: list[str] = []
+    for item in neighbors + entity_nodes + concept_nodes:
+        p = item["path"]
+        if p not in seen_related:
+            seen_related.add(p)
+            related.append(p)
+
+    zotero_keys = [item["key"] for item in zotero_items if item.get("key")]
+
+    suggested_fm: dict[str, Any] = {
+        "title": effective_topic,
+        "type": "wiki",
+        "tags": ["wiki"],
+    }
+    if related:
+        suggested_fm["related"] = related
+    if zotero_keys:
+        suggested_fm["zoteroKeys"] = zotero_keys
+
+    return {
+        "topic": effective_topic,
+        "notePath": note_rel or None,
+        "existingNote": existing_note,
+        "neighbors": neighbors,
+        "searchResults": search_results,
+        "zoteroItems": zotero_items,
+        "entityNodes": entity_nodes,
+        "conceptNodes": concept_nodes,
+        "zoteroAvailable": zotero_available,
+        "suggestedFrontmatter": suggested_fm,
+        "suggestedSections": [
+            "## Overview",
+            "## Key Concepts",
+            "## Related Notes",
+            "## References",
+        ],
+    }
+
+
+@tool()
+def obsidian_write_wiki_page(
+    path: str,
+    content: str,
+    vault_path: str = "",
+    title: str = "",
+    properties_json: str = "{}",
+    overwrite: bool = False,
+    update_index: bool = True,
+    append_log: bool = True,
+    index_path: str = "index.md",
+    log_path: str = "log.md",
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Write an LLM-generated wiki page to the vault.
+
+    Accepts Markdown content produced by a calling LLM and writes it to the
+    specified path (typically wiki/<slug>.md) with standard wiki frontmatter:
+    type=wiki, tags=[wiki], title, and created timestamp.
+
+    Extra frontmatter fields (e.g. related, zoteroKeys) can be injected via
+    properties_json. After writing, optionally updates the vault index and
+    appends a wiki_generated event to the log.
+
+    Set dry_run=true to preview the final file content without writing.
+    Set overwrite=true to replace an existing page.
+    """
+    if not _s(path).strip():
+        raise ValueError("path is required.")
+    if not _s(content).strip():
+        raise ValueError("content is required.")
+
+    extra_props = _json(properties_json, {})
+    if not isinstance(extra_props, dict):
+        raise ValueError("properties_json must decode to an object.")
+
+    vault = _vault(vault_path)
+    rel = _ensure_md_path(_s(path).strip())
+    full = _safe_path(vault, rel)
+
+    existed = full.exists()
+    if existed and not overwrite:
+        return {
+            "ok": False,
+            "path": rel,
+            "error": "Wiki page already exists. Pass overwrite=true to replace it.",
+        }
+
+    # Assemble frontmatter
+    page_title = _s(title).strip() or _note_title_from_path(rel)
+    props: dict[str, Any] = {
+        "title": page_title,
+        "type": "wiki",
+        "tags": ["wiki"],
+        "created": _utc_now(),
+    }
+    props.update(extra_props)
+    props["type"] = "wiki"  # ensure type is never overridden
+
+    final_content = _join_frontmatter(props, content)
+
+    if dry_run:
+        return {
+            "ok": True,
+            "path": rel,
+            "created": not existed,
+            "dryRun": True,
+            "indexUpdated": False,
+            "logAppended": False,
+            "content": final_content,
+        }
+
+    _write_text(full, final_content)
+
+    index_updated = False
+    index_error: str | None = None
+    if update_index:
+        try:
+            obsidian_update_wiki_index(vault_path=str(vault), index_path=index_path)
+            index_updated = True
+        except Exception as exc:
+            index_error = str(exc)
+
+    log_appended = False
+    log_error: str | None = None
+    if append_log:
+        try:
+            obsidian_append_wiki_log(
+                f"Wiki page generated: {page_title}",
+                vault_path=str(vault),
+                log_path=log_path,
+                event_type="wiki_generated",
+                touched_paths_json=json.dumps([rel]),
+            )
+            log_appended = True
+        except Exception as exc:
+            log_error = str(exc)
+
+    result: dict[str, Any] = {
+        "ok": True,
+        "path": rel,
+        "created": not existed,
+        "dryRun": False,
+        "indexUpdated": index_updated,
+        "logAppended": log_appended,
+        "content": None,
+    }
+    if index_error:
+        result["indexError"] = index_error
+    if log_error:
+        result["logError"] = log_error
+    return result

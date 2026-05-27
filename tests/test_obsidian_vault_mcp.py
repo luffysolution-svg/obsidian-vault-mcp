@@ -2234,5 +2234,198 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertNotIn("small_hub.md", hub_paths)
 
 
+    # ------------------------------------------------------- #
+    # obsidian_wiki_context                                   #
+    # ------------------------------------------------------- #
+
+    def test_wiki_context_by_topic(self):
+        self.write_note("notes/reactor.md", "---\ntitle: Reactor\n---\n\n# Reactor\nA reactor processes chemicals.\n")
+        self.write_note("notes/heat.md", "---\ntitle: Heat Transfer\n---\n\n# Heat\nReactor heat management.\n")
+
+        result = self.module.obsidian_wiki_context(
+            topic="reactor",
+            vault_path=str(self.vault),
+        )
+
+        self.assertEqual(result["topic"], "reactor")
+        self.assertIsNone(result["notePath"])
+        self.assertIsNone(result["existingNote"])
+        self.assertIsInstance(result["searchResults"], list)
+        self.assertGreater(len(result["searchResults"]), 0)
+        self.assertIsInstance(result["neighbors"], list)
+        self.assertIsInstance(result["zoteroItems"], list)
+        self.assertIsInstance(result["entityNodes"], list)
+        self.assertIsInstance(result["conceptNodes"], list)
+        self.assertIn("## Overview", result["suggestedSections"])
+        self.assertIn("## Key Concepts", result["suggestedSections"])
+        self.assertIn("## Related Notes", result["suggestedSections"])
+        self.assertIn("## References", result["suggestedSections"])
+
+    def test_wiki_context_by_note_path(self):
+        self.write_note("reactor.md", "---\ntitle: Reactor\n---\n\n# Reactor\nSee [[heat_transfer]].\n")
+        self.write_note("heat_transfer.md", "---\ntitle: Heat Transfer\n---\n\n# Heat Transfer\nHeat exchange in reactors.\n")
+
+        result = self.module.obsidian_wiki_context(
+            note_path="reactor.md",
+            vault_path=str(self.vault),
+        )
+
+        self.assertEqual(result["notePath"], "reactor.md")
+        self.assertIsNotNone(result["existingNote"])
+        self.assertEqual(result["existingNote"]["path"], "reactor.md")
+        self.assertIn("Reactor", result["existingNote"]["body"])
+        neighbor_paths = [n["path"] for n in result["neighbors"]]
+        self.assertIn("heat_transfer.md", neighbor_paths)
+
+    def test_wiki_context_topic_inferred_from_path(self):
+        self.write_note("reactor_design.md", "---\ntitle: Reactor Design\n---\n\n# Reactor Design\nReactor design principles.\n")
+
+        result = self.module.obsidian_wiki_context(
+            note_path="reactor_design.md",
+            vault_path=str(self.vault),
+        )
+
+        self.assertIsNotNone(result["topic"])
+        self.assertNotEqual(result["topic"], "")
+        self.assertIsInstance(result["searchResults"], list)
+
+    def test_wiki_context_no_topic_or_path_raises(self):
+        with self.assertRaises(ValueError):
+            self.module.obsidian_wiki_context(vault_path=str(self.vault))
+
+    def test_wiki_context_zotero_unavailable(self):
+        import unittest.mock as mock
+        self.write_note("reactor.md", "---\ntitle: Reactor\n---\n\n# Reactor\n")
+
+        with mock.patch.object(
+            self.module._tools._helpers, "_zotero_api", side_effect=OSError("zotero down")
+        ):
+            result = self.module.obsidian_wiki_context(
+                topic="reactor",
+                vault_path=str(self.vault),
+            )
+
+        self.assertFalse(result["zoteroAvailable"])
+        self.assertEqual(result["zoteroItems"], [])
+        self.assertIsInstance(result["searchResults"], list)
+        self.assertIsInstance(result["neighbors"], list)
+
+    def test_wiki_context_missing_entity_folder(self):
+        self.write_note("reactor.md", "---\ntitle: Reactor\n---\n\n# Reactor\n")
+
+        result = self.module.obsidian_wiki_context(
+            topic="reactor",
+            vault_path=str(self.vault),
+        )
+
+        self.assertEqual(result["entityNodes"], [])
+        self.assertEqual(result["conceptNodes"], [])
+
+    def test_wiki_context_suggested_frontmatter(self):
+        self.write_note("reactor.md", "---\ntitle: Reactor\n---\n\n# Reactor\nSee [[heat_transfer]].\n")
+        self.write_note("heat_transfer.md", "---\ntitle: Heat Transfer\n---\n\n# Heat Transfer\n")
+
+        result = self.module.obsidian_wiki_context(
+            topic="reactor",
+            note_path="reactor.md",
+            vault_path=str(self.vault),
+        )
+
+        fm = result["suggestedFrontmatter"]
+        self.assertEqual(fm["type"], "wiki")
+        self.assertIn("wiki", fm["tags"])
+        self.assertIn("title", fm)
+        self.assertIsInstance(fm.get("related", []), list)
+
+    # ------------------------------------------------------- #
+    # obsidian_write_wiki_page                                #
+    # ------------------------------------------------------- #
+
+    def test_write_wiki_page_creates_file(self):
+        result = self.module.obsidian_write_wiki_page(
+            "wiki/reactor.md",
+            "## Overview\n\nA reactor processes chemicals.\n\n## Key Concepts\n\nHeat transfer.",
+            vault_path=str(self.vault),
+            title="Reactor",
+            update_index=False,
+            append_log=False,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["created"])
+        self.assertFalse(result["dryRun"])
+        page = (self.vault / "wiki" / "reactor.md").read_text(encoding="utf-8")
+        self.assertIn("type: wiki", page)
+        self.assertIn("wiki", page)
+        self.assertIn("title: Reactor", page)
+        self.assertIn("## Overview", page)
+
+    def test_write_wiki_page_overwrite_guard(self):
+        self.write_note("wiki/existing.md", "---\ntype: wiki\n---\n\n# Existing\n")
+
+        result = self.module.obsidian_write_wiki_page(
+            "wiki/existing.md",
+            "New content.",
+            vault_path=str(self.vault),
+            update_index=False,
+            append_log=False,
+        )
+        self.assertFalse(result["ok"])
+        self.assertIn("overwrite", result["error"].lower())
+
+        result2 = self.module.obsidian_write_wiki_page(
+            "wiki/existing.md",
+            "New content.",
+            vault_path=str(self.vault),
+            overwrite=True,
+            update_index=False,
+            append_log=False,
+        )
+        self.assertTrue(result2["ok"])
+        self.assertFalse(result2["created"])
+
+    def test_write_wiki_page_dry_run(self):
+        result = self.module.obsidian_write_wiki_page(
+            "wiki/dryrun.md",
+            "## Overview\n\nDry run content.",
+            vault_path=str(self.vault),
+            dry_run=True,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["dryRun"])
+        self.assertFalse((self.vault / "wiki" / "dryrun.md").exists())
+        self.assertIsNotNone(result["content"])
+        self.assertIn("wiki", result["content"])
+
+    def test_write_wiki_page_properties_merge(self):
+        result = self.module.obsidian_write_wiki_page(
+            "wiki/merged.md",
+            "## Overview\n\nMerged content.",
+            vault_path=str(self.vault),
+            properties_json=json.dumps({
+                "related": ["entities/A.md"],
+                "zoteroKeys": ["ABC123"],
+            }),
+            update_index=False,
+            append_log=False,
+        )
+
+        self.assertTrue(result["ok"])
+        page = (self.vault / "wiki" / "merged.md").read_text(encoding="utf-8")
+        self.assertIn("related", page)
+        self.assertIn("entities/A.md", page)
+        self.assertIn("ABC123", page)
+
+    def test_write_wiki_page_invalid_json_raises(self):
+        with self.assertRaises(ValueError):
+            self.module.obsidian_write_wiki_page(
+                "wiki/invalid.md",
+                "Content.",
+                vault_path=str(self.vault),
+                properties_json="not valid json {{",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
