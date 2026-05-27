@@ -1401,6 +1401,7 @@ def obsidian_mineru_extract_and_ingest(
     update_index: bool = True,
     append_log: bool = True,
     verbose: bool = False,
+    rename_images: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Extract a document with MinerU CLI, then ingest the Markdown output.
@@ -1471,6 +1472,16 @@ def obsidian_mineru_extract_and_ingest(
     )
     result["ingest"] = ingest
     result["ok"] = bool(ingest.get("ok"))
+
+    if rename_images and result["ok"]:
+        markdown_rel = str(extraction.get("markdownPath") or "")
+        if markdown_rel:
+            rename_result = obsidian_mineru_rename_images(
+                markdown_rel,
+                vault_path=str(vault),
+                dry_run=False,
+            )
+            result["imageRename"] = rename_result
 
     # If a zotero_key is given and extraction succeeded, add mineru_markdown to the literature note
     if zotero_key and result["ok"]:

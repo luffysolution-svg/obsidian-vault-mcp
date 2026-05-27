@@ -1959,5 +1959,66 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertTrue(result["renames"][0]["new"].startswith("images/my-paper_"))
 
 
+# ── rename_images integration flag ───────────────────────────────────────────
+
+    def test_extract_and_ingest_rename_flag_calls_rename(self):
+        import unittest.mock as mock
+        fake_extraction = {
+            "ok": True,
+            "markdownPath": "mineru-output/paper/paper.md",
+            "returnCode": 0, "stdout": "", "stderr": "",
+            "outputPath": "mineru-output/paper",
+            "mode": "flash-extract", "tokenSource": "none",
+            "command": [], "mineru": {"ok": True},
+        }
+        fake_ingest = {"ok": True, "sourcePath": "sources/mineru/paper.md"}
+        fake_rename = {
+            "ok": True, "markdownPath": "mineru-output/paper/paper.md",
+            "totalImages": 2, "renamed": 2, "fallback": 0, "skipped": 0,
+            "errors": [], "dryRun": False, "renames": [],
+        }
+        with mock.patch.object(
+            self.module._tools, "obsidian_mineru_extract", return_value=fake_extraction
+        ), mock.patch.object(
+            self.module._tools, "obsidian_ingest_mineru_markdown", return_value=fake_ingest
+        ), mock.patch.object(
+            self.module._tools, "obsidian_mineru_rename_images", return_value=fake_rename
+        ) as mock_rename:
+            result = self.module.obsidian_mineru_extract_and_ingest(
+                "paper.pdf", str(self.vault), rename_images=True
+            )
+        mock_rename.assert_called_once_with(
+            "mineru-output/paper/paper.md",
+            vault_path=str(self.vault),
+            dry_run=False,
+        )
+        self.assertIn("imageRename", result)
+        self.assertTrue(result["imageRename"]["ok"])
+
+    def test_extract_and_ingest_rename_flag_false_does_not_call_rename(self):
+        import unittest.mock as mock
+        fake_extraction = {
+            "ok": True,
+            "markdownPath": "mineru-output/paper/paper.md",
+            "returnCode": 0, "stdout": "", "stderr": "",
+            "outputPath": "mineru-output/paper",
+            "mode": "flash-extract", "tokenSource": "none",
+            "command": [], "mineru": {"ok": True},
+        }
+        fake_ingest = {"ok": True, "sourcePath": "sources/mineru/paper.md"}
+        with mock.patch.object(
+            self.module._tools, "obsidian_mineru_extract", return_value=fake_extraction
+        ), mock.patch.object(
+            self.module._tools, "obsidian_ingest_mineru_markdown", return_value=fake_ingest
+        ), mock.patch.object(
+            self.module._tools, "obsidian_mineru_rename_images"
+        ) as mock_rename:
+            result = self.module.obsidian_mineru_extract_and_ingest(
+                "paper.pdf", str(self.vault), rename_images=False
+            )
+        mock_rename.assert_not_called()
+        self.assertNotIn("imageRename", result)
+
+
 if __name__ == "__main__":
     unittest.main()
