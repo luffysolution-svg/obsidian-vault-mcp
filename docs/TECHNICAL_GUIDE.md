@@ -1,6 +1,6 @@
 # Obsidian Vault MCP — Technical Guide / 技术文档
 
-> Version 1.0.23 | Python 3.10+ | MIT License
+> Version 1.0.24 | Python 3.10+ | MIT License
 >
 > [English](#english) | [中文](#chinese)
 

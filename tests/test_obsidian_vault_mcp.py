@@ -1380,6 +1380,23 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("[[archive/moved]]", ref)
         self.assertNotIn("[[notes/moved]]", ref)
 
+    def test_move_file_full_path_as_target(self):
+        """When 'to' includes a file extension, it should be treated as a full
+        target path (not a directory), so the file lands at exactly that path
+        and is NOT double-nested (e.g. archive/paper.md/paper.md)."""
+        self.write_note("notes/paper2.md", "# Paper2\n")
+
+        result = self.module.obsidian_move_file(
+            "notes/paper2.md", "archive/paper2.md", str(self.vault)
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertFalse((self.vault / "notes" / "paper2.md").exists())
+        # Must land at archive/paper2.md, NOT archive/paper2.md/paper2.md
+        self.assertTrue((self.vault / "archive" / "paper2.md").exists())
+        self.assertFalse((self.vault / "archive" / "paper2.md" / "paper2.md").exists())
+        self.assertEqual(result["to"], "archive/paper2.md")
+
     def test_rename_file_renames_in_place(self):
         self.write_note("notes/old_name.md", "# Old\n")
 
@@ -2336,6 +2353,57 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("wiki", fm["tags"])
         self.assertIn("title", fm)
         self.assertIsInstance(fm.get("related", []), list)
+
+    def test_wiki_context_multiword_topic_falls_back_to_keywords(self):
+        """A multi-word topic that has no exact phrase match should still return
+        search results by falling back to individual keyword matching."""
+        self.write_note(
+            "notes/smart_process.md",
+            "---\ntitle: SMART Process\n---\n\n# SMART\nThe SMART reactor is used for styrene production.\n",
+        )
+        self.write_note(
+            "notes/styrene.md",
+            "---\ntitle: Styrene\n---\n\n# Styrene\nStyrene is produced by ethylbenzene dehydrogenation.\n",
+        )
+
+        # "SMART苯乙烯工艺" as an exact phrase appears nowhere; the function
+        # must fall back to keyword-level search and still find the notes.
+        result = self.module.obsidian_wiki_context(
+            topic="SMART styrene process",   # multi-word phrase not present verbatim
+            vault_path=str(self.vault),
+        )
+
+        self.assertGreater(
+            len(result["searchResults"]), 0,
+            "Multi-word topic with no exact match should still yield keyword-level results",
+        )
+
+    def test_wiki_context_zotero_filters_out_attachments(self):
+        """Zotero attachment records (PDFs, snapshots) must not appear in
+        zoteroItems — only parent items (articles, books, etc.) should be returned."""
+        import unittest.mock as mock
+        self.write_note("reactor.md", "---\ntitle: Reactor\n---\n\n# Reactor\n")
+
+        fake_items = [
+            {"key": "ART001", "data": {"key": "ART001", "itemType": "journalArticle",
+                                        "title": "A real paper", "abstractNote": "Real abstract",
+                                        "creators": [], "date": "2024"}},
+            {"key": "PDF001", "data": {"key": "PDF001", "itemType": "attachment",
+                                        "title": "paper.pdf", "abstractNote": "",
+                                        "creators": [], "date": ""}},
+        ]
+        with mock.patch.object(
+            self.module._tools._helpers, "_zotero_api", return_value=fake_items
+        ):
+            result = self.module.obsidian_wiki_context(
+                topic="reactor",
+                vault_path=str(self.vault),
+            )
+
+        item_types_returned = [i.get("key") for i in result["zoteroItems"]]
+        self.assertIn("ART001", item_types_returned)
+        self.assertNotIn("PDF001", item_types_returned,
+                         "Attachment records must be filtered out of zoteroItems")
 
     # ------------------------------------------------------- #
     # obsidian_write_wiki_page                                #

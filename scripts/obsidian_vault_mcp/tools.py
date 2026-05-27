@@ -236,15 +236,28 @@ def obsidian_move_file(
     update_wikilinks: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Move a vault-relative file to a different directory. Pass update_wikilinks=true to rewrite [[links]] across the vault."""
+    """Move a vault-relative file to a different directory or full target path.
+    Pass update_wikilinks=true to rewrite [[links]] across the vault.
+
+    to: target directory (e.g. "archive") or full target path including filename
+    (e.g. "archive/renamed.md"). If 'to' has a file extension it is treated as a
+    complete target path; otherwise the source filename is preserved.
+    """
     vault = _vault(vault_path)
     src_full = _safe_path(vault, path)
     src_rel = _rel(vault, src_full)
     if not src_full.exists():
         return {"ok": False, "path": src_rel, "error": "File does not exist."}
-    to_dir = _safe_path(vault, to)
-    dest_full = to_dir / src_full.name
-    dest_rel = (Path(to.strip("/")) / src_full.name).as_posix()
+    to_stripped = to.strip("/")
+    to_path = Path(to_stripped)
+    # If 'to' carries a file extension, treat it as a complete target path.
+    # Otherwise treat it as a target directory and preserve the source filename.
+    if to_path.suffix:
+        dest_full = _safe_path(vault, to_stripped)
+        dest_rel = to_path.as_posix()
+    else:
+        dest_full = _safe_path(vault, to_stripped) / src_full.name
+        dest_rel = (to_path / src_full.name).as_posix()
     if not dry_run and dest_full.exists():
         return {"ok": False, "path": src_rel, "error": f"Destination already exists: {dest_rel}"}
     if dry_run:

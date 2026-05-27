@@ -2783,31 +2783,60 @@ def _wiki_search_results(
     max_n: int,
     context_chars: int = 140,
 ) -> list[dict[str, Any]]:
-    """Full-text search across all .md files for *topic* (case-insensitive)."""
-    needle = topic.lower()
+    """Full-text search across all .md files for *topic* (case-insensitive).
+
+    Tries an exact phrase match first.  If fewer than *max_n* results are
+    found (including zero), falls back to keyword-level matching: the topic is
+    split on whitespace / punctuation and each keyword of length >= 3 is
+    searched independently.  Results are de-duplicated by (path, line).
+    """
+    def _scan(needle: str, limit: int, seen: set) -> list[dict[str, Any]]:
+        hits: list[dict[str, Any]] = []
+        for path in _iter_files(vault):
+            if path.suffix.lower() != ".md":
+                continue
+            try:
+                lines = _read_text(path).splitlines()
+            except UnicodeDecodeError:
+                continue
+            for number, line in enumerate(lines, start=1):
+                idx = line.lower().find(needle)
+                if idx != -1:
+                    key = (_rel(vault, path), number)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    start = max(0, idx - context_chars // 2)
+                    end = min(len(line), idx + len(needle) + context_chars // 2)
+                    hits.append({
+                        "path": _rel(vault, path),
+                        "line": number,
+                        "snippet": line[start:end].strip(),
+                    })
+                    if len(hits) >= limit:
+                        return hits
+        return hits
+
+    needle = topic.lower().strip()
     if not needle:
         return []
-    results: list[dict[str, Any]] = []
-    for path in _iter_files(vault):
-        if path.suffix.lower() != ".md":
-            continue
-        try:
-            lines = _read_text(path).splitlines()
-        except UnicodeDecodeError:
-            continue
-        for number, line in enumerate(lines, start=1):
-            idx = line.lower().find(needle)
-            if idx != -1:
-                start = max(0, idx - context_chars // 2)
-                end = min(len(line), idx + len(needle) + context_chars // 2)
-                results.append({
-                    "path": _rel(vault, path),
-                    "line": number,
-                    "snippet": line[start:end].strip(),
-                })
-                if len(results) >= max_n:
-                    return results
-    return results
+
+    seen: set = set()
+    results = _scan(needle, max_n, seen)
+    if len(results) >= max_n:
+        return results
+
+    # Fall back to keyword-level matching for multi-word / mixed-script topics
+    import re as _re
+    keywords = [w for w in _re.split(r"[\s/\-_,;:。，、　]+", needle) if len(w) >= 3]
+    for kw in keywords:
+        if kw == needle:
+            continue  # already tried as the full phrase
+        results.extend(_scan(kw, max_n - len(results), seen))
+        if len(results) >= max_n:
+            break
+
+    return results[:max_n]
 
 
 def _wiki_zotero_items(
@@ -2824,6 +2853,9 @@ def _wiki_zotero_items(
     result: list[dict[str, Any]] = []
     for item in raw_items:
         data = item.get("data", {})
+        # Skip attachment records (PDFs, snapshots, web pages saved as attachments)
+        if data.get("itemType") == "attachment":
+            continue
         authors = [
             c.get("lastName", "")
             for c in data.get("creators", [])
