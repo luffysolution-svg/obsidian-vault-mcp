@@ -1511,12 +1511,14 @@ def obsidian_mineru_extract_folder(
     skip_extracted: bool = True,
     ingest: bool = False,
     token: str = "",
+    rename_images: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Batch-extract all PDF files in a folder using MinerU.
 
     skip_extracted=true (default): skip any PDF whose output directory already contains a .md file.
     ingest=true: automatically call obsidian_ingest_mineru_markdown after each successful extraction.
+    rename_images=true: call obsidian_mineru_rename_images on each successfully extracted Markdown.
     dry_run=true: enumerate PDFs and show skip/extract decisions without running MinerU.
     """
     vault = _vault(vault_path)
@@ -1591,6 +1593,13 @@ def obsidian_mineru_extract_folder(
                         vault_path=str(vault),
                     )
                     entry["ingested"] = ingest_res.get("ok", False)
+                if rename_images and res.get("markdownPath"):
+                    rename_res = obsidian_mineru_rename_images(
+                        res["markdownPath"],
+                        vault_path=str(vault),
+                        dry_run=False,
+                    )
+                    entry["imageRename"] = rename_res
                 results.append(entry)
             else:
                 errors += 1

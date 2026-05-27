@@ -2020,5 +2020,46 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertNotIn("imageRename", result)
 
 
+    def test_extract_folder_rename_flag_forwarded(self):
+        import unittest.mock as mock
+        fake_extract = {
+            "ok": True,
+            "markdownPath": "mineru/paper/paper.md",
+            "returnCode": 0, "stdout": "", "stderr": "",
+            "outputPath": "mineru/paper",
+            "mode": "flash-extract", "tokenSource": "none",
+            "command": [], "mineru": {"ok": True},
+        }
+        fake_rename = {
+            "ok": True, "markdownPath": "mineru/paper/paper.md",
+            "totalImages": 1, "renamed": 1, "fallback": 0, "skipped": 0,
+            "errors": [], "dryRun": False, "renames": [],
+        }
+
+        # Create a fake PDF in a temp folder so the function can enumerate it
+        pdf_folder = self.vault / "pdfs"
+        pdf_folder.mkdir()
+        (pdf_folder / "paper.pdf").write_bytes(b"%PDF-1.4\n")
+
+        with mock.patch.object(
+            self.module._tools, "obsidian_mineru_extract", return_value=fake_extract
+        ), mock.patch.object(
+            self.module._tools, "obsidian_mineru_rename_images", return_value=fake_rename
+        ) as mock_rename:
+            result = self.module.obsidian_mineru_extract_folder(
+                "pdfs", str(self.vault),
+                ingest=False,
+                rename_images=True,
+                dry_run=False,
+            )
+
+        mock_rename.assert_called_once_with(
+            "mineru/paper/paper.md",
+            vault_path=str(self.vault),
+            dry_run=False,
+        )
+        self.assertIn("imageRename", result["results"][0])
+
+
 if __name__ == "__main__":
     unittest.main()
