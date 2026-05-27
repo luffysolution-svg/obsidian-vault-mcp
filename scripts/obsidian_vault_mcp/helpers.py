@@ -2600,7 +2600,7 @@ _FOLDER_TYPE_MAP = {
 }
 
 
-def _build_nx_graph(graph_data: dict[str, Any]):
+def _build_nx_graph(graph_data: dict[str, Any]) -> Any:
     """Convert obsidian_build_graph output into a networkx undirected Graph.
 
     Raises ImportError if networkx is not installed.
@@ -2640,7 +2640,7 @@ def _build_source_index(graph_data: dict[str, Any]) -> dict[str, set[str]]:
 
 
 def _compute_source_overlap(sources_a: set[str], sources_b: set[str]) -> float:
-    """Jaccard similarity between two source sets. Returns 0.0 if either is empty."""
+    """Overlap coefficient between two source sets: |A∩B| / max(|A|, |B|). Returns 0.0 if either is empty."""
     if not sources_a or not sources_b:
         return 0.0
     intersection = len(sources_a & sources_b)
@@ -2704,7 +2704,7 @@ def _compute_scored_suggestions(
         for u, v, aa_score in nx.adamic_adar_index(G, [(u, v) for u, v, _ in candidates]):
             aa_map[(u, v)] = aa_score
     except Exception:
-        pass  # adamic_adar_index can fail on disconnected graphs; silently use 0
+        pass  # Defensive guard against unexpected networkx version changes or malformed edge data
 
     results: list[dict[str, Any]] = []
     for u, v, overlap in candidates:
