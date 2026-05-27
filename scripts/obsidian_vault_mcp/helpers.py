@@ -1799,6 +1799,132 @@ def _mineru_command_args(
     return args
 
 
+# ── MinerU image rename helpers ─────────────────────────────────────────────
+
+# Matches  ![alt](path)  anywhere on a line
+_MINERU_MD_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+# Matches  ![[path]]  (Obsidian wikilink image)
+_MINERU_WIKI_IMAGE_RE = re.compile(r"!\[\[([^\]]+)\]\]")
+
+# Strong caption: starts with 图/表/Figure/Table/Scheme/Chart/式/公式 + optional space + digit
+_MINERU_CAPTION_STRONG_RE = re.compile(
+    r"^[>\s*_]*(?:图|表|Figure|Table|Scheme|Chart|式|公式)\s*\d+",
+    re.IGNORECASE,
+)
+# Weak caption: entire line is bold or italic markdown (common inline caption)
+_MINERU_CAPTION_WEAK_RE = re.compile(r"^\*{1,2}.+\*{1,2}$")
+
+# Characters illegal in filenames on Windows/macOS/Linux
+_MINERU_ILLEGAL_CHARS_RE = re.compile(r'[<>:"/\\|?*\n\r\t]')
+
+
+def _mineru_find_images(lines: list[str]) -> list[tuple[int, str, str, str]]:
+    """Scan markdown lines for image references.
+
+    Returns a list of (line_idx, raw_ref, img_path, alt) tuples.
+      raw_ref  — the full original text matched, e.g. ![alt](images/uuid.png)
+      img_path — just the path/filename portion, e.g. images/uuid.png
+      alt      — alt text (empty string for wikilink format)
+    One entry per occurrence; the same img_path may appear multiple times.
+    """
+    results: list[tuple[int, str, str, str]] = []
+    for idx, line in enumerate(lines):
+        for m in _MINERU_MD_IMAGE_RE.finditer(line):
+            alt = m.group(1)
+            path = m.group(2)
+            results.append((idx, m.group(0), path, alt))
+        for m in _MINERU_WIKI_IMAGE_RE.finditer(line):
+            path = m.group(1)
+            # Only treat as image if it looks like an image file
+            if Path(path).suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp"}:
+                results.append((idx, m.group(0), path, ""))
+    return results
+
+
+def _mineru_extract_caption(
+    lines: list[str], img_line_idx: int, window: int
+) -> tuple[str, str]:
+    """Sliding-window caption search around an image line.
+
+    Returns (caption_text, strategy) where strategy is one of:
+      "caption_after"   — caption found on a line after the image
+      "caption_before"  — caption found on a line before the image
+      "radius"          — caption found anywhere in the window (strong only)
+      ""                — nothing found (caller applies fallback)
+    """
+    total = len(lines)
+
+    def _is_strong(line: str) -> bool:
+        return bool(_MINERU_CAPTION_STRONG_RE.match(line.strip()))
+
+    def _is_weak(line: str) -> bool:
+        stripped = line.strip()
+        return bool(_MINERU_CAPTION_WEAK_RE.match(stripped)) and len(stripped) > 3
+
+    # Priority 2: scan lines AFTER the image
+    for i in range(img_line_idx + 1, min(total, img_line_idx + window + 1)):
+        text = lines[i].strip()
+        if not text:
+            continue
+        if _is_strong(text) or _is_weak(text):
+            return text, "caption_after"
+        break  # stop at first non-empty line that doesn't match
+
+    # Priority 3: scan lines BEFORE the image (reversed)
+    for i in range(img_line_idx - 1, max(-1, img_line_idx - window - 1), -1):
+        text = lines[i].strip()
+        if not text:
+            continue
+        if _is_strong(text) or _is_weak(text):
+            return text, "caption_before"
+        break  # stop at first non-empty line that doesn't match
+
+    # Priority 4: anywhere in the full window — strong pattern only
+    start = max(0, img_line_idx - window)
+    end = min(total, img_line_idx + window + 1)
+    for i in range(start, end):
+        if i == img_line_idx:
+            continue
+        text = lines[i].strip()
+        if _is_strong(text):
+            return text, "radius"
+
+    return "", ""
+
+
+def _mineru_caption_to_slug(
+    caption: str, doc_slug: str, ext: str, used: set[str]
+) -> str:
+    """Convert a caption string into a deduplicated image filename.
+
+    Rules:
+    - Illegal filename characters removed
+    - ASCII whitespace runs replaced with '-'
+    - Chinese characters kept verbatim
+    - Truncated to 60 characters
+    - Format: {doc_slug}_{cleaned_caption}{ext}
+    - Appends _2, _3, … if the name is already in `used`
+    """
+    cleaned = _MINERU_ILLEGAL_CHARS_RE.sub("", caption).strip()
+    cleaned = re.sub(r"[ \t]+", "-", cleaned)
+    cleaned = cleaned[:60].rstrip("-")
+    if not cleaned:
+        cleaned = "img"
+
+    stem = f"{doc_slug}_{cleaned}" if doc_slug else cleaned
+    candidate = f"{stem}{ext}"
+    if candidate not in used:
+        used.add(candidate)
+        return candidate
+    counter = 2
+    while True:
+        candidate = f"{stem}_{counter}{ext}"
+        if candidate not in used:
+            used.add(candidate)
+            return candidate
+        counter += 1
+
+
 def _property_config(names: list[tuple[str, str]]) -> dict[str, dict[str, str]]:
     return {name: {"displayName": display} for name, display in names}
 
