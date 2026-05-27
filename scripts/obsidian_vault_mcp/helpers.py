@@ -2580,3 +2580,159 @@ def _preview_edit_plan(vault: Path, operations: list[dict[str, Any]]) -> list[di
     return previews
 
 
+# ---------------------------------------------------------------------------
+# Graph intelligence helpers (networkx-based)
+# ---------------------------------------------------------------------------
+
+_SOURCE_EDGE_KINDS = {"related", "cites", "references", "entities", "concepts", "sources"}
+
+_FOLDER_TYPE_MAP = {
+    "literature": "literature",
+    "lit": "literature",
+    "papers": "literature",
+    "concepts": "concept",
+    "concept": "concept",
+    "entities": "entity",
+    "entity": "entity",
+    "sources": "source",
+    "projects": "project",
+    "project": "project",
+}
+
+
+def _build_nx_graph(graph_data: dict[str, Any]):
+    """Convert obsidian_build_graph output into a networkx undirected Graph.
+
+    Raises ImportError if networkx is not installed.
+    """
+    try:
+        import networkx as nx
+    except ImportError:
+        raise ImportError("networkx>=3.0 is required for graph analytics. Install with: pip install 'networkx>=3.0'")
+    G = nx.Graph()
+    for node in graph_data["nodes"]:
+        G.add_node(node["id"])
+    for edge in graph_data["edges"]:
+        src, tgt = edge["source"], edge["target"]
+        if not G.has_edge(src, tgt):
+            G.add_edge(src, tgt)
+    return G
+
+
+def _build_source_index(graph_data: dict[str, Any]) -> dict[str, set[str]]:
+    """Map each node to its set of source identifiers.
+
+    Identifiers come from:
+    - targets of outgoing citation-kind edges (cites, references, related, etc.)
+    - first 5 frontmatter tags, prefixed with '#' to avoid path collisions
+    """
+    index: dict[str, set[str]] = {n["id"]: set() for n in graph_data["nodes"]}
+    for edge in graph_data["edges"]:
+        if edge.get("kind") in _SOURCE_EDGE_KINDS:
+            src = edge["source"]
+            if src in index:
+                index[src].add(edge["target"])
+    for node in graph_data["nodes"]:
+        for tag in node.get("tags", [])[:5]:
+            if tag:
+                index[node["id"]].add(f"#{tag}")
+    return index
+
+
+def _compute_source_overlap(sources_a: set[str], sources_b: set[str]) -> float:
+    """Jaccard similarity between two source sets. Returns 0.0 if either is empty."""
+    if not sources_a or not sources_b:
+        return 0.0
+    intersection = len(sources_a & sources_b)
+    if intersection == 0:
+        return 0.0
+    return intersection / max(len(sources_a), len(sources_b))
+
+
+def _get_node_type(node_id: str) -> str:
+    """Infer node type from the first folder segment of its vault-relative path."""
+    first_folder = node_id.split("/")[0].lower() if "/" in node_id else ""
+    return _FOLDER_TYPE_MAP.get(first_folder, "note")
+
+
+def _compute_scored_suggestions(
+    G: Any,
+    graph_data: dict[str, Any],
+    source_index: dict[str, set[str]],
+    max_pairs: int = 500,
+) -> list[dict[str, Any]]:
+    """Compute scored link suggestions using the 4-signal model.
+
+    Signals:
+      source_overlap × 4.0   — shared citation targets and tags (Jaccard)
+      adamic_adar    × 1.5   — common neighbours via networkx
+      type_affinity  × 1.0   — same inferred folder type
+      direct_link    × 3.0   — (used as filter only; unconnected pairs always 0)
+
+    Only node pairs with source_overlap > 0 are scored.
+    The top max_pairs candidates (by overlap) are passed to adamic_adar_index.
+    """
+    import networkx as nx
+
+    existing_pairs: set[tuple[str, str]] = set()
+    for edge in graph_data["edges"]:
+        existing_pairs.add((edge["source"], edge["target"]))
+        existing_pairs.add((edge["target"], edge["source"]))
+
+    node_ids = [n["id"] for n in graph_data["nodes"]]
+
+    # Find candidate pairs with source_overlap > 0
+    candidates: list[tuple[str, str, float]] = []
+    for i, u in enumerate(node_ids):
+        for v in node_ids[i + 1:]:
+            if (u, v) in existing_pairs:
+                continue
+            overlap = _compute_source_overlap(source_index.get(u, set()), source_index.get(v, set()))
+            if overlap > 0:
+                candidates.append((u, v, overlap))
+
+    # Limit to top max_pairs by overlap before computing Adamic-Adar
+    candidates.sort(key=lambda x: -x[2])
+    candidates = candidates[:max_pairs]
+
+    if not candidates:
+        return []
+
+    # Compute Adamic-Adar for all candidates at once
+    aa_map: dict[tuple[str, str], float] = {}
+    try:
+        for u, v, aa_score in nx.adamic_adar_index(G, [(u, v) for u, v, _ in candidates]):
+            aa_map[(u, v)] = aa_score
+    except Exception:
+        pass  # adamic_adar_index can fail on disconnected graphs; silently use 0
+
+    results: list[dict[str, Any]] = []
+    for u, v, overlap in candidates:
+        aa = aa_map.get((u, v), 0.0)
+        type_aff = 1.0 if _get_node_type(u) == _get_node_type(v) else 0.0
+        score = 4.0 * overlap + 1.5 * aa + 1.0 * type_aff
+
+        shared = source_index.get(u, set()) & source_index.get(v, set())
+        reason_parts: list[str] = []
+        if shared:
+            reason_parts.append(f"共享来源 {len(shared)} 项")
+        if aa > 0.01:
+            reason_parts.append(f"{round(aa, 1)} 个共同邻居")
+        reason = "；".join(reason_parts) if reason_parts else "存在间接关联"
+
+        results.append({
+            "kind": "scored_link",
+            "from": u,
+            "to": v,
+            "score": round(score, 2),
+            "signals": {
+                "sourceOverlap": round(4.0 * overlap, 2),
+                "adamicAdar": round(1.5 * aa, 2),
+                "typeAffinity": type_aff,
+                "directLink": 0.0,
+            },
+            "reason": reason,
+        })
+
+    results.sort(key=lambda x: -x["score"])
+    return results

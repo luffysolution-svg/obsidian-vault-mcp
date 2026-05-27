@@ -2580,8 +2580,15 @@ def obsidian_suggest_graph_improvements(
     folder: str = "",
     max_suggestions: int = 50,
     max_reciprocal: int = 10,
+    use_scoring: bool = False,
+    max_scoring_pairs: int = 500,
 ) -> dict[str, Any]:
-    """Suggest graph improvements such as creating unresolved notes, reciprocal links, and merging similar pages."""
+    """Suggest graph improvements such as creating unresolved notes, reciprocal links, and merging similar pages.
+
+    use_scoring=True adds 4-signal scored link suggestions (requires networkx>=3.0).
+    Scored entries have kind='scored_link' and include score, signals, and reason fields.
+    max_scoring_pairs: maximum node pairs to evaluate for Adamic-Adar (default 500).
+    """
     vault = _vault(vault_path)
     graph = obsidian_build_graph(vault_path=str(vault), folder=folder, include_tags=True)
     limit = max(1, max_suggestions)
@@ -2652,6 +2659,15 @@ def obsidian_suggest_graph_improvements(
         suggestions.append({"kind": "markdown_links", "priority": "info", "count": len(markdown_links), "examples": markdown_links[:10], "message": "Markdown links are not first-class wikilinks; consider converting internal targets."})
     if attachments:
         suggestions.append({"kind": "attachment_links", "priority": "info", "count": len(attachments), "examples": attachments[:10], "message": "Attachment embeds were found and can be modeled in a richer graph later."})
+
+    if use_scoring:
+        try:
+            G = _build_nx_graph(graph)
+            source_index = _build_source_index(graph)
+            scored = _compute_scored_suggestions(G, graph, source_index, max_pairs=max_scoring_pairs)
+            suggestions = scored + suggestions
+        except Exception as exc:
+            suggestions.insert(0, {"kind": "scoring_error", "message": str(exc)})
 
     result = {
         "vaultPath": str(vault),

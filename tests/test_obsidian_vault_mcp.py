@@ -2062,5 +2062,49 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("imageRename", result["results"][0])
 
 
+    # ------------------------------------------------------------------ #
+    # Task 1: obsidian_suggest_graph_improvements — use_scoring upgrade   #
+    # ------------------------------------------------------------------ #
+
+    def test_suggest_graph_improvements_use_scoring_false_preserves_old_format(self):
+        self.write_note("A.md", "---\ntitle: A\n---\n[[Ghost]]\n")
+        result = self.module.obsidian_suggest_graph_improvements(str(self.vault), use_scoring=False)
+        kinds = {s["kind"] for s in result["suggestions"]}
+        self.assertNotIn("scored_link", kinds)
+
+    def test_suggest_graph_improvements_with_scoring_returns_scored_link_entries(self):
+        # A and B both cite C — source overlap should create a scored_link suggestion for A↔B
+        self.write_note("C.md", "---\ntitle: C\n---\n")
+        self.write_note("A.md", "---\ntitle: A\ncites:\n  - '[[C.md]]'\n---\n")
+        self.write_note("B.md", "---\ntitle: B\ncites:\n  - '[[C.md]]'\n---\n")
+        result = self.module.obsidian_suggest_graph_improvements(
+            str(self.vault), use_scoring=True
+        )
+        scored = [s for s in result["suggestions"] if s.get("kind") == "scored_link"]
+        self.assertGreater(len(scored), 0)
+        entry = scored[0]
+        self.assertIn("score", entry)
+        self.assertIn("signals", entry)
+        self.assertIn("reason", entry)
+        self.assertIn("sourceOverlap", entry["signals"])
+        self.assertGreater(entry["signals"]["sourceOverlap"], 0)
+
+    def test_suggest_graph_improvements_scoring_includes_type_affinity_for_same_folder(self):
+        # Both A and B are in "lit/" folder — same inferred type → typeAffinity = 1.0
+        self.write_note("shared.md", "---\ntitle: Shared\n---\n")
+        self.write_note("lit/A.md", "---\ntitle: A\ncites:\n  - '[[shared.md]]'\n---\n")
+        self.write_note("lit/B.md", "---\ntitle: B\ncites:\n  - '[[shared.md]]'\n---\n")
+        result = self.module.obsidian_suggest_graph_improvements(
+            str(self.vault), use_scoring=True
+        )
+        scored = [s for s in result["suggestions"] if s.get("kind") == "scored_link"]
+        ab = next(
+            (s for s in scored if s.get("from") in {"lit/A.md", "lit/B.md"} and s.get("to") in {"lit/A.md", "lit/B.md"}),
+            None,
+        )
+        self.assertIsNotNone(ab)
+        self.assertEqual(ab["signals"]["typeAffinity"], 1.0)
+
+
 if __name__ == "__main__":
     unittest.main()

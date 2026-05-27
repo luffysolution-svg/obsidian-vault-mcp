@@ -27,6 +27,7 @@ dependencies = [
   "mcp",
   "PyYAML",
   "pypdf",
+  "networkx>=3.0",
 ]
 
 [project.optional-dependencies]
