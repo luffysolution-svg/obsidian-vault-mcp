@@ -1724,6 +1724,8 @@ def obsidian_mineru_rename_images(
 
     # Apply renames: rename files and patch markdown text
     new_content = content
+    applied_renamed = 0
+    applied_fallback = 0
     for entry in renames:
         old_path = entry["old"]
         new_path = entry["new"]
@@ -1743,7 +1745,13 @@ def obsidian_mineru_rename_images(
             result["ok"] = False
             continue
 
-        # Replace all occurrences in markdown (handles repeated references)
+        # After successful rename, increment the appropriate applied counter
+        if entry["strategy"] == "fallback":
+            applied_fallback += 1
+        else:
+            applied_renamed += 1
+
+        # Global replace is safe for MinerU output (paths like "images/uuid.png" only appear in image refs)
         new_content = new_content.replace(old_path, new_path)
         # Also handle bare wikilink format  ![[old_name.ext]]
         old_name = Path(old_path).name
@@ -1757,6 +1765,8 @@ def obsidian_mineru_rename_images(
         result["ok"] = False
         result["error"] = f"Failed to write updated markdown: {exc}"
 
+    result["renamed"] = applied_renamed
+    result["fallback"] = applied_fallback
     result["errors"] = errors
     return result
 
