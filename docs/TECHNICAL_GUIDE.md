@@ -1,6 +1,6 @@
 # Obsidian Vault MCP — Technical Guide / 技术文档
 
-> Version 1.0.21 | Python 3.10+ | MIT License
+> Version 1.0.22 | Python 3.10+ | MIT License
 >
 > [English](#english) | [中文](#chinese)
 
@@ -17,7 +17,7 @@
 - **Kepano's Obsidian Skills** — domain split into Markdown, Canvas, Bases, CLI, and extraction workflows.
 - **Karpathy's LLM Wiki** — vault treated as a persistent, compounding wiki maintained by an LLM.
 
-The server runs as a `stdio` MCP process launched by Codex, Claude Code, OpenCode, or any MCP-compatible host. It provides **70 tools** covering vault file I/O, wikilink management, schema validation, wiki workflows, literature ingestion, Zotero integration, MinerU document extraction and image renaming, Canvas/Bases creation, batch editing, and Obsidian CLI wrappers.
+The server runs as a `stdio` MCP process launched by Codex, Claude Code, OpenCode, or any MCP-compatible host. It provides **72 tools** covering vault file I/O, wikilink management, schema validation, wiki workflows, literature ingestion, Zotero integration, MinerU document extraction and image renaming, Canvas/Bases creation, batch editing, Obsidian CLI wrappers, and graph intelligence (Louvain community detection, 4-signal link scoring, bridge/hub/cluster insights).
 
 ---
 
@@ -37,7 +37,7 @@ obsidian-vault/
 │       ├── cli.py                   # CLI entry point
 │       ├── common.py                # Constants, tool registry
 │       ├── helpers.py               # Core logic
-│       ├── tools.py                 # 70 MCP tool functions
+│       ├── tools.py                 # 72 MCP tool functions
 │       └── server.py                # FastMCP server setup
 ├── skills/
 │   ├── obsidian-vault/SKILL.md      # General vault workflow skill
@@ -70,6 +70,7 @@ obsidian-vault/
 | `mcp` | Model Context Protocol framework (FastMCP) |
 | `PyYAML` | Full YAML compatibility for frontmatter parsing |
 | `pypdf` | PDF text extraction (falls back to `PyPDF2` if present) |
+| `networkx>=3.0` | Graph algorithms: Louvain community detection, Adamic-Adar index, betweenness centrality |
 
 ### Development (optional)
 
@@ -87,7 +88,7 @@ obsidian-vault/
 
 ---
 
-## All 70 MCP Tools
+## All 72 MCP Tools
 
 ### Vault Core (6 tools)
 
@@ -109,7 +110,7 @@ obsidian-vault/
 | `obsidian_add_wikilinks` | Add or replace wikilinks with surrounding context |
 | `obsidian_build_graph` | Parse wikilinks, embeds, aliases, tags; detect orphans and dead ends |
 
-### Vault Linting & Validation (5 tools)
+### Vault Linting & Validation (7 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -117,7 +118,9 @@ obsidian-vault/
 | `obsidian_validate_vault_schema` | Validate Markdown frontmatter, Canvas JSON, Base YAML |
 | `obsidian_apply_schema_defaults` | Fill missing frontmatter from built-in schema presets |
 | `obsidian_list_schema_presets` | List available note-type schema presets |
-| `obsidian_suggest_graph_improvements` | Suggest reciprocal links, unresolved links, duplicate pages |
+| `obsidian_suggest_graph_improvements` | Suggest reciprocal links, unresolved links, duplicate pages; `use_scoring=True` adds 4-signal ranked suggestions (source overlap × 4.0, Adamic-Adar × 1.5, type affinity × 1.0) |
+| `obsidian_build_graph_communities` | Louvain community detection; returns communities with label, top nodes, dominant tags, and modularity score; optionally writes `community:` to note frontmatter |
+| `obsidian_graph_insights` | Detects bridge nodes, surprising cross-community links, sparse clusters, and isolated hubs using betweenness centrality and source-overlap scoring |
 
 ### Wiki Workflow — Karpathy Pattern (6 tools)
 
@@ -261,7 +264,7 @@ The plugin ships with `.codex-plugin/plugin.json` and `.mcp.json`. Register it v
 
 ### Step 4 — Restart Your MCP Client
 
-After registration (or after `claude mcp add`), restart or reload your MCP client so the 70 tools become available.
+After registration (or after `claude mcp add`), restart or reload your MCP client so the 72 tools become available.
 
 ### Step 5 — Run Smoke Checks (Optional)
 
@@ -499,6 +502,9 @@ Create a linked wiki note with YAML properties.
 Lint this vault and show unresolved links, dead ends, and missing index/log files.
 Validate frontmatter, Canvas, and Base schemas across this vault.
 Suggest graph improvements for unresolved and weakly linked pages.
+Suggest scored graph improvements using the 4-signal model (use_scoring=True).
+Detect Louvain communities in this vault and label each cluster.
+Find bridge nodes, isolated hubs, and surprising cross-community links.
 Refresh the wiki index and append a log entry.
 Ingest this BibTeX entry into the literature wiki.
 Search Zotero and ingest this item into Obsidian.
@@ -524,7 +530,7 @@ Preview and apply a batch edit plan, then rollback if needed.
 - **Kepano 的 Obsidian Skills** — 领域拆分为 Markdown、Canvas、Bases、CLI 和文档提取工作流。
 - **Karpathy 的 LLM Wiki** — 将 vault 视为由 LLM 持续维护的、不断积累的 wiki。
 
-服务器以 `stdio` MCP 进程方式运行，由 Codex、Claude Code、OpenCode 或任何兼容 MCP 的 host 启动。提供 **70 个工具**，覆盖 vault 文件读写、wikilink 管理、schema 验证、wiki 工作流、文献导入、Zotero 集成、MinerU 文档提取与图片重命名、Canvas/Bases 创建、批量编辑和 Obsidian CLI 封装。
+服务器以 `stdio` MCP 进程方式运行，由 Codex、Claude Code、OpenCode 或任何兼容 MCP 的 host 启动。提供 **72 个工具**，覆盖 vault 文件读写、wikilink 管理、schema 验证、wiki 工作流、文献导入、Zotero 集成、MinerU 文档提取与图片重命名、Canvas/Bases 创建、批量编辑、Obsidian CLI 封装，以及图谱智能（Louvain 社区检测、4 信号链接评分、桥接节点/孤立枢纽/稀疏社区洞察）。
 
 ---
 
@@ -543,7 +549,7 @@ obsidian-vault/
 │       ├── cli.py                   # CLI 入口
 │       ├── common.py                # 常量、工具注册表
 │       ├── helpers.py               # 核心逻辑
-│       ├── tools.py                 # 70 个 MCP 工具函数
+│       ├── tools.py                 # 72 个 MCP 工具函数
 │       └── server.py                # FastMCP 服务器设置
 ├── skills/
 │   ├── obsidian-vault/SKILL.md      # 通用 vault 工作流 skill
@@ -576,6 +582,7 @@ obsidian-vault/
 | `mcp` | Model Context Protocol 框架（FastMCP） |
 | `PyYAML` | 完整 YAML 兼容性，用于 frontmatter 解析 |
 | `pypdf` | PDF 文本提取（已安装 `PyPDF2` 时自动回退） |
+| `networkx>=3.0` | 图算法：Louvain 社区检测、Adamic-Adar 指数、介数中心性 |
 
 ### 外部工具（可选，不自动安装）
 
@@ -587,7 +594,7 @@ obsidian-vault/
 
 ---
 
-## 全部 70 个 MCP 工具
+## 全部 72 个 MCP 工具
 
 ### Vault 核心（6 个）
 
@@ -609,7 +616,7 @@ obsidian-vault/
 | `obsidian_add_wikilinks` | 添加或替换带上下文的 wikilink |
 | `obsidian_build_graph` | 解析 wikilink、嵌入、别名、标签；检测孤立笔记和死链 |
 
-### Vault 检查与验证（5 个）
+### Vault 检查与验证（7 个）
 
 | 工具 | 说明 |
 |------|------|
@@ -617,7 +624,9 @@ obsidian-vault/
 | `obsidian_validate_vault_schema` | 验证 Markdown frontmatter、Canvas JSON、Base YAML |
 | `obsidian_apply_schema_defaults` | 从内置 schema 预设填充缺失的 frontmatter |
 | `obsidian_list_schema_presets` | 列出可用的笔记类型 schema 预设 |
-| `obsidian_suggest_graph_improvements` | 建议互链、未解析链接、重复页面 |
+| `obsidian_suggest_graph_improvements` | 建议互链、未解析链接、重复页面；`use_scoring=True` 启用 4 信号评分（来源重叠 × 4.0、Adamic-Adar × 1.5、类型亲和 × 1.0） |
+| `obsidian_build_graph_communities` | Louvain 社区检测；返回带标签、核心节点、主导标签和模块度分值的社区列表；可选将 `community:` 写入笔记 frontmatter |
+| `obsidian_graph_insights` | 基于介数中心性和来源重叠评分，检测桥接节点、跨社区惊喜链接、稀疏社区和孤立枢纽 |
 
 ### Wiki 工作流（6 个）
 
@@ -713,7 +722,7 @@ obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 
 ### 第四步 — 重启 MCP 客户端
 
-注册后（或 `claude mcp add` 后）重启或重新加载客户端，70 个工具即可使用。
+注册后（或 `claude mcp add` 后）重启或重新加载客户端，72 个工具即可使用。
 
 ---
 
@@ -826,6 +835,9 @@ curl -fsSL https://cdn-mineru.openxlab.org.cn/open-api-cli/install.sh | sh
 检查这个 vault，显示未解析链接、死链和缺失的 index/log 文件。
 校验整个 vault 的 frontmatter、Canvas 和 Base schema。
 建议图谱改进：补充互链、合并可能重复的页面。
+用 4 信号评分模型给出链接建议（use_scoring=True）。
+检测 vault 的 Louvain 社区并为每个社区打上标签。
+查找桥接节点、孤立枢纽和跨社区惊喜链接。
 刷新 wiki 索引并追加一条日志。
 把这条 BibTeX 条目导入文献知识库。
 搜索 Zotero 并将该条目导入 Obsidian。
