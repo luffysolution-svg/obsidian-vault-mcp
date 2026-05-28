@@ -1,6 +1,6 @@
 # Obsidian Vault MCP — Technical Guide / 技术文档
 
-> Version 1.0.24 | Python 3.10+ | MIT License
+> Version 1.0.26 | Python 3.10+ | MIT License
 >
 > [English](#english) | [中文](#chinese)
 
@@ -134,6 +134,7 @@ obsidian-vault/
 | `obsidian_build_reading_digest` | Aggregate callout blocks (highlights, notes, annotations) across a folder, grouped by tag or type |
 | `obsidian_wiki_context` | Collect vault context for LLM-driven wiki generation: returns wikilink neighbours, full-text search results, Zotero literature items, and entity/concept nodes as a structured JSON bundle |
 | `obsidian_write_wiki_page` | Write LLM-generated Markdown to `wiki/<slug>.md` with standard frontmatter (type=wiki, tags=[wiki]); optionally updates index and log |
+| `obsidian_wiki_stale_pages` | Scan the wiki folder for pages that may need regeneration: detects pages whose `related` notes were modified or new vault notes matching title keywords appeared within a configurable time window |
 
 ### Literature & Reference Ingestion (6 tools)
 
@@ -642,6 +643,7 @@ obsidian-vault/
 | `obsidian_build_reading_digest` | 将文件夹内 callout 块（高亮、笔记、批注）按标签或类型聚合为阅读摘要 |
 | `obsidian_wiki_context` | 为 LLM 驱动的 wiki 生成收集 vault 上下文：返回 wikilink 邻居、全文搜索结果、Zotero 文献、实体/概念节点的结构化 JSON bundle |
 | `obsidian_write_wiki_page` | 将 LLM 生成的 Markdown 写入 `wiki/<slug>.md`，附标准 frontmatter（type=wiki, tags=[wiki]）；可选更新索引和日志 |
+| `obsidian_wiki_stale_pages` | 扫描 wiki 文件夹，检测哪些页面可能需要重新生成：检查 `related` 笔记是否被修改，或 vault 中是否出现包含页面标题关键词的新笔记 |
 
 ### 文献导入（6 个）
 
