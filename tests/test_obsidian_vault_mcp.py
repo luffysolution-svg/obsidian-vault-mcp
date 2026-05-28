@@ -2677,6 +2677,8 @@ class ObsidianVaultMcpTests(unittest.TestCase):
 
         self.assertLessEqual(len(result["stalePages"]), 2)
         self.assertEqual(result["staleCount"], 2)
+        self.assertEqual(result["checkedCount"], 3)
+        self.assertEqual(result["topN"], 2)
 
 
 if __name__ == "__main__":

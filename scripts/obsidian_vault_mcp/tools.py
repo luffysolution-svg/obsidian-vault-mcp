@@ -4033,4 +4033,5 @@ def obsidian_wiki_stale_pages(
         "wikiFolder": wiki_folder,
         "minAgeDays": min_age_days,
         "sinceDays": since_days,
+        "topN": top_n,
     }
