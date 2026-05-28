@@ -3986,3 +3986,51 @@ def obsidian_write_wiki_page(
     if log_error:
         result["logError"] = log_error
     return result
+
+
+@tool()
+def obsidian_wiki_stale_pages(
+    vault_path: str = "",
+    wiki_folder: str = "wiki",
+    min_age_days: int = 7,
+    since_days: int = 7,
+    max_new_notes: int = 5,
+    top_n: int = 50,
+) -> dict[str, Any]:
+    """Scan the wiki folder for pages that may need regeneration.
+
+    Returns pages where at least one of these signals fires within the
+    last since_days days AND after the page was originally created:
+
+    - ``related_modified``: a note listed in the page's ``related``
+      frontmatter field has been modified.
+    - ``new_notes``: a vault note (outside wiki_folder) whose content
+      contains the page's title keywords has been modified.
+
+    Only pages whose ``created`` timestamp is at least min_age_days old
+    are examined.  Results are sorted by newNeighborCount descending
+    (most stale first) and capped at top_n.
+
+    Use the returned stalePages list to decide which wiki pages to
+    regenerate via obsidian_wiki_context + obsidian_write_wiki_page.
+    """
+    if min_age_days < 0:
+        raise ValueError("min_age_days must be >= 0")
+    if since_days < 0:
+        raise ValueError("since_days must be >= 0")
+    if top_n < 1:
+        raise ValueError("top_n must be >= 1")
+    if max_new_notes < 1:
+        raise ValueError("max_new_notes must be >= 1")
+    vault = _vault(vault_path)
+    stale_pages, checked_count = _stale_wiki_pages_scan(
+        vault, wiki_folder, min_age_days, since_days, max_new_notes, top_n
+    )
+    return {
+        "stalePages": stale_pages,
+        "checkedCount": checked_count,
+        "staleCount": len(stale_pages),
+        "wikiFolder": wiki_folder,
+        "minAgeDays": min_age_days,
+        "sinceDays": since_days,
+    }
