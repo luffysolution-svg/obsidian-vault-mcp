@@ -2908,3 +2908,163 @@ def _wiki_entity_concept_nodes(
         return hits
 
     return _search(entities_folder), _search(concepts_folder)
+
+
+def _parse_created_ts(props: "dict[str, Any]", path: "Path") -> float:
+    """Return Unix timestamp for when a wiki page was created.
+
+    Prefers the ISO ``created`` frontmatter field written by
+    ``obsidian_write_wiki_page``; falls back to ``st_birthtime`` (Windows /
+    macOS) then ``st_mtime``.
+    """
+    created_raw = props.get("created")
+    if isinstance(created_raw, (int, float)):
+        return float(created_raw)
+    created = _s(created_raw).strip()
+    if created:
+        try:
+            ts = datetime.fromisoformat(created.replace("Z", "+00:00"))
+            return ts.timestamp()
+        except Exception:
+            pass
+    try:
+        stat = path.stat()
+        return getattr(stat, "st_birthtime", stat.st_mtime)
+    except Exception:
+        return 0.0
+
+
+def _title_keywords(title: str) -> list[str]:
+    """Tokenise *title* into lowercase search keywords.
+
+    Splits on whitespace and common punctuation.  Keeps tokens that are either
+    2+ characters long OR a single CJK ideograph (U+4E00–U+9FFF), because a
+    single Chinese character is a meaningful unit while a single Latin letter
+    is not.
+    """
+    if not title:
+        return []
+    tokens = re.split(r"[\s/\-_,;:。，、　！？.!?]+", title.lower())
+    result: list[str] = []
+    for t in tokens:
+        if not t:
+            continue
+        if len(t) >= 2 or ("一" <= t <= "鿿"):
+            result.append(t)
+    return result
+
+
+def _stale_wiki_pages_scan(
+    vault: "Path",
+    wiki_folder: str,
+    min_age_days: int,
+    since_days: int,
+    max_new_notes: int,
+    top_n: int,
+) -> "tuple[list[dict[str, Any]], int]":
+    """Scan *wiki_folder* for pages with stale content.
+
+    Returns ``(stale_pages, checked_count)`` where *checked_count* is the
+    number of wiki pages that were old enough to inspect (passed
+    *min_age_days*).
+    """
+    import time as _time
+
+    now = _time.time()
+    age_cutoff = now - min_age_days * 86400
+    change_cutoff = now - since_days * 86400
+
+    wiki_root = _safe_path(vault, wiki_folder) if wiki_folder else vault / "wiki"
+    if not wiki_root.exists():
+        return [], 0
+
+    # Pre-collect non-wiki vault .md files with mtime (avoids O(W×V) stat calls).
+    # Also resolves paths once so the wiki-folder exclusion is reliable on Windows.
+    vault_md_files: list[tuple[Path, float]] = []
+    for _f in _iter_files(vault):
+        if _f.suffix.lower() != ".md":
+            continue
+        try:
+            _f.resolve().relative_to(wiki_root)
+            continue  # inside wiki folder — skip
+        except ValueError:
+            pass
+        try:
+            vault_md_files.append((_f, _f.stat().st_mtime))
+        except Exception:
+            pass
+
+    stale: list[dict[str, Any]] = []
+    checked = 0
+
+    for path in sorted(wiki_root.rglob("*.md")):
+        try:
+            text = _read_text(path)
+        except Exception:
+            continue
+
+        props, _ = _split_frontmatter(text)
+        page_created = _parse_created_ts(props, path)
+
+        if page_created > age_cutoff:
+            continue
+        checked += 1
+
+        title = str(props.get("title") or path.stem)
+        rel = _rel(vault, path)
+
+        # Signal 1: related notes modified within window
+        modified_related: list[str] = []
+        related_raw = props.get("related") or []
+        if isinstance(related_raw, list):
+            for r in related_raw:
+                r_str = _s(r).strip()
+                if not r_str:
+                    continue
+                r_rel = _ensure_md_path(r_str)
+                try:
+                    r_full = _safe_path(vault, r_rel)
+                    if r_full.exists():
+                        r_mtime = r_full.stat().st_mtime
+                        if page_created < r_mtime and r_mtime >= change_cutoff:
+                            modified_related.append(r_rel)
+                except Exception:
+                    continue
+
+        # Signal 2: new vault notes matching title keywords
+        new_notes: list[dict[str, Any]] = []
+        keywords = _title_keywords(title)
+        if keywords:
+            for f, f_mtime in vault_md_files:
+                if page_created < f_mtime and f_mtime >= change_cutoff:
+                    try:
+                        content = _read_text(f).lower()
+                        if any(kw in content for kw in keywords):
+                            days_ago = int((now - f_mtime) / 86400)
+                            new_notes.append({"path": _rel(vault, f), "mtimeDays": days_ago})
+                            if len(new_notes) >= max_new_notes:
+                                break
+                    except Exception:
+                        continue
+
+        if not modified_related and not new_notes:
+            continue
+
+        reasons: list[str] = []
+        if modified_related:
+            reasons.append("related_modified")
+        if new_notes:
+            reasons.append("new_notes")
+
+        stale.append({
+            "path": rel,
+            "title": title,
+            "daysSinceCreated": int((now - page_created) / 86400),
+            "reasons": reasons,
+            "modifiedRelated": modified_related,
+            "newNotes": new_notes,
+            "newNeighborCount": len(modified_related) + len(new_notes),
+        })
+
+    stale.sort(key=lambda x: x["newNeighborCount"], reverse=True)
+    return stale[:top_n], checked

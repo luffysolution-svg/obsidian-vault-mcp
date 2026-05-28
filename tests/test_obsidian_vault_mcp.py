@@ -2495,5 +2495,189 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             )
 
 
+    # ------------------------------------------------------- #
+    # obsidian_wiki_stale_pages                               #
+    # ------------------------------------------------------- #
+
+    def test_stale_pages_related_modified(self):
+        import os, time
+        from datetime import datetime, timezone, timedelta
+
+        def iso_ago(days):
+            return (
+                (datetime.now(timezone.utc) - timedelta(days=days))
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
+
+        now = time.time()
+        self.write_note(
+            "wiki/reactor.md",
+            f"---\ntitle: Reactor\ntype: wiki\ncreated: {iso_ago(10)}\nrelated:\n  - entities/agitator.md\n---\n\n## Overview\n\nContent.\n",
+        )
+        os.utime(self.vault / "wiki" / "reactor.md", (now - 10 * 86400, now - 10 * 86400))
+
+        self.write_note("entities/agitator.md", "---\ntitle: Agitator\n---\n\n# Agitator\n")
+        os.utime(self.vault / "entities" / "agitator.md", (now - 2 * 86400, now - 2 * 86400))
+
+        result = self.module.obsidian_wiki_stale_pages(
+            vault_path=str(self.vault), min_age_days=7, since_days=7
+        )
+
+        self.assertEqual(result["staleCount"], 1)
+        page = result["stalePages"][0]
+        self.assertIn("related_modified", page["reasons"])
+        self.assertIn("entities/agitator.md", page["modifiedRelated"])
+        self.assertEqual(page["title"], "Reactor")
+        self.assertGreaterEqual(page["daysSinceCreated"], 9)
+
+    def test_stale_pages_new_notes_keyword(self):
+        import os, time
+        from datetime import datetime, timezone, timedelta
+
+        def iso_ago(days):
+            return (
+                (datetime.now(timezone.utc) - timedelta(days=days))
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
+
+        now = time.time()
+        self.write_note(
+            "wiki/reactor.md",
+            f"---\ntitle: Reactor\ntype: wiki\ncreated: {iso_ago(10)}\n---\n\n## Overview\n\nContent.\n",
+        )
+        os.utime(self.vault / "wiki" / "reactor.md", (now - 10 * 86400, now - 10 * 86400))
+
+        self.write_note("sources/new_paper.md", "---\ntitle: New Paper\n---\n\n# About reactor design\n")
+        os.utime(self.vault / "sources" / "new_paper.md", (now - 2 * 86400, now - 2 * 86400))
+
+        result = self.module.obsidian_wiki_stale_pages(
+            vault_path=str(self.vault), min_age_days=7, since_days=7
+        )
+
+        self.assertEqual(result["staleCount"], 1)
+        page = result["stalePages"][0]
+        self.assertIn("new_notes", page["reasons"])
+        paths = [n["path"] for n in page["newNotes"]]
+        self.assertIn("sources/new_paper.md", paths)
+
+    def test_stale_pages_min_age_filters_new_pages(self):
+        import os, time
+        from datetime import datetime, timezone, timedelta
+
+        def iso_ago(days):
+            return (
+                (datetime.now(timezone.utc) - timedelta(days=days))
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
+
+        now = time.time()
+        self.write_note(
+            "wiki/fresh.md",
+            f"---\ntitle: Fresh\ntype: wiki\ncreated: {iso_ago(3)}\nrelated:\n  - entities/agitator.md\n---\n\n## Overview\n",
+        )
+        os.utime(self.vault / "wiki" / "fresh.md", (now - 3 * 86400, now - 3 * 86400))
+
+        self.write_note("entities/agitator.md", "---\ntitle: Agitator\n---\n\n# Agitator\n")
+        os.utime(self.vault / "entities" / "agitator.md", (now - 1 * 86400, now - 1 * 86400))
+
+        result = self.module.obsidian_wiki_stale_pages(
+            vault_path=str(self.vault), min_age_days=7, since_days=7
+        )
+
+        self.assertEqual(result["staleCount"], 0)
+        self.assertEqual(result["checkedCount"], 0)
+
+    def test_stale_pages_since_days_window(self):
+        import os, time
+        from datetime import datetime, timezone, timedelta
+
+        def iso_ago(days):
+            return (
+                (datetime.now(timezone.utc) - timedelta(days=days))
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
+
+        now = time.time()
+        self.write_note(
+            "wiki/old.md",
+            f"---\ntitle: OldPage\ntype: wiki\ncreated: {iso_ago(30)}\nrelated:\n  - entities/thing.md\n---\n\n## Overview\n",
+        )
+        os.utime(self.vault / "wiki" / "old.md", (now - 30 * 86400, now - 30 * 86400))
+
+        self.write_note("entities/thing.md", "---\ntitle: Thing\n---\n\n# Thing\n")
+        os.utime(self.vault / "entities" / "thing.md", (now - 10 * 86400, now - 10 * 86400))
+
+        result = self.module.obsidian_wiki_stale_pages(
+            vault_path=str(self.vault), min_age_days=7, since_days=7
+        )
+
+        stale_paths = [p["path"] for p in result["stalePages"]]
+        self.assertNotIn("wiki/old.md", stale_paths)
+
+    def test_stale_pages_no_related_field(self):
+        import os, time
+        from datetime import datetime, timezone, timedelta
+
+        def iso_ago(days):
+            return (
+                (datetime.now(timezone.utc) - timedelta(days=days))
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
+
+        now = time.time()
+        self.write_note(
+            "wiki/no_related.md",
+            f"---\ntitle: NoRelated\ntype: wiki\ncreated: {iso_ago(10)}\n---\n\n## Overview\n",
+        )
+        os.utime(self.vault / "wiki" / "no_related.md", (now - 10 * 86400, now - 10 * 86400))
+
+        result = self.module.obsidian_wiki_stale_pages(
+            vault_path=str(self.vault), min_age_days=7, since_days=7
+        )
+
+        self.assertIsInstance(result["stalePages"], list)
+        self.assertEqual(result["staleCount"], 0)
+
+    def test_stale_pages_top_n_limit(self):
+        import os, time
+        from datetime import datetime, timezone, timedelta
+
+        def iso_ago(days):
+            return (
+                (datetime.now(timezone.utc) - timedelta(days=days))
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
+
+        now = time.time()
+        for i in range(3):
+            slug = f"page{i}"
+            self.write_note(
+                f"wiki/{slug}.md",
+                f"---\ntitle: Page{i}\ntype: wiki\ncreated: {iso_ago(10)}\nrelated:\n  - entities/e{i}.md\n---\n\n## Overview\n",
+            )
+            os.utime(self.vault / "wiki" / f"{slug}.md", (now - 10 * 86400, now - 10 * 86400))
+            self.write_note(f"entities/e{i}.md", f"---\ntitle: E{i}\n---\n\n# E{i}\n")
+            os.utime(self.vault / "entities" / f"e{i}.md", (now - 2 * 86400, now - 2 * 86400))
+
+        result = self.module.obsidian_wiki_stale_pages(
+            vault_path=str(self.vault), min_age_days=7, since_days=7, top_n=2
+        )
+
+        self.assertLessEqual(len(result["stalePages"]), 2)
+        self.assertEqual(result["staleCount"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()
