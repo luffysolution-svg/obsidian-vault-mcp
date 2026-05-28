@@ -2500,8 +2500,9 @@ class ObsidianVaultMcpTests(unittest.TestCase):
     # ------------------------------------------------------- #
 
     def test_stale_pages_related_modified(self):
-        import os, time
-        from datetime import datetime, timezone, timedelta
+        import os
+        import time
+        from datetime import datetime, timedelta, timezone
 
         def iso_ago(days):
             return (
@@ -2533,8 +2534,9 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertGreaterEqual(page["daysSinceCreated"], 9)
 
     def test_stale_pages_new_notes_keyword(self):
-        import os, time
-        from datetime import datetime, timezone, timedelta
+        import os
+        import time
+        from datetime import datetime, timedelta, timezone
 
         def iso_ago(days):
             return (
@@ -2565,8 +2567,9 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("sources/new_paper.md", paths)
 
     def test_stale_pages_min_age_filters_new_pages(self):
-        import os, time
-        from datetime import datetime, timezone, timedelta
+        import os
+        import time
+        from datetime import datetime, timedelta, timezone
 
         def iso_ago(days):
             return (
@@ -2594,8 +2597,9 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(result["checkedCount"], 0)
 
     def test_stale_pages_since_days_window(self):
-        import os, time
-        from datetime import datetime, timezone, timedelta
+        import os
+        import time
+        from datetime import datetime, timedelta, timezone
 
         def iso_ago(days):
             return (
@@ -2623,8 +2627,9 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertNotIn("wiki/old.md", stale_paths)
 
     def test_stale_pages_no_related_field(self):
-        import os, time
-        from datetime import datetime, timezone, timedelta
+        import os
+        import time
+        from datetime import datetime, timedelta, timezone
 
         def iso_ago(days):
             return (
@@ -2649,8 +2654,9 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(result["staleCount"], 0)
 
     def test_stale_pages_top_n_limit(self):
-        import os, time
-        from datetime import datetime, timezone, timedelta
+        import os
+        import time
+        from datetime import datetime, timedelta, timezone
 
         def iso_ago(days):
             return (
