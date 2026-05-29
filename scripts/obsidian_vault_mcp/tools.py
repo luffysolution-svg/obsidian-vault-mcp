@@ -341,6 +341,110 @@ PIPELINE_PLUGIN_OWNED_FIELDS = {
 }
 
 
+# ── MinerU internal helpers (not registered as MCP tools) ───────────────────
+
+
+def obsidian_mineru_status(cli_command: str = "") -> dict[str, Any]:
+    """Check optional MinerU CLI availability and token environment variables."""
+    return _mineru_cli_status(cli_command)
+
+
+def obsidian_mineru_extract(
+    input_path: str,
+    vault_path: str = "",
+    output_path: str = "",
+    mode: str = "",
+    output_format: str = "md",
+    language: str = "ch",
+    pages: str = "",
+    model: str = "",
+    ocr: bool = False,
+    table: bool = False,
+    formula: bool = False,
+    token: str = "",
+    base_url: str = "",
+    cli_command: str = "",
+    timeout_seconds: int = MINERU_TIMEOUT,
+    verbose: bool = False,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Run MinerU CLI extraction and save output under the vault (internal helper)."""
+    vault = _vault(vault_path)
+    resolved_token = token or os.environ.get("MINERU_TOKEN") or os.environ.get("MINERU_API_TOKEN") or ""
+    resolved_mode = _s(mode).strip() or ("extract" if resolved_token else "flash-extract")
+    token_source = "param" if token else ("env" if resolved_token else "none")
+    status = _mineru_cli_status(cli_command)
+    cli = str(status.get("path") or cli_command or MINERU_CLI_COMMAND)
+    input_arg, input_name = _mineru_input_argument(vault, input_path)
+    output_full, output_rel = _mineru_output_path(vault, output_path, input_name)
+    args = _mineru_command_args(
+        cli=cli,
+        mode=resolved_mode,
+        input_arg=input_arg,
+        output_full=output_full,
+        output_format=output_format,
+        language=language,
+        pages=pages,
+        model=model,
+        ocr=ocr,
+        table=table,
+        formula=formula,
+        token=resolved_token,
+        base_url=base_url,
+        verbose=verbose,
+        timeout_seconds=timeout_seconds,
+    )
+    redacted_args = list(args)
+    if resolved_token and "--token" in redacted_args:
+        token_index = redacted_args.index("--token") + 1
+        if token_index < len(redacted_args):
+            redacted_args[token_index] = "***"
+    result: dict[str, Any] = {
+        "ok": False,
+        "dryRun": dry_run,
+        "vaultPath": str(vault),
+        "input": input_path,
+        "outputPath": output_rel,
+        "mode": resolved_mode,
+        "tokenSource": token_source,
+        "command": redacted_args,
+        "mineru": status,
+    }
+    if not status.get("available"):
+        result["error"] = status.get("installHint") or "MinerU CLI is not available."
+        return result
+    if not status.get("ok"):
+        result["error"] = status.get("error") or "MinerU CLI is available but its version check failed."
+        return result
+    if dry_run:
+        result["ok"] = True
+        return result
+    if output_full.suffix:
+        output_full.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        output_full.mkdir(parents=True, exist_ok=True)
+    try:
+        completed = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=max(1, timeout_seconds + 30), check=False)  # noqa: S603
+    except Exception as exc:
+        result["error"] = f"MinerU CLI failed to start: {exc}"
+        return result
+    markdown_rel = _find_mineru_markdown(vault, output_full)
+    result.update(
+        {
+            "ok": completed.returncode == 0 and bool(markdown_rel),
+            "returnCode": completed.returncode,
+            "stdout": _s(completed.stdout).strip(),
+            "stderr": _s(completed.stderr).strip(),
+            "markdownPath": markdown_rel,
+        }
+    )
+    if completed.returncode != 0:
+        result["error"] = "MinerU CLI failed."
+    elif not markdown_rel:
+        result["error"] = "MinerU CLI completed but no Markdown output was found."
+    return result
+
+
 def _pipeline_config(vault: Path) -> dict[str, str]:
     loaded = _load_json_file(vault / PIPELINE_CONFIG_FILE, {})
     config = dict(PIPELINE_DEFAULT_CONFIG)
