@@ -90,3 +90,20 @@ print(text[:5000])
 ```
 
 Run: `python extract_text.py "C:\Zotero\storage\KEY\paper.pdf"`
+
+## Figure & Table Analysis
+
+Use when the user asks a specific question about a figure, chart, or table in a parsed paper.
+
+1. Read `attachments/mineru/<zoteroKey>/images-index.md` with `obsidian_read_file`.
+   The index lists every figure with its semantic slug filename and the original caption context, e.g.:
+   ```
+   - fig-01-process-flow-diagram.png (was: image-a.png)
+     Caption context: "Figure 1 Process flow diagram showing…"
+   ```
+2. Identify which figure matches the user's question from the slug name and caption.
+3. Run `obsidian_search` using the slug filename (e.g. `fig-01-process-flow-diagram`) as query to locate the surrounding paragraph in `paper.md`. The search snippet will include the figure's Markdown image tag and adjacent text.
+4. Read that section of `paper.md` with `obsidian_read_file` if the search snippet is insufficient.
+5. Answer using the extracted caption and surrounding text only. Do **not** attempt to decode image binary data — the image files are not readable as text.
+
+**Typical budget:** 2–3 tool calls (read index → search → answer, or read index → read section → answer).
