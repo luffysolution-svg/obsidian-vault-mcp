@@ -1,15 +1,6 @@
 # Obsidian Vault MCP — Technical Guide / 技术文档
 
-> Version 1.0.26 | Python 3.10+ | MIT License
-
-## Literature Pipeline Profile
-
-The default MCP tool profile is `literature`. It exposes only the focused Zotero + MinerU + Obsidian literature pipeline surface plus a few basic file/YAML and Zotero query tools. Set `OBSIDIAN_VAULT_TOOL_PROFILE=full` or `OBSIDIAN_VAULT_TOOL_PROFILE=legacy` to expose the historical graph, wiki, Canvas, Bases, Dataview, schema, and CLI tools.
-
-Default high-level pipeline tools: `obsidian_pipeline_doctor`, `obsidian_pipeline_config`, `obsidian_pipeline_migrate_layout`, `obsidian_pipeline_ingest_item`, `obsidian_pipeline_ingest_collection`, `obsidian_pipeline_parse_with_mineru`, and `obsidian_pipeline_rename_mineru_images`.
-
-Vault-local pipeline configuration is read from `.obsidian-vault-pipeline.json`. Defaults place literature notes in `literature/`, copied Zotero PDFs in `attachments/zotero/<zoteroKey>/`, and MinerU machine outputs in `attachments/mineru/<zoteroKey>/paper.md`, `images-index.md`, and `images/`.
->
+> Version 1.1.0 | Python 3.10+ | MIT License
 > [English](#english) | [中文](#chinese)
 
 ---
@@ -25,7 +16,7 @@ Vault-local pipeline configuration is read from `.obsidian-vault-pipeline.json`.
 - **Kepano's Obsidian Skills** — domain split into Markdown, Canvas, Bases, CLI, and extraction workflows.
 - **Karpathy's LLM Wiki** — vault treated as a persistent, compounding wiki maintained by an LLM.
 
-The server runs as a `stdio` MCP process launched by Codex, Claude Code, OpenCode, or any MCP-compatible host. It provides **74 tools** covering vault file I/O, wikilink management, schema validation, wiki workflows, literature ingestion, Zotero integration, MinerU document extraction and image renaming, Canvas/Bases creation, batch editing, Obsidian CLI wrappers, graph intelligence (Louvain community detection, 4-signal link scoring, bridge/hub/cluster insights), and LLM-driven wiki page generation.
+The server runs as a `stdio` MCP process launched by Codex, Claude Code, OpenCode, or any MCP-compatible host. It exposes **17 MCP tools** focused on the Zotero→MinerU→Obsidian literature pipeline. Advanced workflows (graph analysis, wiki maintenance, Canvas/Bases/Dataview, Obsidian CLI) are delivered as Skills invoked through Claude Code or Codex.
 
 ---
 
@@ -45,7 +36,7 @@ obsidian-vault/
 │       ├── cli.py                   # CLI entry point
 │       ├── common.py                # Constants, tool registry
 │       ├── helpers.py               # Core logic
-│       ├── tools.py                 # 72 MCP tool functions
+│       ├── tools.py                 # MCP tool functions
 │       └── server.py                # FastMCP server setup
 ├── skills/
 │   ├── obsidian-vault/SKILL.md      # General vault workflow skill
@@ -96,76 +87,31 @@ obsidian-vault/
 
 ---
 
-## All 72 MCP Tools
+## 17 MCP Tools
 
-### Vault Core (6 tools)
-
-| Tool | Description |
-|------|-------------|
-| `obsidian_vault_status` | Vault info: file counts, CLI availability, config summary |
-| `obsidian_list_files` | List vault files filtered by folder and/or extension |
-| `obsidian_search` | Full-text search with line-level snippets |
-| `obsidian_read_file` | Read file content with parsed YAML frontmatter |
-| `obsidian_write_file` | Write file; supports `dry_run=true` for diff preview |
-| `obsidian_create_note` | Create Markdown note with YAML properties and optional template |
-
-### Note Management (4 tools)
+### Pipeline (3 tools)
 
 | Tool | Description |
 |------|-------------|
-| `obsidian_list_user_templates` | Discover templates from Obsidian Templates / Templater plugins |
-| `obsidian_update_properties` | Merge, replace, or remove YAML frontmatter properties |
-| `obsidian_add_wikilinks` | Add or replace wikilinks with surrounding context |
-| `obsidian_build_graph` | Parse wikilinks, embeds, aliases, tags; detect orphans and dead ends |
+| `obsidian_pipeline_doctor` | Readiness check: vault, Zotero, MinerU configuration |
+| `obsidian_pipeline_config` | Read or update vault-local pipeline configuration |
+| `obsidian_pipeline_migrate_layout` | Migrate vault folder layout to current pipeline conventions |
 
-### Vault Linting & Validation (7 tools)
-
-| Tool | Description |
-|------|-------------|
-| `obsidian_lint_vault` | Check orphans, dead ends, duplicates, empty notes, missing titles |
-| `obsidian_validate_vault_schema` | Validate Markdown frontmatter, Canvas JSON, Base YAML |
-| `obsidian_apply_schema_defaults` | Fill missing frontmatter from built-in schema presets |
-| `obsidian_list_schema_presets` | List available note-type schema presets |
-| `obsidian_suggest_graph_improvements` | Suggest reciprocal links, unresolved links, duplicate pages; `use_scoring=True` adds 4-signal ranked suggestions (source overlap × 4.0, Adamic-Adar × 1.5, type affinity × 1.0) |
-| `obsidian_build_graph_communities` | Louvain community detection; returns communities with label, top nodes, dominant tags, and modularity score; optionally writes `community:` to note frontmatter |
-| `obsidian_graph_insights` | Detects bridge nodes, surprising cross-community links, sparse clusters, and isolated hubs using betweenness centrality and source-overlap scoring |
-
-### Wiki Workflow — Karpathy Pattern (8 tools)
+### Literature Ingestion (2 tools)
 
 | Tool | Description |
 |------|-------------|
-| `obsidian_update_wiki_index` | Create or refresh managed `index.md` catalogue |
-| `obsidian_append_wiki_log` | Append timestamped entry to `log.md` |
-| `obsidian_ingest_source_note` | Ingest source → update entities/concepts/index/log in one pass |
-| `obsidian_doctor` | Readiness check: vault, templates, dependencies, integrations |
-| `obsidian_build_citation_network` | Read Zotero `relations` fields and insert wikilink citation edges between literature notes |
-| `obsidian_build_reading_digest` | Aggregate callout blocks (highlights, notes, annotations) across a folder, grouped by tag or type |
-| `obsidian_wiki_context` | Collect vault context for LLM-driven wiki generation: returns wikilink neighbours, full-text search results, Zotero literature items, and entity/concept nodes as a structured JSON bundle |
-| `obsidian_write_wiki_page` | Write LLM-generated Markdown to `wiki/<slug>.md` with standard frontmatter (type=wiki, tags=[wiki]); optionally updates index and log |
-| `obsidian_wiki_stale_pages` | Scan the wiki folder for pages that may need regeneration: detects pages whose `related` notes were modified or new vault notes matching title keywords appeared within a configurable time window |
+| `obsidian_pipeline_ingest_item` | Fetch Zotero item, copy PDFs, and ingest as literature note |
+| `obsidian_pipeline_ingest_collection` | Ingest all items from a Zotero collection |
 
-### Literature & Reference Ingestion (6 tools)
+### MinerU (2 tools)
 
 | Tool | Description |
 |------|-------------|
-| `obsidian_parse_bibtex` | Parse BibTeX string into normalized metadata |
-| `obsidian_ingest_reference` | Ingest reference metadata as a literature note |
-| `obsidian_ingest_bibtex` | Ingest one or more BibTeX entries |
-| `obsidian_ingest_mineru_markdown` | Ingest MinerU-generated Markdown + optional PDF |
-| `obsidian_ingest_pdf_attachment` | Create source note for a vault PDF attachment |
-| `obsidian_ingest_zotero_item` | Fetch Zotero item, copy PDFs, and ingest as literature note |
+| `obsidian_pipeline_parse_with_mineru` | Run MinerU extraction for a Zotero item and link result to the literature note |
+| `obsidian_pipeline_rename_mineru_images` | Rename MinerU-extracted images using figure captions; Chinese characters preserved verbatim |
 
-### MinerU Integration (5 tools)
-
-| Tool | Description |
-|------|-------------|
-| `obsidian_mineru_status` | Check MinerU CLI availability and token configuration |
-| `obsidian_mineru_extract` | Run MinerU extraction and save Markdown to vault |
-| `obsidian_mineru_extract_and_ingest` | Extract with MinerU then ingest result in one pass; accepts `rename_images=True` |
-| `obsidian_mineru_extract_folder` | Batch-extract all PDFs in a folder; forwards `rename_images` to each extraction |
-| `obsidian_mineru_rename_images` | Rename MinerU-extracted images using figure captions; Chinese characters preserved verbatim |
-
-### Zotero Integration (7 tools)
+### Zotero (6 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -175,45 +121,28 @@ obsidian-vault/
 | `obsidian_zotero_get_item` | Fetch Zotero item metadata by key |
 | `obsidian_zotero_get_children` | Fetch child notes, annotations, attachments |
 | `obsidian_zotero_list_pdf_attachments` | List PDF attachments for a Zotero item |
-| `obsidian_zotero_extract_pdf_text` | Extract text from a Zotero PDF attachment |
 
-### Canvas & Bases (7 tools)
-
-| Tool | Description |
-|------|-------------|
-| `obsidian_create_canvas` | Write valid JSON Canvas from nodes and edges |
-| `obsidian_create_canvas_from_graph` | Auto-layout vault wikilinks: grid / radial / grouped / layered |
-| `obsidian_create_base` | Write valid Obsidian Bases YAML |
-| `obsidian_list_base_templates` | List built-in Base templates |
-| `obsidian_create_base_template` | Create Base from template (literature/tasks/equipment/utilities/economics/sources) |
-| `obsidian_list_dataview_templates` | List Dataview query templates |
-| `obsidian_create_dataview_note` | Create a Dataview query note |
-
-### Batch Editing (3 tools)
+### Vault Basics (4 tools)
 
 | Tool | Description |
 |------|-------------|
-| `obsidian_preview_edit_plan` | Preview multi-file edits as unified diffs |
-| `obsidian_apply_edit_plan` | Apply edits and create vault-local backups |
-| `obsidian_rollback_edit_plan` | Restore files from transaction backup |
+| `obsidian_read_file` | Read file content with parsed YAML frontmatter |
+| `obsidian_write_file` | Write file; supports `dry_run=true` for diff preview |
+| `obsidian_search` | Full-text search with line-level snippets |
+| `obsidian_update_properties` | Merge, replace, or remove YAML frontmatter properties |
 
-### Obsidian CLI Wrappers (14 tools)
+### Skills (advanced workflows)
 
-| Tool | Description |
-|------|-------------|
-| `obsidian_cli` | Generic CLI wrapper |
-| `obsidian_cli_read` | Read note via Obsidian app |
-| `obsidian_cli_open` | Open note in Obsidian app |
-| `obsidian_cli_backlinks` | Query backlinks for a note |
-| `obsidian_cli_base_query` | Query an Obsidian Base view |
-| `obsidian_cli_properties` | List all properties of a note |
-| `obsidian_cli_property_read` | Read a single property value |
-| `obsidian_cli_property_set` | Set a property value |
-| `obsidian_cli_property_remove` | Remove a property |
-| `obsidian_cli_tasks` | List tasks in a note |
-| `obsidian_cli_screenshot` | Take a screenshot of the Obsidian window |
-| `obsidian_cli_plugin_reload` | Reload an Obsidian plugin |
-| `obsidian_cli_move_or_rename` | Move or rename a note (supports dry-run) |
+Graph analysis, wiki maintenance, Canvas/Bases/Dataview, batch editing, and Obsidian CLI workflows are delivered as Skills invoked through Claude Code or Codex:
+
+| Skill | Purpose |
+|-------|---------|
+| `obsidian-vault` | Graph, lint, wiki, schema, bulk editing, file management |
+| `obsidian-cli` | Obsidian desktop CLI control |
+| `obsidian-views` | Canvas, Bases, Dataview |
+| `obsidian-graph` | Citation network, community detection |
+| `obsidian-mineru` | Direct MinerU extraction, batch processing |
+| `obsidian-zotero` | Zotero search and literature import |
 
 ---
 
@@ -275,7 +204,7 @@ The plugin ships with `.codex-plugin/plugin.json` and `.mcp.json`. Register it v
 
 ### Step 4 — Restart Your MCP Client
 
-After registration (or after `claude mcp add`), restart or reload your MCP client so the 74 tools become available.
+After registration (or after `claude mcp add`), restart or reload your MCP client so the 17 pipeline tools become available.
 
 ### Step 5 — Run Smoke Checks (Optional)
 
@@ -541,7 +470,7 @@ Preview and apply a batch edit plan, then rollback if needed.
 - **Kepano 的 Obsidian Skills** — 领域拆分为 Markdown、Canvas、Bases、CLI 和文档提取工作流。
 - **Karpathy 的 LLM Wiki** — 将 vault 视为由 LLM 持续维护的、不断积累的 wiki。
 
-服务器以 `stdio` MCP 进程方式运行，由 Codex、Claude Code、OpenCode 或任何兼容 MCP 的 host 启动。提供 **74 个工具**，覆盖 vault 文件读写、wikilink 管理、schema 验证、wiki 工作流、文献导入、Zotero 集成、MinerU 文档提取与图片重命名、Canvas/Bases 创建、批量编辑、Obsidian CLI 封装、图谱智能（Louvain 社区检测、4 信号链接评分、桥接节点/孤立枢纽/稀疏社区洞察），以及 LLM 驱动的 wiki 页面生成。
+服务器以 `stdio` MCP 进程方式运行，由 Codex、Claude Code、OpenCode 或任何兼容 MCP 的 host 启动。暴露 **17 个 MCP 工具**，专注于 Zotero→MinerU→Obsidian 文献管道。图谱分析、Wiki 维护、Canvas/Bases/Dataview、Obsidian CLI 等高级工作流已转为 Skills，通过 Claude Code 或 Codex 调用。
 
 ---
 
@@ -605,78 +534,62 @@ obsidian-vault/
 
 ---
 
-## 全部 72 个 MCP 工具
+## 17 个 MCP 工具
 
-### Vault 核心（6 个）
+### Pipeline（3 个）
 
 | 工具 | 说明 |
 |------|------|
-| `obsidian_vault_status` | Vault 信息：文件数量、CLI 可用性、配置摘要 |
-| `obsidian_list_files` | 按文件夹和/或扩展名过滤列出 vault 文件 |
-| `obsidian_search` | 全文搜索，返回行级片段 |
+| `obsidian_pipeline_doctor` | 就绪检查：vault、Zotero、MinerU 配置 |
+| `obsidian_pipeline_config` | 读取或更新 vault 本地 pipeline 配置 |
+| `obsidian_pipeline_migrate_layout` | 将 vault 文件夹布局迁移到当前 pipeline 规范 |
+
+### 文献导入（2 个）
+
+| 工具 | 说明 |
+|------|------|
+| `obsidian_pipeline_ingest_item` | 获取 Zotero 条目、复制 PDF、导入为文献笔记 |
+| `obsidian_pipeline_ingest_collection` | 批量导入 Zotero 集合内所有条目 |
+
+### MinerU（2 个）
+
+| 工具 | 说明 |
+|------|------|
+| `obsidian_pipeline_parse_with_mineru` | 对 Zotero 条目运行 MinerU 提取，并将结果链接到文献笔记 |
+| `obsidian_pipeline_rename_mineru_images` | 用正文图注重命名 MinerU 提取图片；中文字符直通保留 |
+
+### Zotero（6 个）
+
+| 工具 | 说明 |
+|------|------|
+| `obsidian_zotero_ping` | 检查 Zotero Desktop 本地 API 可达性 |
+| `obsidian_zotero_list_collections` | 列出所有 Zotero 集合（key、名称、父集合、条目数） |
+| `obsidian_zotero_search_items` | 搜索本地 Zotero 文库 |
+| `obsidian_zotero_get_item` | 通过 key 获取 Zotero 条目元数据 |
+| `obsidian_zotero_get_children` | 获取子笔记、批注、附件 |
+| `obsidian_zotero_list_pdf_attachments` | 列出 Zotero 条目的 PDF 附件 |
+
+### Vault 基础（4 个）
+
+| 工具 | 说明 |
+|------|------|
 | `obsidian_read_file` | 读取文件内容，解析 YAML frontmatter |
 | `obsidian_write_file` | 写入文件；支持 `dry_run=true` 预览 diff |
-| `obsidian_create_note` | 创建带 YAML 属性和可选模板的 Markdown 笔记 |
-
-### 笔记管理（4 个）
-
-| 工具 | 说明 |
-|------|------|
-| `obsidian_list_user_templates` | 从 Obsidian Templates / Templater 插件发现模板 |
+| `obsidian_search` | 全文搜索，返回行级片段 |
 | `obsidian_update_properties` | 合并、替换或删除 YAML frontmatter 属性 |
-| `obsidian_add_wikilinks` | 添加或替换带上下文的 wikilink |
-| `obsidian_build_graph` | 解析 wikilink、嵌入、别名、标签；检测孤立笔记和死链 |
 
-### Vault 检查与验证（7 个）
+### Skills（高级工作流）
 
-| 工具 | 说明 |
-|------|------|
-| `obsidian_lint_vault` | 检查孤立笔记、死链、重复键、空笔记、缺失标题 |
-| `obsidian_validate_vault_schema` | 验证 Markdown frontmatter、Canvas JSON、Base YAML |
-| `obsidian_apply_schema_defaults` | 从内置 schema 预设填充缺失的 frontmatter |
-| `obsidian_list_schema_presets` | 列出可用的笔记类型 schema 预设 |
-| `obsidian_suggest_graph_improvements` | 建议互链、未解析链接、重复页面；`use_scoring=True` 启用 4 信号评分（来源重叠 × 4.0、Adamic-Adar × 1.5、类型亲和 × 1.0） |
-| `obsidian_build_graph_communities` | Louvain 社区检测；返回带标签、核心节点、主导标签和模块度分值的社区列表；可选将 `community:` 写入笔记 frontmatter |
-| `obsidian_graph_insights` | 基于介数中心性和来源重叠评分，检测桥接节点、跨社区惊喜链接、稀疏社区和孤立枢纽 |
+图谱分析、Wiki 维护、Canvas/Bases/Dataview、批量编辑和 Obsidian CLI 工作流已转为 Skills，通过 Claude Code 或 Codex 调用：
 
-### Wiki 工作流（8 个）
-
-| 工具 | 说明 |
-|------|------|
-| `obsidian_update_wiki_index` | 创建或刷新托管的 `index.md` 目录 |
-| `obsidian_append_wiki_log` | 向 `log.md` 追加带时间戳的条目 |
-| `obsidian_ingest_source_note` | 导入来源 → 一次性更新实体/概念/索引/日志 |
-| `obsidian_doctor` | 就绪检查：vault、模板、依赖、集成 |
-| `obsidian_build_citation_network` | 读取 Zotero `relations` 字段，在文献笔记之间插入 wikilink 引用边 |
-| `obsidian_build_reading_digest` | 将文件夹内 callout 块（高亮、笔记、批注）按标签或类型聚合为阅读摘要 |
-| `obsidian_wiki_context` | 为 LLM 驱动的 wiki 生成收集 vault 上下文：返回 wikilink 邻居、全文搜索结果、Zotero 文献、实体/概念节点的结构化 JSON bundle |
-| `obsidian_write_wiki_page` | 将 LLM 生成的 Markdown 写入 `wiki/<slug>.md`，附标准 frontmatter（type=wiki, tags=[wiki]）；可选更新索引和日志 |
-| `obsidian_wiki_stale_pages` | 扫描 wiki 文件夹，检测哪些页面可能需要重新生成：检查 `related` 笔记是否被修改，或 vault 中是否出现包含页面标题关键词的新笔记 |
-
-### 文献导入（6 个）
-
-| 工具 | 说明 |
-|------|------|
-| `obsidian_parse_bibtex` | 将 BibTeX 字符串解析为规范化元数据 |
-| `obsidian_ingest_reference` | 将参考文献元数据导入为文献笔记 |
-| `obsidian_ingest_bibtex` | 导入一个或多个 BibTeX 条目 |
-| `obsidian_ingest_mineru_markdown` | 导入 MinerU 生成的 Markdown + 可选 PDF |
-| `obsidian_ingest_pdf_attachment` | 为 vault PDF 附件创建来源笔记 |
-| `obsidian_ingest_zotero_item` | 获取 Zotero 条目、复制 PDF、导入为文献笔记 |
-
-### MinerU 集成（5 个）
-
-| 工具 | 说明 |
-|------|------|
-| `obsidian_mineru_status` | 检查 MinerU CLI 可用性和 token 配置 |
-| `obsidian_mineru_extract` | 运行 MinerU 提取，将 Markdown 保存到 vault |
-| `obsidian_mineru_extract_and_ingest` | MinerU 提取后一步导入；接受 `rename_images=True` |
-| `obsidian_mineru_extract_folder` | 批量提取文件夹内所有 PDF；`rename_images` 标志转发给每次提取 |
-| `obsidian_mineru_rename_images` | 用正文图注重命名 MinerU 提取图片；中文字符直通保留 |
-
-### Zotero 集成（7 个）、Canvas/Bases（7 个）、批量编辑（3 个）、CLI 封装（14 个）
-
-详见英文部分工具表格，工具名称与英文完全一致。
+| Skill | 功能 |
+|-------|------|
+| `obsidian-vault` | 图谱、lint、wiki、schema、批量编辑、文件管理 |
+| `obsidian-cli` | Obsidian 桌面 CLI 控制 |
+| `obsidian-views` | Canvas、Bases、Dataview |
+| `obsidian-graph` | 引用网络、社区检测 |
+| `obsidian-mineru` | MinerU 直接解析、批量处理 |
+| `obsidian-zotero` | Zotero 搜索与文献导入 |
 
 ---
 
@@ -736,7 +649,7 @@ obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 
 ### 第四步 — 重启 MCP 客户端
 
-注册后（或 `claude mcp add` 后）重启或重新加载客户端，74 个工具即可使用。
+注册后（或 `claude mcp add` 后）重启或重新加载客户端，17 个 pipeline 工具即可使用。
 
 ---
 

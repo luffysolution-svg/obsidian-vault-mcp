@@ -1,20 +1,29 @@
 # Obsidian Vault
 
-## Literature Pipeline Default
+## Tools (17 core tools)
 
-The default MCP profile is `literature`. It exposes the pipeline tools for importing stable Zotero literature notes, copying PDFs into the vault, preserving Zotero source paths and `zotero://` links, optionally parsing PDFs with MinerU, renaming extracted images with English semantic slugs, and generating `images-index.md`.
+The server exposes 17 MCP tools focused on the Zotero→MinerU→Obsidian literature pipeline:
 
-Set `OBSIDIAN_VAULT_TOOL_PROFILE=full` or `OBSIDIAN_VAULT_TOOL_PROFILE=legacy` to expose the older broad Obsidian toolbox for wiki, graph, Canvas, Bases, Dataview, schema, and CLI workflows.
+| Category | Tools |
+|----------|-------|
+| Pipeline | `obsidian_pipeline_doctor`, `obsidian_pipeline_config`, `obsidian_pipeline_migrate_layout` |
+| Ingestion | `obsidian_pipeline_ingest_item`, `obsidian_pipeline_ingest_collection` |
+| MinerU | `obsidian_pipeline_parse_with_mineru`, `obsidian_pipeline_rename_mineru_images` |
+| Zotero | `obsidian_zotero_ping`, `obsidian_zotero_search_items`, `obsidian_zotero_list_collections`, `obsidian_zotero_get_item`, `obsidian_zotero_get_children`, `obsidian_zotero_list_pdf_attachments` |
+| Vault | `obsidian_read_file`, `obsidian_write_file`, `obsidian_search`, `obsidian_update_properties` |
 
-Default pipeline tools:
+## Skills
 
-- `obsidian_pipeline_doctor`
-- `obsidian_pipeline_config`
-- `obsidian_pipeline_migrate_layout`
-- `obsidian_pipeline_ingest_item`
-- `obsidian_pipeline_ingest_collection`
-- `obsidian_pipeline_parse_with_mineru`
-- `obsidian_pipeline_rename_mineru_images`
+Advanced workflows (graph analysis, wiki maintenance, Canvas/Bases/Dataview, Obsidian CLI) are now delivered as Skills invoked through Claude Code or Codex:
+
+| Skill | Purpose |
+|-------|---------|
+| `obsidian-vault` | Graph, lint, wiki, schema, bulk editing, file management |
+| `obsidian-cli` | Obsidian desktop CLI control |
+| `obsidian-views` | Canvas, Bases, Dataview |
+| `obsidian-graph` | Citation network, community detection |
+| `obsidian-mineru` | Direct MinerU extraction, batch processing |
+| `obsidian-zotero` | Zotero search and literature import |
 
 Local MCP plugin for Codex, Claude Code, and OpenCode — maintain Obsidian vaults as persistent linked wikis.
 
@@ -48,39 +57,18 @@ note contents in local configuration only; do not commit them to the repository.
 
 It provides:
 
-- MCP tools for vault file listing, search, reading, writing, note creation, and YAML property updates.
-- Dry-run diff previews for write operations before changing vault files.
-- Batch edit transactions with multi-file preview, apply, vault-local backups, and rollback.
-- Wikilink helpers for adding related links and building backlink-aware graph data with aliases, tags, ambiguous links, and unresolved links. Graph scanning is body-only — wikilinks inside YAML frontmatter values are not counted as edges.
-- Frontmatter citation fields (`related`, `cites`, `references`, `entities`, `concepts`, `sources`) are extracted as typed edges distinct from body wikilinks, enabling richer literature citation graphs.
-- Graph results are mtime-cached per vault/folder; repeated calls return the cached result until a file changes, significantly improving performance on large literature vaults.
-- Vault lint checks for orphan notes, dead ends, missing wiki helper files, duplicate keys, and frontmatter consistency.
-- Schema and format validation for Markdown frontmatter, Canvas JSON, and Base YAML files.
-- Graph improvement suggestions for unresolved links, reciprocal links (capped via `max_reciprocal` to avoid noise), possible duplicate pages (word-boundary-aware, so "My Note" and "MyNote" are not false positives), Markdown links, and attachment embeds.
-- Karpathy-style wiki workflow tools for refreshing `index.md`, appending `log.md`, and ingesting source notes into linked source/entity/concept pages.
-- Citation network builder that reads Zotero `relations` fields and inserts wikilink citation edges between literature notes (`obsidian_build_citation_network`).
-- Reading digest aggregator that collects callout blocks (highlights, notes, annotations) across a folder and groups them by tag or callout type (`obsidian_build_reading_digest`).
-- Literature and extraction ingestion from BibTeX/reference metadata, existing MinerU Markdown output, optional MinerU CLI extraction, and PDF attachments; batch folder extraction via `obsidian_mineru_extract_folder`.
-- Caption-based semantic rename of MinerU-extracted images using figure captions found in the parsed Markdown; Chinese characters preserved verbatim for knowledge-graph node indexing (`obsidian_mineru_rename_images`).
-- Direct Zotero Desktop local API integration for collection listing, search, item metadata, child notes, annotations, PDF attachments, PDF text extraction, and one-step item ingestion.
-- Zotero round-trip metadata with `zotero://` select/PDF links, duplicate detection by Zotero key, DOI, citekey, or title, and configurable PDF attachment naming.
-- Collection names resolved to human-readable labels at import time (`collections` stores names like `苯乙烯优化`, not raw keys like `HXSD675W`); type-specific fields omitted from frontmatter when empty.
-- Optional user template discovery from Obsidian Templates, Templater, or plugin config when creating notes.
-- Vault-local defaults for output folders, index/log paths, template folders, and Zotero attachment naming.
-- A `--doctor` check for vault resolution, templates, dependencies, and optional integrations.
-- JSON Canvas creation for visual maps, including automatic graph-to-canvas layout from vault wikilinks with grid, radial, grouped, and layered layouts; layered layout supports a custom `layer_order_json` parameter.
-- Obsidian Bases creation for table/card/list views, including built-in Base templates for literature, project tasks, equipment, utilities, economics, and sources.
-- Dataview note templates for the same literature, project task, equipment, utilities, economics, and sources workflows.
-- A safe wrapper around the local `obsidian` CLI plus structured helpers for read/open, backlinks, Base queries, properties, tasks, screenshots, plugin reloads, and move/rename dry-runs.
-- A bundled skill suite under `skills/` that helps Codex trigger the right workflow automatically. After `pip install`, the skills are located under `<site-packages>/obsidian_vault_mcp/skills/`; after a source clone they are in `skills/` at the repository root.
+- Vault file search, reading, writing, and YAML property updates.
+- Direct Zotero Desktop local API integration for collection listing, search, item metadata, child notes, and PDF attachments.
+- One-step import of Zotero items as literature notes, with PDF copying and `zotero://` link preservation.
+- Optional MinerU document extraction and ingestion, with batch processing support.
+- Caption-based semantic rename of MinerU-extracted images; Chinese characters preserved verbatim.
+- Collection names resolved to human-readable labels at import time; type-specific fields omitted from frontmatter when empty.
+- A `--doctor` readiness check for vault, Zotero, and MinerU configuration.
+- A bundled skill suite under `skills/` that helps Codex and Claude Code trigger the right workflow automatically. After `pip install`, the skills are located under `<site-packages>/obsidian_vault_mcp/skills/`; after a source clone they are in `skills/` at the repository root.
 
 ## Bundled Skills
 
-- `obsidian-vault`: general vault maintenance, frontmatter, wikilinks, graph checks, edit plans, and wiki-style index/log upkeep.
-- `obsidian-zotero`: Zotero search, single-item import, collection import, attachments, annotations, and re-ingest behavior.
-- `obsidian-mineru`: MinerU extraction, batch folder extraction, image semantic rename, Markdown ingestion, vault PDF source notes, and Zotero-linked full-text attachment.
-- `obsidian-views`: JSON Canvas, Obsidian Bases, built-in Base templates, and Dataview note generation.
-- `obsidian-cli`: app-backed Obsidian CLI operations such as backlinks, properties, tasks, screenshots, plugin reloads, and link-aware move/rename.
+See the [Skills table](#skills) above for the full list. Skills are invoked through Claude Code or Codex and cover graph analysis, wiki maintenance, Canvas/Bases/Dataview, and Obsidian CLI workflows that were previously exposed as MCP tools.
 
 ## Demo Assets
 
@@ -122,8 +110,8 @@ MinerU MCP, Zotero Desktop, or Obsidian CLI automatically.
 
 Recommended three-step workflow when the document belongs to a Zotero item:
 
-1. `obsidian_ingest_zotero_item` → imports the item into `literature/` with full YAML, notes, and annotations.
-2. `obsidian_mineru_extract_and_ingest` with `zotero_key=<key>` → parses the PDF into a MinerU source note and appends `mineru_markdown: [[...]]` to the literature note YAML.
+1. `obsidian_pipeline_ingest_item` with `zotero_key=<key>` → imports the item into `literature/` with full YAML, notes, and annotations.
+2. `obsidian_pipeline_parse_with_mineru` with `zotero_key=<key>` → parses the PDF into a MinerU attachment and appends a MinerU link to the literature note YAML.
 3. The literature note body and all other YAML fields are left unchanged; only the clickable MinerU link is added.
 
 MinerU extraction calls several MinerU/OpenXLab endpoints. If you use a VPN,
@@ -171,17 +159,7 @@ Zotero attachment naming strategies are `original`, `zotero_key`, `citekey`,
 
 ## User Templates
 
-`obsidian_list_user_templates` discovers Markdown templates from:
-
-- the Obsidian Templates core plugin config at `.obsidian/templates.json`;
-- the Templater plugin config at `.obsidian/plugins/templater-obsidian/data.json`;
-- the optional `templateFolder` and `defaultTemplate` plugin defaults above.
-
-`obsidian_create_note` can apply a template with `template_path`,
-`template_name`, `use_template=true`, or a configured `defaultTemplate`. It
-performs safe text replacement for variables such as `{{title}}`, `{{body}}`,
-`{{date}}`, `{{time}}`, and frontmatter property names. It does not execute
-Templater JavaScript.
+Template discovery and note creation are handled by the `obsidian-vault` Skill, invoked through Claude Code or Codex.
 
 ## Doctor Check
 
@@ -198,31 +176,7 @@ automation or bug reports.
 
 ## Batch Edit Plans
 
-Batch edit tools accept either a JSON array or an object with an `operations`
-array. Each operation may use `op`, `operation`, or `type` for the action name.
-Supported actions are `write`, `update_properties`, `append`, `replace`, and
-`delete`.
-
-```json
-{
-  "operations": [
-    {
-      "operation": "update_properties",
-      "path": "Projects/Alpha.md",
-      "properties": { "status": "draft" }
-    },
-    {
-      "operation": "append",
-      "path": "Projects/Alpha.md",
-      "content": "\n\nReviewed by Codex."
-    }
-  ]
-}
-```
-
-Run `obsidian_preview_edit_plan` first, then `obsidian_apply_edit_plan`. Applied
-plans create vault-local backups under `.obsidian-vault-backups/` so
-`obsidian_rollback_edit_plan` can restore the previous state.
+Batch edit workflows (`obsidian_preview_edit_plan`, `obsidian_apply_edit_plan`, `obsidian_rollback_edit_plan`) are delivered as part of the `obsidian-vault` Skill, invoked through Claude Code or Codex.
 
 ## Install Dependencies
 
@@ -432,18 +386,12 @@ See [Deployment Guide](./docs/DEPLOYMENT.md) for the full release checklist and 
 
 ## Useful Prompts
 
-- "Show me the structure of this Obsidian vault."
-- "Create a linked wiki note with YAML properties."
-- "Add wikilinks between these notes and report orphans."
-- "Lint this vault and show unresolved links, dead ends, and missing index/log files."
-- "Ingest this BibTeX entry or Zotero item into Obsidian."
+- "Search this Obsidian vault for literature notes about X."
+- "Import this Zotero item (key: XXXXXXXX) into Obsidian."
 - "Use MinerU flash-extract on this PDF and ingest the result into Obsidian."
-- "Batch extract all PDFs in this folder with MinerU and ingest them."
 - "Rename MinerU-extracted images in this Markdown file using figure captions."
-- "Build a citation network from Zotero relations across my literature notes."
-- "Generate a reading digest of all highlights and notes in this literature folder."
-- "Create a Base view or Dataview note for this project."
-- "Use the Obsidian CLI to read backlinks or query a Base."
+- "List all items in a Zotero collection."
+- "Run the pipeline doctor check on this vault."
 
 ## References
 

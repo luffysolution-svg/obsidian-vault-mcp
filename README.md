@@ -1,20 +1,29 @@
 # Obsidian Vault
 
-## Literature pipeline default
+## 工具列表（17个核心工具）
 
-The default MCP profile is now `literature`: a focused Zotero + MinerU + Obsidian pipeline for importing stable literature notes, copying Zotero PDFs, preserving `zotero://select` and `zotero://open-pdf` links, optionally parsing PDFs with MinerU, renaming extracted images as English semantic slugs, and generating `images-index.md`.
+默认只提供 17 个专注于 Zotero→MinerU→Obsidian 文献管道的 MCP 工具：
 
-Use `OBSIDIAN_VAULT_TOOL_PROFILE=full` or `OBSIDIAN_VAULT_TOOL_PROFILE=legacy` to expose the older broad Obsidian toolbox for wiki, graph, Canvas, Bases, Dataview, schema, and CLI workflows.
+| 类别 | 工具 |
+|------|------|
+| Pipeline | `obsidian_pipeline_doctor`、`obsidian_pipeline_config`、`obsidian_pipeline_migrate_layout` |
+| 文献导入 | `obsidian_pipeline_ingest_item`、`obsidian_pipeline_ingest_collection` |
+| MinerU | `obsidian_pipeline_parse_with_mineru`、`obsidian_pipeline_rename_mineru_images` |
+| Zotero | `obsidian_zotero_ping`、`obsidian_zotero_search_items`、`obsidian_zotero_list_collections`、`obsidian_zotero_get_item`、`obsidian_zotero_get_children`、`obsidian_zotero_list_pdf_attachments` |
+| Vault 基础 | `obsidian_read_file`、`obsidian_write_file`、`obsidian_search`、`obsidian_update_properties` |
 
-Default pipeline tools:
+## Skills（技能）
 
-- `obsidian_pipeline_doctor`
-- `obsidian_pipeline_config`
-- `obsidian_pipeline_migrate_layout`
-- `obsidian_pipeline_ingest_item`
-- `obsidian_pipeline_ingest_collection`
-- `obsidian_pipeline_parse_with_mineru`
-- `obsidian_pipeline_rename_mineru_images`
+图谱分析、Wiki 维护、Canvas/Bases/Dataview 视图、Obsidian CLI 控制等高级工作流已转为 Skills，通过 Claude Code 或 Codex 调用：
+
+| Skill | 功能 |
+|-------|------|
+| `obsidian-vault` | 图谱、lint、wiki、schema、批量编辑、文件管理 |
+| `obsidian-cli` | Obsidian 桌面 CLI 控制 |
+| `obsidian-views` | Canvas、Bases、Dataview |
+| `obsidian-graph` | 引用网络、社区检测、连通性分析 |
+| `obsidian-mineru` | MinerU 直接解析、批量处理 |
+| `obsidian-zotero` | Zotero 搜索与文献导入 |
 
 Vault-local pipeline config lives in `.obsidian-vault-pipeline.json`:
 
@@ -60,40 +69,14 @@ obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault
 
 ## 功能概览
 
-- vault 文件列出、搜索、读取、写入和笔记创建，支持 YAML property 更新。
-- 写入前提供 `dry_run=true` unified diff 预览。
-- 批量编辑计划支持多文件预览、应用、vault 内备份和回滚。
-- 自动添加 wikilink，并基于别名、标签、未解析链接和歧义链接构建图谱。
-- 图谱构建仅扫描正文 wikilink/embed，frontmatter 中的 `related`、`cites`、`references`、`entities`、`concepts`、`sources` 字段单独提取为带类型标签的引用边，不与正文链接混淆。
-- 图谱结果基于文件 mtime 缓存，vault 无变更时重复调用直接返回缓存，大型文献库性能显著提升。
-- 检查孤立笔记、死链、重复 key、空笔记、缺失标题和 frontmatter 一致性。
-- 校验 Markdown frontmatter、Canvas JSON 和 Base YAML 格式。
-- 建议未解析链接、互链（可通过 `max_reciprocal` 限制数量）、可能重复页面（词边界感知，避免 "My Note" 与 "MyNote" 误判）、Markdown 链接和附件嵌入的图谱改进。
-- Karpathy 风格 wiki 工作流：刷新 `index.md`、追加 `log.md`、将来源整理进 source/entity/concept 页面。
-- 从 Zotero `relations` 字段构建文献引用网络，自动生成笔记间引用边（`obsidian_build_citation_network`）。
-- 将 vault callout 块（高亮、笔记、批注等）按标签或类型聚合为可读阅读摘要（`obsidian_build_reading_digest`）。
-- 从 BibTeX、参考文献元数据、MinerU Markdown、PDF 附件和 Zotero 条目导入文献。
-- 可选调用 MinerU Open API CLI 直接解析 PDF/文档后导入；支持 `obsidian_mineru_extract_folder` 批量处理整个 PDF 目录。
-- MinerU 解析图片按正文图注自动重命名为语义文件名，保留中文字符，便于知识图谱节点索引（`obsidian_mineru_rename_images`）。
-- 直接访问 Zotero Desktop 本地 API：列出文库分类、搜索、元数据、子笔记、标注、PDF 附件、PDF 文本提取和一步导入。
-- Zotero `zotero://` 链接、重复检测（key/DOI/citekey/标题）和可配置 PDF 附件命名策略。
-- 导入时自动解析 Zotero 集合名称（`collections` 字段存储可读名称而非内部 key），仅写入有值的类型专用字段，空字段不写入 frontmatter。
-- 从 Obsidian Templates、Templater 和插件配置发现用户模板。
-- vault 内 `.obsidian-vault-mcp.json` 支持输出目录、模板目录、索引/日志路径和 Zotero 附件命名默认值。
-- `--doctor` 就绪检查和只读 smoke 检查脚本。
-- JSON Canvas 创建，包括从 vault wikilink 自动生成 grid、radial、grouped、layered 布局；layered 布局支持通过 `layer_order_json` 传入自定义层级顺序。
-- Obsidian Bases 创建，内置文献、项目任务、设备、公用工程、经济性和来源材料模板。
-- Dataview 查询笔记模板。
-- 封装本地官方 `obsidian` CLI，提供 read/open、backlinks、Base query、properties、tasks、截图、plugin reload、move/rename dry-run 等结构化工具。
-- 随插件发布一组标准 skills，帮助 Codex 自动命中合适的工作流。`pip install` 安装后 skills 位于 Python 包目录内（`<site-packages>/obsidian_vault_mcp/skills/`）；clone 源码安装后位于仓库根目录 `skills/`。
-
-## 内置 Skills
-
-- `obsidian-vault`：通用 vault 维护、frontmatter、双链、图谱检查、批量编辑计划、index/log 维护。
-- `obsidian-zotero`：Zotero 搜索、单条导入、合集批量导入、附件、批注与重导入同步。
-- `obsidian-mineru`：MinerU 文档解析、批量文件夹提取、图片语义重命名、Markdown 导入、vault PDF 来源笔记、Zotero 全文挂接。
-- `obsidian-views`：JSON Canvas、Obsidian Bases、内置 Base 模板和 Dataview 查询笔记。
-- `obsidian-cli`：backlinks、properties、tasks、截图、plugin reload、带链接更新的 move/rename 等 Obsidian CLI 操作。
+- Vault 文件搜索、读取、写入和 YAML property 更新。
+- Zotero Desktop 本地 API 集成：搜索、元数据获取、子条目、PDF 附件。
+- 从 Zotero 条目一步导入文献笔记，复制 PDF 到 vault，保留 `zotero://` 链接。
+- 可选调用 MinerU Open API CLI 直接解析 PDF/文档后导入，支持批量处理。
+- MinerU 解析图片按正文图注自动重命名为语义文件名，保留中文字符。
+- 导入时自动解析 Zotero 集合名称，空字段不写入 frontmatter。
+- `--doctor` 就绪检查脚本（Zotero、MinerU、vault 配置）。
+- 随插件发布一组标准 skills，帮助 Codex/Claude Code 自动命中合适的工作流。`pip install` 安装后 skills 位于 Python 包目录内；clone 源码安装后位于仓库根目录 `skills/`。
 
 ## 配置
 
@@ -114,8 +97,8 @@ MinerU 支持是可选的。已有 MinerU Markdown 可直接导入，无需安�
 
 与 Zotero 联动的推荐三步工作流：
 
-1. `obsidian_ingest_zotero_item` → 将文献导入 `literature/`，生成完整 YAML、笔记和批注。
-2. `obsidian_mineru_extract_and_ingest`（传入 `zotero_key`）→ 解析 PDF，在 `sources/mineru/` 生成全文笔记，同时向文献 note 的 YAML 追加 `mineru_markdown: [[...]]` 跳转链接。
+1. `obsidian_pipeline_ingest_item`（传入 `zotero_key`）→ 将文献导入 `literature/`，生成完整 YAML、笔记和批注。
+2. `obsidian_pipeline_parse_with_mineru`（传入 `zotero_key`）→ 解析 PDF，在 `attachments/mineru/` 生成全文笔记，同时向文献 note 的 YAML 追加 MinerU 跳转链接。
 3. 文献 note 的正文和其他 YAML 字段完全不变，仅新增一个可点击的 MinerU 全文链接。
 
 MinerU 提取会调用多个 MinerU/OpenXLab 端点。使用 VPN、代理或 fake-IP DNS 时，请确保以下域名可直连：
@@ -154,13 +137,7 @@ Zotero 附件命名策略：`original`、`zotero_key`、`citekey`、`title_year`
 
 ## 用户模板
 
-`obsidian_list_user_templates` 从以下位置发现 Markdown 模板：
-
-- Obsidian Templates 核心插件配置 `.obsidian/templates.json`；
-- Templater 插件配置 `.obsidian/plugins/templater-obsidian/data.json`；
-- 上述插件默认配置中的 `templateFolder` 和 `defaultTemplate`。
-
-`obsidian_create_note` 支持通过 `template_path`、`template_name`、`use_template=true` 或配置的 `defaultTemplate` 应用模板。支持 `{{title}}`、`{{body}}`、`{{date}}`、`{{time}}` 等变量的安全文本替换，不执行 Templater JavaScript。
+模板发现和笔记创建等高级功能已转为 `obsidian-vault` Skill，通过 Claude Code 或 Codex 调用。
 
 ## Doctor 检查
 
@@ -174,26 +151,7 @@ Zotero Desktop、Obsidian CLI、MinerU、PDF 文本提取等可选集成会作�
 
 ## 批量编辑计划
 
-批量编辑工具接受 JSON 数组或带 `operations` 数组的对象。每个操作可用 `op`、`operation` 或 `type` 指定动作名。支持的动作：`write`、`update_properties`、`append`、`replace`、`delete`。
-
-```json
-{
-  "operations": [
-    {
-      "operation": "update_properties",
-      "path": "Projects/Alpha.md",
-      "properties": { "status": "draft" }
-    },
-    {
-      "operation": "append",
-      "path": "Projects/Alpha.md",
-      "content": "\n\n已由 Codex 审阅。"
-    }
-  ]
-}
-```
-
-先运行 `obsidian_preview_edit_plan`，确认后再运行 `obsidian_apply_edit_plan`。应用后会在 `.obsidian-vault-backups/` 创建备份，可通过 `obsidian_rollback_edit_plan` 恢复。
+批量编辑工作流（`obsidian_preview_edit_plan`、`obsidian_apply_edit_plan`、`obsidian_rollback_edit_plan`）已转为 `obsidian-vault` Skill，通过 Claude Code 或 Codex 调用。
 
 ## 安装依赖
 
@@ -226,7 +184,7 @@ MCP 入口保持在 `scripts/obsidian_vault_mcp.py`，确保现有 `.mcp.json` �
 实现包在 `scripts/obsidian_vault_mcp/`：
 
 - `common.py`：共享导入、常量和 MCP 工具注册元数据。
-- `helpers.py`：vault 安全路径、frontmatter/YAML 处理、图谱工具、Canvas/Base/schema 工具、编辑计划支持、Zotero/MinerU 工具等非工具实现细节。
+- `helpers.py`：vault 安全路径、frontmatter/YAML 处理、Zotero/MinerU 工具等非工具实现细节。
 - `tools.py`：公开的 MCP 工具函数和 CLI 封装。
 - `server.py`：FastMCP 服务器构建和工具注册。
 - `__init__.py`：供测试和直接导入使用的包导出。
@@ -385,18 +343,12 @@ claude mcp add obsidian-vault obsidian-vault-mcp
 
 ## 常用提示词
 
-- "展示这个 Obsidian vault 的结构。"
-- "创建一条带 YAML properties 的双链笔记。"
-- "在这些笔记之间添加 wikilink，并报告孤立笔记。"
-- "检查这个 vault，显示未解析链接、死链和缺失的 index/log 文件。"
-- "将这条 BibTeX 条目或 Zotero 条目导入 Obsidian。"
+- "搜索这个 Obsidian vault 中关于 X 的文献笔记。"
+- "从 Zotero 导入这条文献（key: XXXXXXXX）到 Obsidian。"
 - "用 MinerU flash-extract 解析这个 PDF 并导入 Obsidian。"
-- "批量解析这个文件夹内所有 PDF 并导入 Obsidian。"
 - "用图注重命名这个 Markdown 文件里的 MinerU 提取图片。"
-- "根据 Zotero relations 构建文献引用网络。"
-- "生成这个文献文件夹的阅读摘要（高亮 + 笔记）。"
-- "为这个项目创建 Base 视图或 Dataview 笔记。"
-- "用 Obsidian CLI 读取 backlinks 或查询 Base。"
+- "列出 Zotero 中某集合的所有文献。"
+- "运行 pipeline doctor 检查 vault 配置。"
 
 ## 参考资料
 
