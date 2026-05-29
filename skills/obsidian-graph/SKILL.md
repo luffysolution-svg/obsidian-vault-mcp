@@ -82,3 +82,61 @@ After computing metrics, suggest:
 ## 中文说明
 
 通过 `obsidian_search` + `obsidian_read_file` 收集 vault 数据，用 Bash 运行 Python/networkx 脚本完成引用网络构建、社区检测和连通性分析。分析结果转化为可操作的 `obsidian_write_file` 建议。
+
+## Knowledge Gap Detection
+
+Run after building the graph (see "Citation Network" above). Identifies notes and clusters that are under-connected.
+
+```python
+import networkx as nx
+
+# 1. Isolated nodes — no edges at all
+gaps = [n for n in G.nodes if G.degree(n) == 0]
+print(f"Isolated notes ({len(gaps)}):", gaps[:20])
+
+# 2. Sparse communities — single-node or two-node clusters after community detection
+sparse = [list(c) for c in communities if len(c) <= 2]
+print(f"Sparse communities ({len(sparse)}):", sparse)
+
+# 3. Bridge nodes — their removal would disconnect the graph
+bridges = list(nx.bridges(G.to_undirected()))
+bridge_nodes = {u for u, v in bridges} | {v for u, v in bridges}
+print(f"Bridge nodes ({len(bridge_nodes)}):", list(bridge_nodes)[:10])
+```
+
+**Report to the user:**
+- **Isolated notes** → suggest `obsidian_search` by tag overlap to find candidate notes to link, or ask whether to delete.
+- **Sparse single-paper communities** → these topics have no neighbors; suggest importing related Zotero items.
+- **Bridge notes** → held two clusters together; flag as candidates to expand into proper index notes with `obsidian_write_file`.
+
+## Surprising Connections
+
+Run after community detection. Finds high-value cross-community edges that may represent unexpected interdisciplinary links.
+
+```python
+# Map each node to its community index
+node_to_community = {}
+for i, c in enumerate(communities):
+    for n in c:
+        node_to_community[n] = i
+
+# Cross-community edges
+cross_edges = [
+    (u, v) for u, v in G.edges()
+    if node_to_community.get(u) != node_to_community.get(v)
+]
+
+# Rank by combined degree — high-degree cross-community links are most surprising
+cross_edges.sort(
+    key=lambda e: G.degree(e[0]) + G.degree(e[1]),
+    reverse=True
+)
+
+print("Top surprising connections:")
+for u, v in cross_edges[:10]:
+    print(f"  [{node_to_community[u]}] {u}  →  [{node_to_community[v]}] {v}")
+```
+
+**Report to the user:** For each of the top 10 cross-community connections, describe which two thematic clusters they bridge (using community member note names as cluster labels). Suggest:
+- Adding a wikilink annotation explaining the connection, or
+- Creating a new bridge note that synthesizes the two lines of work.
