@@ -137,7 +137,7 @@ python -c "import obsidian_vault_mcp, shutil, pathlib; src=pathlib.Path(obsidian
 
 ### OpenCode
 
-将仓库根目录的 `.opencode.json` 复制到你的项目目录，或将 `mcp` 块合并到全局 `~/.opencode.json`：
+将仓库根目录的 `opencode.json` 复制到你的项目目录，或将 `mcp` 块合并到全局 `~/.config/opencode/opencode.json`：
 
 ```json
 {

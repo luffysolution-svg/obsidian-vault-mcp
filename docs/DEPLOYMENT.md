@@ -10,7 +10,7 @@ obsidian-vault-mcp/
   .codex-plugin/plugin.json
   .claude-plugin/plugin.json
   .mcp.json
-  .opencode.json
+  opencode.json
   .gitignore
   LICENSE
   pyproject.toml
@@ -40,7 +40,7 @@ Do not publish local vault files, generated backups, virtual environments,
 
 `.codex-plugin/plugin.json` is the Codex plugin manifest.
 `.claude-plugin/plugin.json` is the Claude Code plugin manifest.
-`.opencode.json` is the OpenCode MCP
+`opencode.json` is the OpenCode MCP
 server configuration. Keep all three checked in so users of each client can
 connect without extra setup.
 

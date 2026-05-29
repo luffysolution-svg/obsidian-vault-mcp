@@ -3,7 +3,7 @@
   "mcp": {
     "obsidian-vault": {
       "type": "local",
-      "command": ["python", "./scripts/obsidian_vault_mcp.py"],
+      "command": ["obsidian-vault-mcp"],
       "environment": {
         "OBSIDIAN_VAULT_PATH": "auto",
         "OBSIDIAN_CLI_COMMAND": "obsidian"

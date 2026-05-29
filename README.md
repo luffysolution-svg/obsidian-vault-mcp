@@ -286,7 +286,7 @@ https://github.com/luffysolution-svg/obsidian-vault-mcp.
 3. Set up the client I am using:
    - Codex: use `.codex-plugin/plugin.json` and `.mcp.json`.
    - Claude Code: first install `zotero-obsidian-mcp`, then run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add the `.mcp.json` server block manually. If skills are not auto-loaded, copy the packaged `skills/` directory into `~/.claude/skills/`.
-   - OpenCode: copy `.opencode.json` into the project, or merge its `mcp` block into `~/.opencode.json`.
+   - OpenCode: copy `opencode.json` into the project, or merge its `mcp` block into `~/.config/opencode/opencode.json`.
 4. Keep vault paths, Zotero storage paths, and tokens in local config only.
 5. Run `obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault`.
 6. If I need Zotero features, remind me to open Zotero Desktop. If I need MinerU parsing, check whether `mineru-open-api` is installed.
@@ -353,14 +353,14 @@ claude mcp add obsidian-vault obsidian-vault-mcp
 
 ### OpenCode
 
-- 将仓库根目录的 `.opencode.json` 复制到你的项目目录，或将 `mcp` 块合并到全局 `~/.opencode.json`。
+- 将仓库根目录的 `opencode.json` 复制到你的项目目录，或将 `mcp` 块合并到全局 `~/.config/opencode/opencode.json`。
 
 ```json
 {
   "mcp": {
     "obsidian-vault": {
       "type": "local",
-      "command": ["python", "./scripts/obsidian_vault_mcp.py"],
+      "command": ["obsidian-vault-mcp"],
       "environment": {
         "OBSIDIAN_VAULT_PATH": "auto",
         "OBSIDIAN_CLI_COMMAND": "obsidian"
@@ -373,7 +373,7 @@ claude mcp add obsidian-vault obsidian-vault-mcp
 ## 可移植性与安全说明
 
 - `.mcp.json` 使用已安装的 `obsidian-vault-mcp` 入口命令；对多数用户来说，`pip install zotero-obsidian-mcp` 是最稳的部署方式。
-- `.codex-plugin/plugin.json`、`.claude-plugin/plugin.json` 和 `.opencode.json` 分别服务于三种客户端，建议一起保留在仓库根目录。
+- `.codex-plugin/plugin.json`、`.claude-plugin/plugin.json` 和 `opencode.json` 分别服务于三种客户端，建议一起保留在仓库根目录。
 - 插件不硬编码 vault 路径；`auto` 会跟随本地 Obsidian CLI 当前活动的 vault。
 - 所有文件操作限制在解析后的 vault 根目录内，现有文件不会被覆盖，除非工具调用显式传入 `overwrite=true`。
 - 写入工具支持 `dry_run=true`，Wiki 工作流将生成内容保存在标记注释内，方便保留手写内容。

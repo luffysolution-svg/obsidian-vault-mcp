@@ -333,7 +333,7 @@ https://github.com/luffysolution-svg/obsidian-vault-mcp.
 3. Set up the client I am using:
    - Codex: use `.codex-plugin/plugin.json` and `.mcp.json`.
    - Claude Code: first install `zotero-obsidian-mcp`, then run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add the `.mcp.json` server block manually. If skills are not auto-loaded, copy the packaged `skills/` directory into `~/.claude/skills/`.
-   - OpenCode: copy `.opencode.json` into the project, or merge its `mcp` block into `~/.opencode.json`.
+   - OpenCode: copy `opencode.json` into the project, or merge its `mcp` block into `~/.config/opencode/opencode.json`.
 4. Keep vault paths, Zotero storage paths, and tokens in local config only.
 5. Run `obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault`.
 6. If I need Zotero features, remind me to open Zotero Desktop. If I need MinerU parsing, check whether `mineru-open-api` is installed.
@@ -400,14 +400,14 @@ Or add it manually to `~/.claude/settings.json`:
 
 ### OpenCode
 
-- Copy `.opencode.json` from the repository root into your project, or merge the `mcp` block into global `~/.opencode.json`.
+- Copy `opencode.json` from the repository root into your project, or merge the `mcp` block into global `~/.config/opencode/opencode.json`.
 
 ```json
 {
   "mcp": {
     "obsidian-vault": {
       "type": "local",
-      "command": ["python", "./scripts/obsidian_vault_mcp.py"],
+      "command": ["obsidian-vault-mcp"],
       "environment": {
         "OBSIDIAN_VAULT_PATH": "auto",
         "OBSIDIAN_CLI_COMMAND": "obsidian"
@@ -420,7 +420,7 @@ Or add it manually to `~/.claude/settings.json`:
 ## Portability and Safety
 
 - `.mcp.json` uses the installed `obsidian-vault-mcp` entry point; for most users, `pip install zotero-obsidian-mcp` is the most reliable deployment path.
-- `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, and `.opencode.json` are the checked-in manifests for the three supported clients.
+- `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, and `opencode.json` are the checked-in manifests for the three supported clients.
 - The plugin does not hard-code a vault path; `auto` follows the vault currently active in the local Obsidian CLI.
 - All file operations are constrained to the resolved vault root, and existing files are not overwritten unless the tool call passes `overwrite=true`.
 - Write tools support `dry_run=true`, and wiki workflows keep generated content inside marker comments so hand-written note content can stay outside the managed block.

@@ -34,7 +34,7 @@ claude mcp add obsidian-vault obsidian-vault-mcp
 
 **Codex：** 将仓库根目录注册为本地插件，并确保 PyPI 包已安装。
 
-**OpenCode：** 将仓库根目录的 `.opencode.json` 复制到项目目录，或合并到 `~/.opencode.json`。
+**OpenCode：** 将仓库根目录的 `opencode.json` 复制到项目目录，或合并到 `~/.config/opencode/opencode.json`。
 
 ## 主要功能
 
