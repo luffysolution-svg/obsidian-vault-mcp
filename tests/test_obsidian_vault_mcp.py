@@ -601,7 +601,6 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("mineruStatus: parsed", updated_lit)
 
     def test_exactly_17_tools_registered(self):
-        import importlib
         import sys
         # Fresh module load to count registrations
         for mod_name in list(sys.modules.keys()):
