@@ -1,53 +1,107 @@
 ---
 name: obsidian-vault
-description: "Work with local Obsidian vaults as linked knowledge bases. Use when Codex needs to inspect, edit, organize, or maintain vault notes, YAML frontmatter, tags, wikilinks, backlinks, graph structure, bulk edit plans, schema checks, index/log wiki files, or source notes inside an Obsidian vault. 当用户提到 Obsidian 仓库、笔记、YAML 属性、双链、图谱、批量修改、索引日志或本地知识库维护时使用。"
+description: "Work with local Obsidian vaults as linked knowledge bases. Use when the user needs to inspect, edit, organise, maintain, or analyse vault notes, YAML frontmatter, wikilinks, graph structure, wiki index/log, schema, or bulk edits. 当用户提到 Obsidian 仓库、笔记、YAML 属性、双链、图谱、批量修改、索引日志、模板或本地知识库维护时使用。"
 ---
 
 # Obsidian Vault
 
-Default MCP profile is `literature`, focused on Zotero + MinerU + Obsidian ingestion. Use `OBSIDIAN_VAULT_TOOL_PROFILE=full` or `legacy` when a request requires the older graph, wiki, Canvas, Bases, Dataview, schema, or CLI tools.
+Use the 17 MCP tools in the `literature` profile plus Claude's built-in tools (Read, Write, Edit, Grep, Bash, Glob) for all vault work.
 
-Use the bundled `obsidian-vault` MCP tools for vault-relative work. Combine them with `obsidian-markdown`, `json-canvas`, and `obsidian-bases` when those workspace skills are available.
-在处理 Obsidian vault、本地知识库、frontmatter、双链和图谱维护时优先使用。
+## Core MCP Tools
 
-## Start
+- `obsidian_read_file` / `obsidian_write_file` — read and write vault notes
+- `obsidian_search` — full-text search across the vault
+- `obsidian_update_properties` — safely merge/replace YAML frontmatter
 
-1. Resolve the vault with `obsidian_vault_status`.
-2. Inspect candidate files with `obsidian_list_files`, `obsidian_search`, and `obsidian_read_file`.
-3. Prefer `obsidian_update_properties` for frontmatter changes and `obsidian_add_wikilinks` for controlled linking.
-4. Preview write operations with `dry_run=true`.
-5. For multi-file work, use `obsidian_preview_edit_plan` before `obsidian_apply_edit_plan`, and keep the transaction id for `obsidian_rollback_edit_plan`.
+## File Management
 
-## Common Workflows
+To list files: use `obsidian_search` with an empty query, or use the `Glob` tool with the vault path.
 
-### Edit notes and frontmatter
+To delete a file: use `Bash` → `Remove-Item "vault_path\relative\path.md"` (Windows) or `rm`.
 
-- Use `obsidian_create_note` or `obsidian_write_file` for note creation.
-- Use `obsidian_list_user_templates` when the vault relies on Obsidian Templates or Templater.
-- Preserve unrelated body content and unrelated YAML fields.
+To move/rename a file: use `Bash` → `Move-Item` (Windows) or `mv`. If Obsidian is open, use the `obsidian-cli` skill to preserve wikilink integrity.
 
-### Maintain the graph
+To batch-move files: use `Bash` with a loop or `Get-ChildItem | Move-Item`.
 
-- Run `obsidian_build_graph` after link-heavy edits.
-- Use `obsidian_lint_vault` and `obsidian_suggest_graph_improvements` to catch orphans, dead ends, unresolved links, and weak backlink structure.
-- Run `obsidian_validate_vault_schema` or `obsidian_apply_schema_defaults` when note types depend on stable frontmatter layouts.
+## Graph Maintenance
 
-### Maintain a persistent wiki
+To analyse the wikilink graph:
+1. Use `obsidian_search` with `query=""` to list all `.md` files.
+2. For each file, use `obsidian_read_file` to extract `[[wikilinks]]` with regex `\[\[([^\]]+)\]\]`.
+3. Build an edge list and identify orphans (nodes with no in-links) and dead links (targets that don't exist as files).
+4. Report findings. Suggest `obsidian_write_file` fixes for broken links.
 
-- Keep raw sources separate from generated entity and concept notes.
-- Update `index.md` and `log.md` as part of the same pass when ingesting important new material.
-- Use `obsidian_ingest_source_note` for source plus entity plus concept plus index plus log updates.
-- Use `obsidian_update_wiki_index` and `obsidian_append_wiki_log` for smaller maintenance passes.
+To find orphans: collect all filenames, collect all link targets, subtract linked from all.
 
-### Ingest literature and source material
+To find broken links: collect all link targets, subtract existing filenames.
 
-- Use `obsidian_ingest_reference` or `obsidian_ingest_bibtex` for literature metadata.
-- Use `obsidian_ingest_pdf_attachment` for PDFs already inside the vault.
-- Use the dedicated `obsidian-zotero` and `obsidian-mineru` skills when the request is specifically about Zotero or MinerU.
+To add wikilinks: use `obsidian_read_file` + `obsidian_write_file` with the updated content.
+
+## Vault Health (Lint)
+
+Run this sequence:
+1. `obsidian_search` with `query=""` — get all notes.
+2. Read each note with `obsidian_read_file` and check:
+   - Missing required frontmatter fields (type, title, tags).
+   - Dead `[[links]]` pointing to non-existent notes.
+   - Notes with no outgoing or incoming links (orphans).
+3. Report a structured issues list grouped by type.
+
+## Wiki Maintenance
+
+To update the wiki index (`index.md`):
+1. Use `obsidian_search` to list notes by tag or folder.
+2. Build a markdown catalogue grouped by tag.
+3. Use `obsidian_write_file` to write the catalogue between `<!-- obsidian-vault:index:start -->` and `<!-- obsidian-vault:index:end -->` markers.
+
+To append a wiki log entry (`log.md`):
+1. Use `obsidian_read_file` to read existing `log.md` (or create if absent).
+2. Prepend a new `## YYYY-MM-DD` entry with the summary and touched paths.
+3. Use `obsidian_write_file` to save.
+
+## Schema Validation
+
+To validate frontmatter schema:
+1. Use `obsidian_search` to find notes by folder prefix (e.g. `sources/`, `entities/`).
+2. For each note, use `obsidian_read_file` and parse the YAML frontmatter block.
+3. Check required fields: `sources/` → `{type, title, tags}`, `entities/` → `{type, title, sources}`.
+4. Report missing or invalid fields.
+
+To apply schema defaults:
+1. For notes missing required fields, use `obsidian_update_properties` with `merge_mode="merge"` to fill in defaults.
+2. Use `dry_run=true` first to preview.
+
+## Bulk Editing (Edit Plans)
+
+To preview a multi-file edit:
+1. Collect the list of files and planned changes.
+2. Use `obsidian_read_file` on each, show before/after diffs inline.
+3. Ask the user to confirm before writing.
+
+To apply:
+1. For each file, use `obsidian_write_file` or `obsidian_update_properties`.
+2. Keep a backup list of original content for rollback.
+
+To rollback: restore each file from the backup content using `obsidian_write_file`.
+
+## Note Creation with Templates
+
+To create a note with a template:
+1. Use `obsidian_search` in the templates folder (check `.obsidian/templates.json` for path).
+2. Use `obsidian_read_file` to load the template.
+3. Substitute `{{title}}`, `{{body}}`, `{{status}}` and Templater tokens (`<% tp.date.now(...) %>`).
+4. Merge template frontmatter with supplied properties (supplied properties win).
+5. Use `obsidian_write_file` to write the note.
 
 ## Safety
 
-- Treat file paths as vault-relative unless a tool explicitly asks for `vault_path`.
-- Do not write outside the vault root.
-- Use `dry_run=true` before mutations when the requested change is broad or destructive.
-- Prefer Obsidian CLI move or rename wrappers when the desktop app is running and internal links must stay correct.
+- Always use `dry_run=true` before broad mutations.
+- Never write outside the vault root.
+- Prefer `obsidian_update_properties` for frontmatter edits — it preserves body content.
+- When Obsidian desktop is open, prefer the `obsidian-cli` skill for moves and renames.
+
+---
+
+## 中文说明
+
+使用 17 个 MCP 工具加上 Claude 内置工具处理所有 vault 操作。图谱分析、lint 检查、wiki 维护、schema 验证和批量编辑现在通过 `obsidian_search` + `obsidian_read_file` + `obsidian_write_file` 组合完成，不再依赖独立的 MCP 工具。
