@@ -2609,7 +2609,8 @@ def _pipeline_find_literature(vault: Path, zotero_key: str = "", literature_path
         full = _safe_path(vault, rel)
         props, body = _split_frontmatter(_read_text(full))
         return rel, props, body
-    found = _find_existing_reference(vault, {"zoteroKey": zotero_key}, "")
+    config = _pipeline_config(vault)
+    found = _find_existing_reference(vault, {"zoteroKey": zotero_key}, config["literatureFolder"])
     if not found:
         raise FileNotFoundError(f"No literature note found for Zotero key: {zotero_key}")
     full = _safe_path(vault, found["path"])
