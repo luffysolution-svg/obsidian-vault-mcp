@@ -37,3 +37,58 @@ Use the Zotero tools in this plugin when the request starts from the user's loca
 - Use `obsidian_zotero_list_pdf_attachments` to inspect attachment inventory before import.
 - Use `obsidian_zotero_extract_pdf_text` when the user wants raw text from a Zotero PDF attachment without a full note import.
 - Use the `obsidian-mineru` skill when the request is about parsing a Zotero-linked PDF into full Markdown.
+
+## Reading a Single Paper
+
+Use when the user asks a question about a specific literature note or wants a summary, key findings, methods, or evidence from one paper.
+
+1. Read the literature note frontmatter with `obsidian_read_file`.
+2. Check `mineruStatus`:
+   - If `mineruStatus: parsed` → read `attachments/mineru/<zoteroKey>/paper.md` via `obsidian_read_file`. This is the richest source (full structured text + figure captions).
+   - Otherwise → read the literature note body directly.
+3. For targeted questions (e.g. "what dataset did they use?"), use `obsidian_search` with a focused keyword **before** reading the full file — this often answers the question in ≤ 2 tool calls.
+4. Preserve and surface the user's `## Reading Notes` content as primary evidence when answering.
+
+**Budget:** ≤ 3 tool calls for a typical factual question. Escalate to full-file read only if search is insufficient.
+
+## Comparing Multiple Papers
+
+Use when the user wants a structured comparison across 2–10 literature notes (methods, results, datasets, limitations, etc.).
+
+1. Batch-read each paper's literature note (first ~60 lines) to get frontmatter + abstract via `obsidian_read_file`. This covers most comparisons.
+2. Agree on the comparison axis with the user (method / result / dataset / limitation / year).
+3. For axes requiring deeper detail, run `obsidian_search` with a targeted keyword. Scope the search by including the paper title or zoteroKey in the query to avoid cross-paper noise.
+4. Emit a structured Markdown table:
+
+```markdown
+| Paper | Method | Dataset | Key Result | Limitation |
+|-------|--------|---------|------------|------------|
+| Author YYYY | … | … | … | … |
+```
+
+5. Append a 2–3 sentence synthesis paragraph below the table.
+
+## Writing a Literature Review
+
+Use when the user wants to draft or scaffold a review section covering multiple papers on a topic.
+
+### Phase 1 — Collect
+
+1. Run `obsidian_search` with the review topic as query; set `extensions=".md"`.
+2. Filter results to notes with `type: literature` in frontmatter.
+3. Present the candidate list to the user and confirm scope before proceeding.
+
+### Phase 2 — Deep-read
+
+1. For each selected paper:
+   - If `mineruStatus: parsed` → read MinerU Markdown (`attachments/mineru/<zoteroKey>/paper.md`).
+   - Otherwise → read the literature note.
+2. Extract key claims grouped by review theme (background / methods / results / gaps).
+3. Always include the user's existing `## Reading Notes` content — it is primary evidence.
+
+### Phase 3 — Synthesize
+
+1. Draft the review section by section, grouping papers under each theme.
+2. Use inline wikilinks `[[Lovelace 2024 - Zotero Article]]` to cite papers.
+3. Save the draft with `obsidian_write_file` to a path agreed with the user (e.g. `reviews/Topic Review Draft.md`).
+4. Mark the draft with `status: draft` in frontmatter.
