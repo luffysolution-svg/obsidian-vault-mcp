@@ -1,5 +1,21 @@
 # Obsidian Vault
 
+## Literature Pipeline Default
+
+The default MCP profile is `literature`. It exposes the pipeline tools for importing stable Zotero literature notes, copying PDFs into the vault, preserving Zotero source paths and `zotero://` links, optionally parsing PDFs with MinerU, renaming extracted images with English semantic slugs, and generating `images-index.md`.
+
+Set `OBSIDIAN_VAULT_TOOL_PROFILE=full` or `OBSIDIAN_VAULT_TOOL_PROFILE=legacy` to expose the older broad Obsidian toolbox for wiki, graph, Canvas, Bases, Dataview, schema, and CLI workflows.
+
+Default pipeline tools:
+
+- `obsidian_pipeline_doctor`
+- `obsidian_pipeline_config`
+- `obsidian_pipeline_migrate_layout`
+- `obsidian_pipeline_ingest_item`
+- `obsidian_pipeline_ingest_collection`
+- `obsidian_pipeline_parse_with_mineru`
+- `obsidian_pipeline_rename_mineru_images`
+
 Local MCP plugin for Codex, Claude Code, and OpenCode — maintain Obsidian vaults as persistent linked wikis.
 
 [![PyPI](https://img.shields.io/pypi/v/zotero-obsidian-mcp?label=PyPI)](https://pypi.org/project/zotero-obsidian-mcp/)

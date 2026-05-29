@@ -1,5 +1,11 @@
 # Obsidian Vault
 
+## Literature Pipeline Default
+
+Default profile: `literature`. It exposes the focused Zotero + MinerU + Obsidian pipeline tools only. Use `OBSIDIAN_VAULT_TOOL_PROFILE=full` or `legacy` for the old broad Obsidian toolbox.
+
+Pipeline tools: `obsidian_pipeline_doctor`, `obsidian_pipeline_config`, `obsidian_pipeline_migrate_layout`, `obsidian_pipeline_ingest_item`, `obsidian_pipeline_ingest_collection`, `obsidian_pipeline_parse_with_mineru`, `obsidian_pipeline_rename_mineru_images`.
+
 面向 Codex、Claude Code 和 OpenCode 的本地 MCP 插件，将本地 Obsidian vault 维护成可持续增长的双链知识库。
 
 [![PyPI](https://img.shields.io/pypi/v/zotero-obsidian-mcp?label=PyPI)](https://pypi.org/project/zotero-obsidian-mcp/)

@@ -16,23 +16,21 @@ Use the Zotero tools in this plugin when the request starts from the user's loca
 
 ## Import Workflow
 
-1. Use `obsidian_ingest_zotero_item` for a single parent item.
-2. Use `obsidian_ingest_zotero_collection` for batch import by collection, tag, item type, or query.
-3. Enable `copy_pdf_attachments` only when vault-local copies are desired.
-4. Choose `attachment_name_strategy` from `original`, `zotero_key`, `citekey`, `title_year`, or `parent_key`.
-5. Use `folder_by_collection`, `folder_by_type`, and `tag_by_collection` only when the vault taxonomy should follow Zotero organization.
+1. Prefer `obsidian_pipeline_ingest_item` for a single parent item.
+2. Prefer `obsidian_pipeline_ingest_collection` for collection batch import; it continues after per-item failures and returns a full report.
+3. The pipeline always copies PDFs into the configured vault attachment folder, preserves Zotero source paths, and writes `zotero://select` plus `zotero://open-pdf` links.
+4. Use the older `obsidian_ingest_zotero_item` and `obsidian_ingest_zotero_collection` only when running the `full` or `legacy` tool profile for compatibility/debugging.
 
 ## Imported Note Shape
 
-- Frontmatter includes Zotero identity fields such as `zoteroKey`, `zoteroVersion`, `zoteroSelect`, and, when available, PDF link fields.
+- Pipeline frontmatter includes Zotero identity fields such as `zoteroKey`, `zoteroVersion`, `zoteroSelect`, `zoteroPdfKeys`, `zoteroPdfLinks`, original attachment paths, copied attachment paths, and Obsidian wikilinks.
 - Collection names are stored as human-readable names in `collections`, not raw collection keys.
 - The note body can include citation details, embedded attachments, abstract text, child notes, annotations, related-item links, attachment warnings, and optional extracted PDF text.
 
 ## Re-ingest Behavior
 
-- If the stored `zoteroVersion` matches, the tool returns `upToDate: true` and skips rewriting by default.
-- If the Zotero version changed, the note is rewritten and user-added non-Zotero fields are preserved.
-- This preservation is important for fields added later, such as `mineru_markdown`.
+- Repeated pipeline runs preserve user-owned YAML fields, unknown custom fields, `## Reading Notes`, and `## AI Summary`.
+- The plugin does not generate AI summaries; skills may write that section later.
 
 ## Related Tools
 

@@ -1,5 +1,35 @@
 # Obsidian Vault
 
+## Literature pipeline default
+
+The default MCP profile is now `literature`: a focused Zotero + MinerU + Obsidian pipeline for importing stable literature notes, copying Zotero PDFs, preserving `zotero://select` and `zotero://open-pdf` links, optionally parsing PDFs with MinerU, renaming extracted images as English semantic slugs, and generating `images-index.md`.
+
+Use `OBSIDIAN_VAULT_TOOL_PROFILE=full` or `OBSIDIAN_VAULT_TOOL_PROFILE=legacy` to expose the older broad Obsidian toolbox for wiki, graph, Canvas, Bases, Dataview, schema, and CLI workflows.
+
+Default pipeline tools:
+
+- `obsidian_pipeline_doctor`
+- `obsidian_pipeline_config`
+- `obsidian_pipeline_migrate_layout`
+- `obsidian_pipeline_ingest_item`
+- `obsidian_pipeline_ingest_collection`
+- `obsidian_pipeline_parse_with_mineru`
+- `obsidian_pipeline_rename_mineru_images`
+
+Vault-local pipeline config lives in `.obsidian-vault-pipeline.json`:
+
+```json
+{
+  "literatureFolder": "literature",
+  "zoteroAttachmentsFolder": "attachments/zotero",
+  "mineruAttachmentsFolder": "attachments/mineru",
+  "noteFilenamePattern": "{firstAuthor} {year} - {shortTitle}",
+  "pdfFilenamePattern": "{shortTitle}",
+  "mineruMarkdownName": "paper.md",
+  "mineruImagesIndexName": "images-index.md"
+}
+```
+
 面向 Codex、Claude Code 和 OpenCode 的本地 MCP 插件，将本地 Obsidian vault 维护成可持续增长的双链知识库。
 
 [![PyPI](https://img.shields.io/pypi/v/zotero-obsidian-mcp?label=PyPI)](https://pypi.org/project/zotero-obsidian-mcp/)

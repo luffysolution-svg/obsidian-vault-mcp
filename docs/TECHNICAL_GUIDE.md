@@ -1,6 +1,14 @@
 # Obsidian Vault MCP — Technical Guide / 技术文档
 
 > Version 1.0.26 | Python 3.10+ | MIT License
+
+## Literature Pipeline Profile
+
+The default MCP tool profile is `literature`. It exposes only the focused Zotero + MinerU + Obsidian literature pipeline surface plus a few basic file/YAML and Zotero query tools. Set `OBSIDIAN_VAULT_TOOL_PROFILE=full` or `OBSIDIAN_VAULT_TOOL_PROFILE=legacy` to expose the historical graph, wiki, Canvas, Bases, Dataview, schema, and CLI tools.
+
+Default high-level pipeline tools: `obsidian_pipeline_doctor`, `obsidian_pipeline_config`, `obsidian_pipeline_migrate_layout`, `obsidian_pipeline_ingest_item`, `obsidian_pipeline_ingest_collection`, `obsidian_pipeline_parse_with_mineru`, and `obsidian_pipeline_rename_mineru_images`.
+
+Vault-local pipeline configuration is read from `.obsidian-vault-pipeline.json`. Defaults place literature notes in `literature/`, copied Zotero PDFs in `attachments/zotero/<zoteroKey>/`, and MinerU machine outputs in `attachments/mineru/<zoteroKey>/paper.md`, `images-index.md`, and `images/`.
 >
 > [English](#english) | [中文](#chinese)
 

@@ -5,6 +5,8 @@ description: "Work with local Obsidian vaults as linked knowledge bases. Use whe
 
 # Obsidian Vault
 
+Default MCP profile is `literature`, focused on Zotero + MinerU + Obsidian ingestion. Use `OBSIDIAN_VAULT_TOOL_PROFILE=full` or `legacy` when a request requires the older graph, wiki, Canvas, Bases, Dataview, schema, or CLI tools.
+
 Use the bundled `obsidian-vault` MCP tools for vault-relative work. Combine them with `obsidian-markdown`, `json-canvas`, and `obsidian-bases` when those workspace skills are available.
 在处理 Obsidian vault、本地知识库、frontmatter、双链和图谱维护时优先使用。
 

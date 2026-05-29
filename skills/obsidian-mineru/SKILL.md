@@ -10,28 +10,28 @@ Use this skill when the request is about full-document parsing and source-note i
 
 ## Choose the Path
 
-- If the user already has MinerU Markdown, use `obsidian_ingest_mineru_markdown`.
-- If the PDF is already inside the vault and only needs a source note, use `obsidian_ingest_pdf_attachment`.
-- If the user wants this plugin to run MinerU directly, start with `obsidian_mineru_status`.
+- If the request is Zotero-linked literature ingestion, prefer `obsidian_pipeline_ingest_item(parse_with_mineru=true)` or `obsidian_pipeline_parse_with_mineru`.
+- If MinerU output already exists under the pipeline layout, use `obsidian_pipeline_rename_mineru_images` to normalize images and regenerate `images-index.md`.
+- Use older `obsidian_mineru_*` tools only in the `full` or `legacy` profile for compatibility/debugging.
 
 ## Direct Extraction Workflow
 
-1. Check `obsidian_mineru_status`.
-2. Prefer `flash-extract` when no token is configured.
-3. Use `obsidian_mineru_extract` for extraction only.
-4. Use `obsidian_mineru_extract_and_ingest` when the goal is a finished Obsidian source note.
+1. Check `obsidian_pipeline_doctor` or `obsidian_mineru_status`.
+2. Parse copied Zotero PDFs into `attachments/mineru/<zoteroKey>/paper.md`.
+3. Rename extracted images to English semantic filenames such as `fig-01-process-flow-diagram.png`.
+4. Generate `attachments/mineru/<zoteroKey>/images-index.md`.
 
 ## Zotero-Linked Workflow
 
-1. Import the literature note first with `obsidian_ingest_zotero_item`.
-2. Pass `zotero_key` to `obsidian_mineru_extract_and_ingest`.
-3. Expect the tool to append `mineru_markdown: [[...]]` to the literature note frontmatter while leaving the rest of the note body unchanged.
+1. Import the literature note with `obsidian_pipeline_ingest_item`.
+2. Pass `parse_with_mineru=true`, or later call `obsidian_pipeline_parse_with_mineru(zotero_key=...)`.
+3. Expect the literature note to link to the copied PDF, Zotero PDF URI, MinerU Markdown, and image index while preserving user reading work.
 
 ## Output Expectations
 
-- MinerU content is ingested as a separate source note, typically under the configured MinerU source folder.
-- The extracted note can include the parsed Markdown plus an embedded PDF attachment when provided.
-- Existing literature notes are not rewritten except for the optional `mineru_markdown` field update in the Zotero-linked path.
+- MinerU assets are machine-generated and may be overwritten on re-parse.
+- Literature notes are stable user workspaces; preserve custom YAML, `Reading Notes`, and `AI Summary`.
+- The plugin does not generate AI summaries, wiki pages, graphs, or reviews from MinerU output.
 
 ## Troubleshooting
 
