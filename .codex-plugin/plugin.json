@@ -1,6 +1,6 @@
 {
   "name": "obsidian-vault",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Import Zotero literature into Obsidian, optionally parse PDFs with MinerU, and preserve stable literature notes.",
   "author": {
     "name": "Obsidian Vault MCP Contributors",
