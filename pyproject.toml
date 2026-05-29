@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zotero-obsidian-mcp"
-version = "1.0.26"
-description = "Local MCP server for maintaining Obsidian vaults as persistent linked wikis."
+version = "1.0.27"
+description = "Local MCP server for a Zotero + MinerU + Obsidian literature pipeline."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
   { name = "Obsidian Vault MCP Contributors" }
 ]
-keywords = ["obsidian", "vault", "markdown", "canvas", "bases", "mcp"]
+keywords = ["obsidian", "zotero", "mineru", "literature", "markdown", "mcp"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
