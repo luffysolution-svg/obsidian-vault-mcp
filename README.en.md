@@ -276,21 +276,36 @@ a working route.
 ## AI-Assisted Setup
 
 Paste this prompt into any AI coding assistant (Codex, Claude Code, OpenCode,
-etc.):
+Cursor, Windsurf, VS Code + Copilot, etc.):
 
 ```text
 Install and configure the Obsidian Vault MCP plugin from
 https://github.com/luffysolution-svg/obsidian-vault-mcp.
 
-1. Install the PyPI package `zotero-obsidian-mcp` with `pip install zotero-obsidian-mcp`, or use `pip install -e .` for a source checkout. Do not install the unrelated PyPI package `obsidian-vault-mcp`; `obsidian-vault-mcp` is the executable command, not the package name.
+1. Install: `pip install zotero-obsidian-mcp`
+   (Do NOT install the unrelated `obsidian-vault-mcp` package;
+   `obsidian-vault-mcp` is only the executable name.)
 2. Keep `OBSIDIAN_VAULT_PATH=auto` unless auto-detection fails.
-3. Set up the client I am using:
-   - Codex: use `.codex-plugin/plugin.json` and `.mcp.json`.
-   - Claude Code: first install `zotero-obsidian-mcp`, then run `claude mcp add obsidian-vault obsidian-vault-mcp`, or add the `.mcp.json` server block manually. If skills are not auto-loaded, copy the packaged `skills/` directory into `~/.claude/skills/`.
-   - OpenCode: copy `opencode.json` into the project, or merge its `mcp` block into `~/.config/opencode/opencode.json`.
-4. Keep vault paths, Zotero storage paths, and tokens in local config only.
-5. Run `obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/your-vault`.
-6. If I need Zotero features, remind me to open Zotero Desktop. If I need MinerU parsing, check whether `mineru-open-api` is installed.
+3. Wire up the client I am using:
+   - Codex: point the plugin root at this repo; `.codex-plugin/plugin.json`
+     and `.mcp.json` are already in place.
+   - Claude Code: run `claude mcp add obsidian-vault obsidian-vault-mcp`.
+     Skills are bundled in the package — no manual copying needed.
+   - OpenCode: copy `opencode.json` into the project, or merge its `mcp`
+     block into `~/.config/opencode/opencode.json`.
+   - Cursor: add the server block from `.mcp.json` to
+     `<project>/.cursor/mcp.json` (or global `~/.cursor/mcp.json`).
+   - Windsurf: add the same server block to
+     `~/.codeium/windsurf/mcp_config.json`.
+   - VS Code + Copilot: add the server block to `.vscode/mcp.json`
+     in the workspace (requires GitHub Copilot Chat >= 1.256).
+4. Keep vault paths, Zotero storage paths, and API tokens in local config
+   only — never commit them.
+5. Run: `obsidian-vault-mcp --doctor --doctor-format text --vault /path/to/vault`
+6. If I need Zotero features, remind me to start Zotero Desktop with the
+   local API enabled (port 23119). If I need MinerU parsing, run
+   `mineru-open-api --version` first; install with
+   `pip install mineru-open-api` if missing.
 ```
 
 ## Client Setup
