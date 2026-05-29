@@ -1,37 +1,116 @@
 ---
 name: obsidian-views
-description: "Build visual and query views for an Obsidian vault. Use when Codex needs to create or update JSON Canvas maps, Obsidian Bases files, built-in Base templates, or Dataview notes from vault content, graph structure, folders, tags, or frontmatter-driven collections. 当用户提到 Canvas、Bases、Dataview、视图、图谱布局、表格卡片视图或查询笔记时使用。"
+description: "Build visual and query views for an Obsidian vault. Use when the user needs to create or update JSON Canvas maps, Obsidian Bases files, or Dataview notes. 当用户提到 Canvas、Bases、Dataview、视图、图谱布局、表格卡片视图或查询笔记时使用。"
 ---
 
 # Obsidian Views
 
-Use this skill when the goal is to present or query vault content rather than merely edit notes.
-处理 Canvas、Bases 和 Dataview 视图构建时优先使用。
+Use `obsidian_write_file` to write Canvas (`.canvas`), Bases (`.base`), and Dataview (`.md`) files. Use `obsidian_search` and `obsidian_read_file` to gather vault content first.
 
-## Start
+## Canvas (JSON Canvas)
 
-1. Inspect relevant notes, folders, tags, or graph structure first.
-2. Decide whether the user needs a Canvas map, a Base, or a Dataview note.
-3. Use `dry_run=true` when the generated file may overwrite an existing artifact.
+A `.canvas` file is a JSON object with `nodes` and `edges` arrays.
 
-## Choose the Output
+**Minimal Canvas structure:**
+```json
+{
+  "nodes": [
+    {"id": "a", "type": "file", "file": "notes/A.md", "x": 0, "y": 0, "width": 250, "height": 60},
+    {"id": "b", "type": "file", "file": "notes/B.md", "x": 300, "y": 0, "width": 250, "height": 60}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "a", "toNode": "b", "toEnd": "arrow"}
+  ]
+}
+```
 
-### Canvas
+**Node types:** `file` (vault note), `text` (inline text), `link` (URL), `group` (container).
 
-- Use `obsidian_create_canvas` for custom node and edge payloads.
-- Use `obsidian_create_canvas_from_graph` when the view should be derived from vault wikilinks.
-- Choose a layout such as `grid`, `radial`, `grouped`, or `layered`.
+**Layouts:**
+- Grid: place nodes at evenly spaced `(x, y)` positions, e.g. 300px apart.
+- Radial: compute angles around a centre point.
+- Grouped: create `group` nodes first, position member nodes inside group bounds.
+- Layered: arrange by folder depth (x) and index within folder (y).
 
-### Bases
+**Steps to create a Canvas from vault links:**
+1. `obsidian_search` with `query=""` to get all notes.
+2. `obsidian_read_file` each note to extract `[[wikilinks]]`.
+3. Build node list (one node per note) and edge list (one edge per link).
+4. Apply layout to assign `x`, `y` coordinates.
+5. `obsidian_write_file` the JSON to `<path>.canvas`.
 
-- Use `obsidian_create_base` when you already know the YAML structure.
-- Use `obsidian_list_base_templates` and `obsidian_create_base_template` when a built-in literature, project, equipment, utilities, economics, or sources view is a good fit.
+## Obsidian Bases
 
-### Dataview
+A `.base` file is YAML that defines a database-style table over vault notes.
 
-- Use `obsidian_list_dataview_templates` and `obsidian_create_dataview_note` when the user wants DQL blocks in Markdown rather than a `.base` file.
+**Standard structure:**
+```yaml
+filters:
+  and:
+    - file.ext == "md"
+    - file.inFolder("sources")
+views:
+  - type: table
+    name: Main
+    columns:
+      - property: title
+        width: 200
+      - property: tags
+        width: 120
+      - property: status
+        width: 100
+    order: file.name
+    groupBy:
+      property: status
+      direction: ASC
+```
+
+**Literature Base template:**
+```yaml
+filters:
+  and:
+    - file.ext == "md"
+    - file.inFolder("01-literature")
+views:
+  - type: table
+    name: Literature
+    columns:
+      - {property: title, width: 240}
+      - {property: authors, width: 160}
+      - {property: year, width: 60}
+      - {property: doi, width: 120}
+      - {property: tags, width: 120}
+    order: file.mtime
+```
+
+Write the YAML using `obsidian_write_file` to `<name>.base`.
+
+## Dataview
+
+A Dataview note is a standard Markdown file containing one or more `dataview` code fences.
+
+**Standard DQL query block:**
+````markdown
+```dataview
+TABLE title, authors, year, doi
+FROM #chemistry AND "01-literature"
+WHERE file.ext = "md"
+SORT file.mtime DESC
+```
+````
+
+**Steps:**
+1. Confirm the user has the Dataview plugin installed.
+2. Identify the target folder and tag filter.
+3. Build the DQL query.
+4. `obsidian_write_file` a `.md` file containing the query block.
 
 ## Validation
 
-- Run `obsidian_validate_vault_schema` when the generated view depends on stable frontmatter.
-- Run `obsidian_build_graph` or `obsidian_lint_vault` after large graph-derived Canvas work to confirm the vault structure still matches expectations.
+After writing a Canvas or Base file, use `obsidian_read_file` to confirm the file was written correctly. For Bases, check that all required `type`, `filters`, and `views` keys are present.
+
+---
+
+## 中文说明
+
+Canvas 文件是 JSON，Bases 文件是 YAML，Dataview 是 Markdown 中的代码块。使用 `obsidian_write_file` 写入目标路径，使用 `obsidian_search` + `obsidian_read_file` 收集 vault 内容后再构建视图。
