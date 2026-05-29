@@ -2714,7 +2714,7 @@ def obsidian_pipeline_config(vault_path: str = "") -> dict[str, Any]:
 
 
 @tool()
-def obsidian_pipeline_doctor(vault_path: str = "", profile: str = "literature") -> dict[str, Any]:
+def obsidian_pipeline_doctor(vault_path: str = "") -> dict[str, Any]:
     """Run a focused readiness check for the Zotero-MinerU-Obsidian literature pipeline."""
     vault = _vault(vault_path)
     try:
@@ -2725,9 +2725,7 @@ def obsidian_pipeline_doctor(vault_path: str = "", profile: str = "literature") 
         "ok": True,
         "vaultPath": str(vault),
         "profile": {
-            "default": DEFAULT_TOOL_PROFILE,
-            "selected": profile or DEFAULT_TOOL_PROFILE,
-            "tools": get_registered_tool_names(profile or DEFAULT_TOOL_PROFILE),
+            "tools": get_registered_tool_names(),
         },
         "pipelineConfig": obsidian_pipeline_config(str(vault)),
         "zotero": zotero,

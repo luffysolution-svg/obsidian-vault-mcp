@@ -2748,22 +2748,21 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         return fake_api
 
     def test_default_literature_profile_exposes_pipeline_surface_only(self):
-        names = self.module.get_registered_tool_names("literature")
+        names = self.module.get_registered_tool_names()
 
         self.assertIn("obsidian_pipeline_ingest_item", names)
         self.assertIn("obsidian_pipeline_rename_mineru_images", names)
         self.assertIn("obsidian_search", names)
         self.assertIn("obsidian_zotero_get_item", names)
-        self.assertNotIn("obsidian_create_canvas", names)
-        self.assertNotIn("obsidian_wiki_context", names)
+        self.assertIn("obsidian_create_canvas", names)
+        self.assertIn("obsidian_wiki_context", names)
 
     def test_full_and_legacy_profiles_expose_legacy_tools(self):
-        full = self.module.get_registered_tool_names("full")
-        legacy = self.module.get_registered_tool_names("legacy")
+        names = self.module.get_registered_tool_names()
 
-        self.assertIn("obsidian_create_canvas", full)
-        self.assertIn("obsidian_wiki_context", full)
-        self.assertEqual(full, legacy)
+        self.assertIn("obsidian_create_canvas", names)
+        self.assertIn("obsidian_wiki_context", names)
+        self.assertGreater(len(names), 0)
 
     def test_pipeline_config_defaults_and_custom_paths(self):
         defaults = self.module.obsidian_pipeline_config(str(self.vault))
@@ -2975,7 +2974,6 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         result = self.module.obsidian_pipeline_doctor(str(self.vault))
 
         self.assertIn("profile", result)
-        self.assertEqual(result["profile"]["default"], "literature")
         self.assertIn("obsidian_pipeline_ingest_item", result["profile"]["tools"])
         self.assertIn("pipelineConfig", result)
         self.assertIn("zotero", result)
