@@ -10,3 +10,4 @@ description: "Import Zotero literature into Obsidian, read/compare papers, and w
 - **Compare papers**: batch-read first ~60 lines of each note → agree on axis (method/result/dataset) → `obsidian_search` for detail → emit Markdown table + synthesis paragraph.
 - **Literature review**: Phase 1 — `obsidian_search` by topic, filter `type: literature`; Phase 2 — deep-read MinerU markdown or note, extract claims by theme; Phase 3 — draft by theme, `obsidian_write_file` to `reviews/` with `status: draft`.
 - Always preserve user's `## Reading Notes` as primary evidence in any synthesis.
+- **AI Summary**: use `obsidian-ai-summary` skill after import, or pass `write_ai_summary=true` to `obsidian_pipeline_ingest_item`.
