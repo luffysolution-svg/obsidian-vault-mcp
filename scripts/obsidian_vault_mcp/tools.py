@@ -615,6 +615,70 @@ def _pipeline_replace_section(body: str, heading: str, replacement: str) -> str:
     return body.rstrip() + "\n\n" + clean
 
 
+def _pipeline_first_sentence(text: str, fallback: str) -> str:
+    clean = " ".join(_s(text).split())
+    if not clean:
+        return fallback
+    match = re.match(r"(.{20,280}?[.!?。！？])(?:\s|$)", clean)
+    if match:
+        return match.group(1).strip()
+    return clean[:280].rstrip() or fallback
+
+
+def _pipeline_ai_summary_template(props: dict[str, Any], source_text: str = "") -> str:
+    abstract = _s(props.get("abstract")).strip()
+    title = _s(props.get("title")).strip() or "this paper"
+    core = _pipeline_first_sentence(abstract or source_text, "No core finding is available in the current Zotero or MinerU text.")
+    scope_parts = []
+    if props.get("year"):
+        scope_parts.append(str(props["year"]))
+    if props.get("publicationTitle"):
+        scope_parts.append(str(props["publicationTitle"]))
+    scope = "; ".join(scope_parts) or f"Literature note for {title}."
+    return "\n".join([
+        "## AI Summary",
+        "",
+        f"**Core Finding:** {core}",
+        "",
+        "**Method:** Not specified in available Zotero or MinerU text.",
+        "",
+        f"**Dataset / Scope:** {scope}",
+        "",
+        "**Limitations:** Not specified in available Zotero or MinerU text.",
+        "",
+        "**My Assessment:** Generated as a starter summary from local metadata/extracted text; refine after reading.",
+        "",
+    ])
+
+
+def _pipeline_write_ai_summary(
+    vault: Path,
+    rel_path: str,
+    source_text: str = "",
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    full = _safe_path(vault, rel_path)
+    props, body = _split_frontmatter(_read_text(full))
+    section_re = re.compile(r"^## AI Summary\s*\n(.*?)(?=^##\s+|\Z)", re.DOTALL | re.MULTILINE)
+    match = section_re.search(body)
+    if match and match.group(1).strip():
+        return {"ok": True, "path": rel_path, "written": False, "reason": "AI Summary already has content."}
+
+    summary = _pipeline_ai_summary_template(props, source_text).rstrip() + "\n\n"
+    if match:
+        updated_body = section_re.sub(summary.rstrip() + "\n", body, count=1)
+    else:
+        reading_re = re.compile(r"^## Reading Notes\s*\n", re.MULTILINE)
+        reading_match = reading_re.search(body)
+        if reading_match:
+            updated_body = body[:reading_match.start()] + summary + body[reading_match.start():]
+        else:
+            updated_body = body.rstrip() + "\n\n" + summary
+    result = _write_result(vault, full, _join_frontmatter(props, updated_body.rstrip() + "\n"), dry_run)
+    result["written"] = bool(result.get("ok"))
+    return result
+
+
 def _pipeline_update_literature_mineru_fields(
     vault: Path,
     rel_path: str,
@@ -773,6 +837,7 @@ def obsidian_pipeline_ingest_item(
     zotero_key: str,
     vault_path: str = "",
     parse_with_mineru: bool = False,
+    write_ai_summary: bool = False,
     dry_run: bool = False,
     api_base: str = "",
 ) -> dict[str, Any]:
@@ -853,11 +918,17 @@ def obsidian_pipeline_ingest_item(
         "dryRun": dry_run,
     }
     if parse_with_mineru and not dry_run:
-        parse = obsidian_pipeline_parse_with_mineru(zotero_key=zotero_key, vault_path=str(vault))
+        parse = obsidian_pipeline_parse_with_mineru(zotero_key=zotero_key, vault_path=str(vault), write_ai_summary=write_ai_summary)
         result["mineru"] = parse
         result["mineruMarkdown"] = parse.get("mineruMarkdown", "")
         result["mineruImagesIndex"] = parse.get("mineruImagesIndex", "")
         result["ok"] = result["ok"] and bool(parse.get("ok"))
+    elif write_ai_summary and not dry_run:
+        summary = _pipeline_write_ai_summary(vault, literature_rel, str(metadata.get("abstract") or metadata.get("abstractNote") or ""))
+        result["aiSummary"] = summary
+        result["ok"] = result["ok"] and bool(summary.get("ok"))
+    elif write_ai_summary:
+        result["aiSummary"] = {"ok": True, "written": False, "dryRun": True}
     return result
 
 
@@ -961,6 +1032,7 @@ def obsidian_pipeline_parse_with_mineru(
     zotero_key: str = "",
     literature_path: str = "",
     vault_path: str = "",
+    write_ai_summary: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Parse a pipeline literature PDF with MinerU and refresh machine-generated assets."""
@@ -1038,6 +1110,9 @@ def obsidian_pipeline_parse_with_mineru(
         "tags": _merge_unique(lit_props.get("tags"), ["literature", "zotero", "mineru"]),
     }
     _pipeline_update_literature_mineru_fields(vault, lit_rel, mineru_lit_props, False)
+    ai_summary = None
+    if write_ai_summary:
+        ai_summary = _pipeline_write_ai_summary(vault, lit_rel, source_body.strip() or _read_text(source_md_full).strip())
     return {
         "ok": bool(rename.get("ok")),
         "zoteroKey": effective_key,
@@ -1048,6 +1123,7 @@ def obsidian_pipeline_parse_with_mineru(
         "imageRename": rename,
         "extraction": extraction,
         "status": mineru_lit_props["mineruStatus"],
+        "aiSummary": ai_summary,
     }
 
 
@@ -1056,6 +1132,7 @@ def obsidian_pipeline_ingest_collection(
     collection_key: str,
     vault_path: str = "",
     parse_with_mineru: bool = False,
+    write_ai_summary: bool = False,
     limit: int = 100,
     dry_run: bool = False,
     api_base: str = "",
@@ -1074,7 +1151,14 @@ def obsidian_pipeline_ingest_collection(
     counts = {"succeeded": 0, "failed": 0, "created": 0, "updated": 0, "mineruParsed": 0, "mineruFailed": 0, "imageRenamed": 0, "imageRenameFailed": 0}
     for key in keys:
         try:
-            item_result = obsidian_pipeline_ingest_item(key, str(vault), parse_with_mineru=parse_with_mineru, dry_run=dry_run, api_base=api_base)
+            item_result = obsidian_pipeline_ingest_item(
+                key,
+                str(vault),
+                parse_with_mineru=parse_with_mineru,
+                write_ai_summary=write_ai_summary,
+                dry_run=dry_run,
+                api_base=api_base,
+            )
             status = item_result.get("status") or "updated"
             counts["succeeded"] += 1
             if status == "created":

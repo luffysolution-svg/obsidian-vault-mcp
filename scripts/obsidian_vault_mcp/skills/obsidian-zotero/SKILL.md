@@ -19,7 +19,7 @@ Use the Zotero tools in this plugin when the request starts from the user's loca
 1. Prefer `obsidian_pipeline_ingest_item` for a single parent item.
 2. Prefer `obsidian_pipeline_ingest_collection` for collection batch import; it continues after per-item failures and returns a full report.
 3. The pipeline always copies PDFs into the configured vault attachment folder, preserves Zotero source paths, and writes `zotero://select` plus `zotero://open-pdf` links.
-4. Use the older `obsidian_ingest_zotero_item` and `obsidian_ingest_zotero_collection` only when running the `full` or `legacy` tool profile for compatibility/debugging.
+4. Use `write_ai_summary=true` only when the user asks for a generated `## AI Summary`; the tool fills empty summaries and leaves non-empty user summaries untouched.
 
 ## Imported Note Shape
 
@@ -35,7 +35,7 @@ Use the Zotero tools in this plugin when the request starts from the user's loca
 ## Related Tools
 
 - Use `obsidian_zotero_list_pdf_attachments` to inspect attachment inventory before import.
-- Use `obsidian_zotero_extract_pdf_text` when the user wants raw text from a Zotero PDF attachment without a full note import.
+- For raw PDF text without a full note import, use `obsidian_zotero_list_pdf_attachments` to locate the attachment path, then extract text with a local PDF parser such as `pypdf`.
 - Use the `obsidian-mineru` skill when the request is about parsing a Zotero-linked PDF into full Markdown.
 
 ## Reading a Single Paper
@@ -92,3 +92,9 @@ Use when the user wants to draft or scaffold a review section covering multiple 
 2. Use inline wikilinks `[[Lovelace 2024 - Zotero Article]]` to cite papers.
 3. Save the draft with `obsidian_write_file` to a path agreed with the user (e.g. `reviews/Topic Review Draft.md`).
 4. Mark the draft with `status: draft` in frontmatter.
+
+## Eval Scenarios
+
+- **Trigger:** "Import Zotero item ITEM1 and write a summary." Expected: call `obsidian_zotero_ping`, then `obsidian_pipeline_ingest_item(write_ai_summary=true)`. Must not overwrite existing `## Reading Notes` or a non-empty `## AI Summary`.
+- **Trigger:** "What dataset did this paper use?" Expected: read the literature note, prefer MinerU Markdown when `mineruStatus: parsed`, and answer from local evidence. Must not import, re-ingest, or write files.
+- **Trigger:** "Compare these five papers by method and limitation." Expected: read notes first, use targeted `obsidian_search` only for missing details, return a Markdown table plus short synthesis. Must preserve user notes as primary evidence.

@@ -30,7 +30,15 @@ try {
         git ls-files --others --exclude-standard
     ) | Sort-Object -Unique
     foreach ($file in $files) {
+        if ([string]$file -like '"*"') {
+            Write-Warning "Skipping quoted git path that cannot be resolved portably: $file"
+            continue
+        }
         $source = Join-Path $root $file
+        if (-not (Test-Path -LiteralPath $source)) {
+            Write-Warning "Skipping missing git-listed path: $file"
+            continue
+        }
         $dest = Join-Path $stage $file
         New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force | Out-Null
         Copy-Item -LiteralPath $source -Destination $dest -Force
@@ -45,6 +53,7 @@ try {
     $required = @(
         "obsidian-vault/scripts/obsidian_vault_mcp.py",
         "obsidian-vault/scripts/smoke_integrations.py",
+        "obsidian-vault/scripts/check_skills_sync.py",
         "obsidian-vault/scripts/obsidian_vault_mcp/cli.py",
         "obsidian-vault/scripts/obsidian_vault_mcp/tools.py",
         "obsidian-vault/scripts/obsidian_vault_mcp/helpers.py",
@@ -55,7 +64,9 @@ try {
         "obsidian-vault/skills/obsidian-zotero/SKILL.md",
         "obsidian-vault/skills/obsidian-mineru/SKILL.md",
         "obsidian-vault/skills/obsidian-views/SKILL.md",
-        "obsidian-vault/skills/obsidian-cli/SKILL.md"
+        "obsidian-vault/skills/obsidian-cli/SKILL.md",
+        "obsidian-vault/skills/obsidian-graph/SKILL.md",
+        "obsidian-vault/skills/obsidian-ai-summary/SKILL.md"
     )
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)

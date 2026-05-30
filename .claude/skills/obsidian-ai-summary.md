@@ -8,5 +8,6 @@ description: "Generate and write ## AI Summary for literature notes. Use after Z
 - **Source priority**: `mineruStatus: parsed` → read `attachments/mineru/<key>/paper.md`; else read literature note body
 - **Template** (5 sections): **Core Finding** / **Method** / **Dataset / Scope** / **Limitations** / **My Assessment**
 - **Write-back**: `obsidian_read_file` → find/insert `## AI Summary` before `## Reading Notes` → replace only that section → `obsidian_write_file`
-- Do not overwrite existing non-empty AI Summary unless triggered by pipeline flag or user confirms
+- Do not overwrite existing non-empty AI Summary unless user confirms replacement
 - Budget: ≤ 4 tool calls
+- Evals: fill only `## AI Summary`; preserve `## Reading Notes`; ask before replacing an already written summary.

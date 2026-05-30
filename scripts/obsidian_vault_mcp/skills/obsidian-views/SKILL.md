@@ -1,167 +1,69 @@
 ---
 name: obsidian-views
-description: "Build visual and query views for an Obsidian vault. Use when the user needs to create or update JSON Canvas maps, Obsidian Bases files, or Dataview notes. 当用户提到 Canvas、Bases、Dataview、视图、图谱布局、表格卡片视图或查询笔记时使用。"
+description: "Build research views for Obsidian literature notes. Use when the user asks for Canvas maps, Bases tables, Dataview notes, paper maps, literature dashboards, or visual/query views over a vault. 当用户提到 Canvas、Bases、Dataview、文献视图、研究图谱或查询表时使用。"
 ---
 
 # Obsidian Views
 
-Use `obsidian_write_file` to write Canvas (`.canvas`), Bases (`.base`), and Dataview (`.md`) files. Use `obsidian_search` and `obsidian_read_file` to gather vault content first.
+This skill turns literature notes and MinerU outputs into research views. It delegates format-specific syntax to dedicated Obsidian format skills whenever available.
 
-## Canvas (JSON Canvas)
+## Format Skill Discovery
 
-A `.canvas` file is a JSON object with `nodes` and `edges` arrays.
+Before generating a view, check for specialized Kepano / Obsidian Skills:
 
-**Minimal Canvas structure:**
-```json
-{
-  "nodes": [
-    {"id": "a", "type": "file", "file": "notes/A.md", "x": 0, "y": 0, "width": 250, "height": 60},
-    {"id": "b", "type": "file", "file": "notes/B.md", "x": 300, "y": 0, "width": 250, "height": 60}
-  ],
-  "edges": [
-    {"id": "e1", "fromNode": "a", "toNode": "b", "toEnd": "arrow"}
-  ]
-}
+- JSON Canvas: `skills/json-canvas/SKILL.md` or `.claude/skills/json-canvas.md`
+- Obsidian Bases: `skills/obsidian-bases/SKILL.md` or `.claude/skills/obsidian-bases.md`
+- Obsidian Markdown/Dataview: `skills/obsidian-markdown/SKILL.md` or `.claude/skills/obsidian-markdown.md`
+
+If a needed format skill is missing and network access is allowed, install it into the AGENTS-declared summary skill directory (`.claude/skills` in this repository):
+
+```powershell
+$tmp = Join-Path $env:TEMP "obsidian-skills-kepano"
+if (Test-Path $tmp) { Remove-Item -Recurse -Force -LiteralPath $tmp }
+git clone https://github.com/kepano/obsidian-skills $tmp
+New-Item -ItemType Directory -Force .claude\skills | Out-Null
+Copy-Item "$tmp\skills\json-canvas\SKILL.md" ".claude\skills\json-canvas.md" -Force
+Copy-Item "$tmp\skills\obsidian-bases\SKILL.md" ".claude\skills\obsidian-bases.md" -Force
+Copy-Item "$tmp\skills\obsidian-markdown\SKILL.md" ".claude\skills\obsidian-markdown.md" -Force
 ```
 
-**Node types:** `file` (vault note), `text` (inline text), `link` (URL), `group` (container).
+Use the built-in fallback below only when the dedicated format skill cannot be installed or loaded.
 
-**Kepano detection:** Before generating any Canvas, check whether `skills/json-canvas/SKILL.md` (project) or `.claude/skills/json-canvas.md` (user) exists. If found, invoke that skill instead of the built-in section below.
+## Research View Workflow
 
-**Layouts — coordinate formulas:**
-- **Grid:** `x = col * (nodeWidth + 60)`, `y = row * (nodeHeight + 40)`. Fill columns first, max 4 nodes per row.
-- **Radial:** `x = cx + r * cos(2π * i / n)`, `y = cy + r * sin(2π * i / n)`. Radius `r = max(200, n * 60)`.
-- **Layered (DAG):** Topological sort to get depth `d`; `x = d * 320`; nodes at same depth share `y` evenly. Recommended for 5+ nodes with a clear dependency direction.
-- **Grouped:** Place group nodes first; constrain member coordinates within group bounds with 30 px inner padding.
+1. Gather candidates with `obsidian_search`:
+   - Literature dashboard: search folder `literature` or query `type: literature`.
+   - Topic map: search topic keywords, then filter notes with `type: literature`.
+   - Figure map: search `mineruImagesIndex` or read `attachments/mineru/<zoteroKey>/images-index.md`.
+2. Read only the needed notes with `obsidian_read_file`:
+   - Frontmatter: title, authors, year, tags, collections, DOI, MinerU links.
+   - Body: abstract, `## Reading Notes`, and `## AI Summary`.
+3. Choose the output:
+   - `.canvas` for relationships, clusters, paper flow, and visual synthesis.
+   - `.base` for sortable literature tables.
+   - `.md` Dataview note for query dashboards inside Markdown.
+4. Generate the file through the specialized format skill when available, then write with `obsidian_write_file`.
+5. Read the result back with `obsidian_read_file` and validate the file references existing notes.
 
-**Overlap detection:** After placing all nodes, check every pair for bounding-box intersection:
-`overlap = !(ax+aw ≤ bx || bx+bw ≤ ax || ay+ah ≤ by || by+bh ≤ ay)`
-If overlap found, shift the later node right by `overlapWidth + 40`.
+## Built-in Fallback
 
-**Colors:**
-
-| Preset | Color | Preset | Color |
-|--------|-------|--------|-------|
-| `"1"` | Red | `"4"` | Green |
-| `"2"` | Orange | `"5"` | Cyan |
-| `"3"` | Yellow | `"6"` | Purple |
-
-Omit the `color` field entirely when no colour is needed.
-
-**Node size guidelines:**
-
-| Type | width | height |
-|------|-------|--------|
-| Small text / label | 200–300 | 80–150 |
-| Normal note card | 250–400 | 150–250 |
-| Large card / file preview | 400–500 | 250–400 |
-
-**ID generation:** 16-character lowercase hex string, e.g. `"6f0ad84f44ce9c17"`. Never reuse an existing node or edge id.
-
-**Steps to create a Canvas from vault links:**
-1. `obsidian_search` with `query=""` to get all notes.
-2. `obsidian_read_file` each note to extract `[[wikilinks]]`.
-3. Build node list (one node per note) and edge list (one edge per link).
-4. Apply layout using the coordinate formulas above.
-5. Run overlap detection; adjust positions if needed.
-6. `obsidian_write_file` the JSON to `<path>.canvas`.
-
-**Visual validation (pure JSON — after writing the file):**
-1. `obsidian_read_file` the written `.canvas` file.
-2. Output a position summary table for quick scan:
-   ```
-   id       type   x     y     w    h
-   ──────────────────────────────────
-   a1b2c3   file     0     0   300  150
-   d4e5f6   file   360     0   300  150
-   ```
-3. Run bounding-box overlap check on all node pairs; report any overlapping pairs.
-4. Check total canvas span: `(max_x − min_x)` and `(max_y − min_y)` should be < 3000 px.
-5. Verify every edge `fromNode`/`toNode` exists in the node list.
-
-**Validation checklist:**
-1. All `id` values unique across nodes and edges.
-2. Every `fromNode`/`toNode` references an existing node id.
-3. `type` is one of `text`, `file`, `link`, `group`.
-4. `fromSide`/`toSide` is one of `top`, `right`, `bottom`, `left`.
-5. `fromEnd`/`toEnd` is one of `none`, `arrow`.
-6. Color presets are `"1"`–`"6"` or valid hex (e.g. `"#FF0000"`).
-7. JSON is valid and parseable.
-
-See [references/canvas-examples.md](references/canvas-examples.md) for complete worked examples (mind maps, project boards, research canvases, flowcharts).
-
-## Obsidian Bases
-
-A `.base` file is YAML that defines a database-style table over vault notes.
-
-**Standard structure:**
-```yaml
-filters:
-  and:
-    - file.ext == "md"
-    - file.inFolder("sources")
-views:
-  - type: table
-    name: Main
-    columns:
-      - property: title
-        width: 200
-      - property: tags
-        width: 120
-      - property: status
-        width: 100
-    order: file.name
-    groupBy:
-      property: status
-      direction: ASC
-```
-
-**Literature Base template:**
-```yaml
-filters:
-  and:
-    - file.ext == "md"
-    - file.inFolder("01-literature")
-views:
-  - type: table
-    name: Literature
-    columns:
-      - {property: title, width: 240}
-      - {property: authors, width: 160}
-      - {property: year, width: 60}
-      - {property: doi, width: 120}
-      - {property: tags, width: 120}
-    order: file.mtime
-```
-
-Write the YAML using `obsidian_write_file` to `<name>.base`.
-
-## Dataview
-
-A Dataview note is a standard Markdown file containing one or more `dataview` code fences.
-
-**Standard DQL query block:**
-````markdown
-```dataview
-TABLE title, authors, year, doi
-FROM #chemistry AND "01-literature"
-WHERE file.ext = "md"
-SORT file.mtime DESC
-```
-````
-
-**Steps:**
-1. Confirm the user has the Dataview plugin installed.
-2. Identify the target folder and tag filter.
-3. Build the DQL query.
-4. `obsidian_write_file` a `.md` file containing the query block.
+- Canvas fallback: create JSON with `nodes` and `edges`. Use stable file nodes for papers, text nodes for themes, and group nodes for clusters. Keep node ids unique, 16-character lowercase hex. Avoid overlaps with a simple grid (`x = col * 360`, `y = row * 220`).
+- Bases fallback: create YAML with `filters` and `views`, using table columns such as `title`, `authors`, `year`, `tags`, `doi`, `mineruStatus`.
+- Dataview fallback: create Markdown containing a `dataview` code fence scoped to the relevant folder or tag.
 
 ## Validation
 
-After writing a Canvas or Base file, use `obsidian_read_file` to confirm the file was written correctly. For Bases, check that all required `type`, `filters`, and `views` keys are present.
+- For Canvas: JSON parses, all ids are unique, every edge references an existing node id, and all file nodes point to vault-relative paths.
+- For Bases: YAML parses and has top-level `filters` and `views`.
+- For Dataview: code fence exists and the query is scoped to the requested folder/tag.
+- Do not invent paper metadata. If a field is missing, leave it blank or omit the column.
 
----
+## Eval Scenarios
+
+- **Trigger:** "Make a Canvas map of literature about CO2 absorption." Expected: search literature notes, read selected metadata, use JSON Canvas skill if present or install it, then write a `.canvas`. Must not generate a marketing diagram detached from vault files.
+- **Trigger:** "Create a sortable literature Base." Expected: use Obsidian Bases skill if present or install it, then write a `.base` with columns from existing frontmatter. Must not invent DOI/year/authors.
+- **Trigger:** "Create a Dataview dashboard for papers missing MinerU." Expected: write a Markdown Dataview query scoped to literature notes. Must only write the requested dashboard file.
 
 ## 中文说明
 
-Canvas 文件是 JSON，Bases 文件是 YAML，Dataview 是 Markdown 中的代码块。使用 `obsidian_write_file` 写入目标路径，使用 `obsidian_search` + `obsidian_read_file` 收集 vault 内容后再构建视图。
+本 skill 只负责把本项目的文献笔记、MinerU 输出和 YAML 字段组织成研究视图。Canvas、Bases 和 Markdown/Dataview 的底层格式规则优先交给 Kepano / Obsidian Skills；缺失时先下载安装到 `.claude/skills`，不可用时才使用内置 fallback。

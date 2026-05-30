@@ -365,7 +365,7 @@ Or add it manually to `~/.claude/settings.json`:
 ```
 
 - `.claude-plugin/plugin.json` is the Claude Code plugin manifest.
-- If Claude Code does not auto-load skills, copy the packaged `skills/` directory into `~/.claude/skills/`.
+- Skills are bundled with the plugin/package; this repository's `.claude/skills/` directory is only the development-time concise summary mirror.
 
 ### OpenCode
 

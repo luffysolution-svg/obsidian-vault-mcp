@@ -6,8 +6,9 @@ description: "Import Zotero literature into Obsidian, read/compare papers, and w
 - **Before import**: `obsidian_zotero_ping` → if fails, ask user to open Zotero Desktop.
 - **Single item**: `obsidian_pipeline_ingest_item` (copies PDF, writes frontmatter, preserves user fields on re-ingest).
 - **Batch**: `obsidian_pipeline_ingest_collection` (continues after per-item failures, returns full report).
+- **AI Summary**: pass `write_ai_summary=true` only when requested; empty summaries are filled, non-empty user summaries stay untouched.
 - **Read a paper**: check `mineruStatus` in frontmatter → if `parsed`, read `attachments/mineru/<key>/paper.md`; else read the literature note. Use `obsidian_search` for targeted questions (≤ 3 tool calls).
 - **Compare papers**: batch-read first ~60 lines of each note → agree on axis (method/result/dataset) → `obsidian_search` for detail → emit Markdown table + synthesis paragraph.
 - **Literature review**: Phase 1 — `obsidian_search` by topic, filter `type: literature`; Phase 2 — deep-read MinerU markdown or note, extract claims by theme; Phase 3 — draft by theme, `obsidian_write_file` to `reviews/` with `status: draft`.
 - Always preserve user's `## Reading Notes` as primary evidence in any synthesis.
-- **AI Summary**: use `obsidian-ai-summary` skill after import, or pass `write_ai_summary=true` to `obsidian_pipeline_ingest_item`.
+- **Evals**: import+summary must not overwrite user sections; paper Q&A must not write; comparison must use local evidence.

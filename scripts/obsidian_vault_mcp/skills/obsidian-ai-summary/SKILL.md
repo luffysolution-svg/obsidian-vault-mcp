@@ -14,7 +14,7 @@ Run this skill when **any** of the following apply:
 
 1. **Explicit request:** user says "write AI Summary", "summarize this paper", "fill in the summary".
 2. **Post-import prompt:** after `obsidian-zotero` or `obsidian-mineru` completes, detect whether `## AI Summary` is absent or empty in the literature note → ask "Want to generate an AI Summary?".
-3. **Pipeline flag:** `obsidian_pipeline_ingest_item(write_ai_summary=true)` or `obsidian_pipeline_parse_with_mineru(write_ai_summary=true)` triggers automatic execution (skill-level convention; server-side implementation is a separate task).
+3. **Pipeline flag:** `obsidian_pipeline_ingest_item(write_ai_summary=true)` or `obsidian_pipeline_parse_with_mineru(write_ai_summary=true)` fills an empty summary section automatically.
 
 ## Source Reading Priority
 
@@ -52,6 +52,12 @@ Write exactly this structure into `## AI Summary`:
 3. Replace only the `## AI Summary` section content; leave all other sections untouched.
 4. `obsidian_write_file` the updated note.
 5. On re-ingest via `obsidian-zotero`, the `## AI Summary` section is preserved automatically.
+
+## Eval Scenarios
+
+- **Trigger:** "Fill the AI Summary for this imported paper." Expected: read the literature note, prefer MinerU Markdown when parsed, and write only `## AI Summary`. Must preserve `## Reading Notes`.
+- **Trigger:** "Summarize after parsing with MinerU." Expected: use MinerU text as source and fill an empty `## AI Summary`. Must not overwrite a non-empty user summary.
+- **Trigger:** "Update this already written AI Summary." Expected: ask before overwrite unless the user explicitly requests replacement. Must not touch YAML or other note sections.
 
 ## 中文说明
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Obsidian AI Summary"
+  short_description: "Generate concise AI Summary sections for literature notes"
+  default_prompt: "Use $obsidian-ai-summary to fill an empty AI Summary section in my Obsidian literature note without overwriting my Reading Notes."

@@ -140,3 +140,9 @@ for u, v in cross_edges[:10]:
 **Report to the user:** For each of the top 10 cross-community connections, describe which two thematic clusters they bridge (using community member note names as cluster labels). Suggest:
 - Adding a wikilink annotation explaining the connection, or
 - Creating a new bridge note that synthesizes the two lines of work.
+
+## Eval Scenarios
+
+- **Trigger:** "Find isolated literature notes." Expected: build a wikilink graph from vault Markdown and report isolated nodes. Must not delete or edit notes.
+- **Trigger:** "Where are the knowledge gaps in this research vault?" Expected: compute isolated notes, sparse communities, and bridge nodes, then recommend candidate links or new index notes. Must mark recommendations as suggestions unless the user asks to apply them.
+- **Trigger:** "Show surprising interdisciplinary links." Expected: detect cross-community edges and explain why they bridge clusters. Must not invent relationships that are not supported by existing links/tags.

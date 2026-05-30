@@ -322,7 +322,7 @@ claude mcp add obsidian-vault obsidian-vault-mcp
 ```
 
 - `.claude-plugin/plugin.json` 供 Claude Code 插件系统使用。
-- 如果 Claude Code 没有自动加载 skills，可将包内 `skills/` 复制到 `~/.claude/skills/`。
+- Skills 随插件/包一起提供；本仓库的 `.claude/skills/` 仅作为开发期精简摘要镜像维护。
 
 ### OpenCode
 

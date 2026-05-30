@@ -32,6 +32,8 @@ obsidian-vault-mcp/
     obsidian-mineru/SKILL.md
     obsidian-views/SKILL.md
     obsidian-cli/SKILL.md
+    obsidian-graph/SKILL.md
+    obsidian-ai-summary/SKILL.md
   tests/
 ```
 
@@ -91,6 +93,7 @@ Codex 会把 marketplace 插件安装到：
 python -m pip install -e ".[dev]"
 python -m ruff check .
 python -m unittest discover -s tests
+python scripts/check_skills_sync.py
 python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py
 python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault path/to/test-vault
 ```
@@ -166,6 +169,7 @@ https://luffysolution-svg.github.io/obsidian-vault-mcp/
 
 - `python -m ruff check .` 通过。
 - `python -m unittest discover -s tests` 通过。
+- `python scripts/check_skills_sync.py` 通过。
 - `python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py` 通过。
 - `python scripts/obsidian_vault_mcp.py --doctor --doctor-format text --vault path/to/test-vault` 通过核心检查。
 - `python scripts/smoke_integrations.py --vault path/to/test-vault` 没有必需检查失败。

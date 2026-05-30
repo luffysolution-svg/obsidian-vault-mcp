@@ -32,6 +32,8 @@ obsidian-vault-mcp/
     obsidian-mineru/SKILL.md
     obsidian-views/SKILL.md
     obsidian-cli/SKILL.md
+    obsidian-graph/SKILL.md
+    obsidian-ai-summary/SKILL.md
   tests/
 ```
 
@@ -79,6 +81,7 @@ Only `.codex-plugin/plugin.json` belongs under `.codex-plugin/`. Keep
 python -m pip install -e ".[dev]"
 python -m ruff check .
 python -m unittest discover -s tests
+python scripts/check_skills_sync.py
 python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py
 python scripts/obsidian_vault_mcp.py --doctor --vault path/to/test-vault
 ```
@@ -127,6 +130,7 @@ git push -u origin main
 
 - `python -m ruff check .` passes.
 - `python -m unittest discover -s tests` passes.
+- `python scripts/check_skills_sync.py` passes.
 - `python -m py_compile scripts/obsidian_vault_mcp.py scripts/obsidian_vault_mcp/cli.py scripts/obsidian_vault_mcp/common.py scripts/obsidian_vault_mcp/helpers.py scripts/obsidian_vault_mcp/server.py scripts/obsidian_vault_mcp/tools.py`
   passes.
 - `python scripts/obsidian_vault_mcp.py --doctor --vault path/to/test-vault`

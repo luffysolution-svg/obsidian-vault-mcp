@@ -16,3 +16,4 @@ All commands: `obsidian <command> [params]`. Use `Bash` tool to run.
 - Rename: `obsidian rename --path "note.md" --name "new-name.md"`
 - Screenshot: `obsidian screenshot --output "shot.png"`
 - Plugin reload: `obsidian plugin:reload --id "plugin-id"`
+- Evals: open note is read-only; rename/move must preserve wikilinks; tasks output must be parsed as JSON and stdout error text still counts as failure.

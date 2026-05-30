@@ -9,3 +9,4 @@ description: "Analyse Obsidian vault citation networks, communities, connectivit
 4. Suggest: create stub notes for dead links; convert `[text](file.md)` to `[[file]]`; link isolated clusters.
 - **Knowledge gaps**: `[n for n in G.nodes if G.degree(n)==0]` (isolated) + communities of size ≤ 2 (sparse) + `nx.bridges(G.to_undirected())` (bridge nodes → expand into index notes).
 - **Surprising connections**: find cross-community edges, rank by combined degree, report top 10 as potential interdisciplinary links; suggest wikilink annotation or new bridge note.
+- **Evals**: isolated-note scans are read-only; gap reports are suggestions unless user asks to apply; surprising links must be backed by existing links/tags.

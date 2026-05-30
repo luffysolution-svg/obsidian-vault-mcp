@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## Skills 目录同步规则
 

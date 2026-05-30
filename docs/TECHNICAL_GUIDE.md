@@ -1,6 +1,6 @@
 # Obsidian Vault MCP — Technical Guide / 技术文档
 
-> Version 1.1.0 | Python 3.10+ | MIT License
+> Version 1.1.5 | Python 3.10+ | MIT License
 > [English](#english) | [中文](#chinese)
 
 ---
@@ -43,7 +43,9 @@ obsidian-vault/
 │   ├── obsidian-zotero/SKILL.md     # Zotero import workflow skill
 │   ├── obsidian-mineru/SKILL.md     # MinerU extraction workflow skill
 │   ├── obsidian-views/SKILL.md      # Canvas/Bases/Dataview skill
-│   └── obsidian-cli/SKILL.md        # Obsidian CLI workflow skill
+│   ├── obsidian-cli/SKILL.md        # Obsidian CLI workflow skill
+│   ├── obsidian-graph/SKILL.md      # Graph analysis workflow skill
+│   └── obsidian-ai-summary/SKILL.md # Literature AI Summary workflow skill
 ├── docs/                            # Documentation (EN + zh-CN)
 └── tests/                           # Unit tests
 ```
@@ -489,14 +491,16 @@ obsidian-vault/
 │       ├── cli.py                   # CLI 入口
 │       ├── common.py                # 常量、工具注册表
 │       ├── helpers.py               # 核心逻辑
-│       ├── tools.py                 # 72 个 MCP 工具函数
+│       ├── tools.py                 # 17 个 MCP 工具函数
 │       └── server.py                # FastMCP 服务器设置
 ├── skills/
 │   ├── obsidian-vault/SKILL.md      # 通用 vault 工作流 skill
 │   ├── obsidian-zotero/SKILL.md     # Zotero 导入工作流 skill
 │   ├── obsidian-mineru/SKILL.md     # MinerU 提取工作流 skill
 │   ├── obsidian-views/SKILL.md      # Canvas/Bases/Dataview skill
-│   └── obsidian-cli/SKILL.md        # Obsidian CLI 工作流 skill
+│   ├── obsidian-cli/SKILL.md        # Obsidian CLI 工作流 skill
+│   ├── obsidian-graph/SKILL.md      # 图谱分析工作流 skill
+│   └── obsidian-ai-summary/SKILL.md # 文献 AI Summary 工作流 skill
 ├── docs/                            # 文档（EN + zh-CN）
 └── tests/                           # 单元测试
 ```

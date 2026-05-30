@@ -101,6 +101,12 @@ To create a note with a template:
 - When Obsidian desktop is open, prefer the `obsidian-cli` skill for moves and renames.
 - To generate AI summaries for literature notes, use the `obsidian-ai-summary` skill.
 
+## Eval Scenarios
+
+- **Trigger:** "Audit my vault for orphan notes and dead links." Expected: use `obsidian_search`/`obsidian_read_file`, report grouped issues, and avoid writes.
+- **Trigger:** "Add missing `type` and `title` fields across literature notes." Expected: preview broad changes first with `dry_run=true`, then use `obsidian_update_properties` only after confirmation. Must not rewrite note bodies.
+- **Trigger:** "Move this note while Obsidian is open." Expected: switch to `obsidian-cli` for move/rename so wikilinks are updated. Must not use raw filesystem moves in that case.
+
 ---
 
 ## 中文说明

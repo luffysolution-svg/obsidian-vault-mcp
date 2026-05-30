@@ -9,6 +9,7 @@ from pathlib import Path
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PLUGIN_ROOT / "scripts" / "obsidian_vault_mcp.py"
 SMOKE_SCRIPT_PATH = PLUGIN_ROOT / "scripts" / "smoke_integrations.py"
+CHECK_SKILLS_SCRIPT_PATH = PLUGIN_ROOT / "scripts" / "check_skills_sync.py"
 
 
 def load_module():
@@ -331,6 +332,25 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("## AI Summary", note)
         self.assertNotIn("AI-generated", note)
 
+    def test_pipeline_ingest_item_write_ai_summary_fills_empty_section(self):
+        fake_api = self._fake_pipeline_api()
+        original = self._patch_zotero_api(fake_api)
+        try:
+            result = self.module.obsidian_pipeline_ingest_item(
+                "ITEM1",
+                str(self.vault),
+                parse_with_mineru=False,
+                write_ai_summary=True,
+            )
+        finally:
+            self.module._tools._zotero_api = original
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["aiSummary"]["written"])
+        note = (self.vault / "literature" / "Lovelace 2024 - Zotero Article.md").read_text(encoding="utf-8")
+        self.assertIn("**Core Finding:** Abstract from Zotero.", note)
+        self.assertIn("**Method:** Not specified in available Zotero or MinerU text.", note)
+
     def test_pipeline_repeated_ingest_preserves_user_fields_and_sections(self):
         fake_api = self._fake_pipeline_api()
         original = self._patch_zotero_api(fake_api)
@@ -360,6 +380,30 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(updated_props["customField"], "keep-me")
         self.assertIn("My durable reading note.", updated)
         self.assertIn("Skill summary stays here.", updated)
+
+    def test_pipeline_write_ai_summary_does_not_overwrite_existing_summary(self):
+        fake_api = self._fake_pipeline_api()
+        original = self._patch_zotero_api(fake_api)
+        try:
+            self.module.obsidian_pipeline_ingest_item("ITEM1", str(self.vault), parse_with_mineru=False)
+            note_path = self.vault / "literature" / "Lovelace 2024 - Zotero Article.md"
+            text = note_path.read_text(encoding="utf-8")
+            text = text.replace("## AI Summary\n", "## AI Summary\n\nMy hand-written summary.\n", 1)
+            note_path.write_text(text, encoding="utf-8")
+
+            result = self.module.obsidian_pipeline_ingest_item(
+                "ITEM1",
+                str(self.vault),
+                parse_with_mineru=False,
+                write_ai_summary=True,
+            )
+        finally:
+            self.module._tools._zotero_api = original
+
+        self.assertFalse(result["aiSummary"]["written"])
+        updated = (self.vault / "literature" / "Lovelace 2024 - Zotero Article.md").read_text(encoding="utf-8")
+        self.assertIn("My hand-written summary.", updated)
+        self.assertNotIn("**Core Finding:** Abstract from Zotero.", updated)
 
     def test_pipeline_ingest_item_with_mineru_creates_machine_assets_and_index(self):
         def fake_extract(input_path, vault_path="", output_path="", **kwargs):
@@ -393,6 +437,38 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertIn("[[attachments/mineru/ITEM1/paper]]", note)
         self.assertIn("[[attachments/mineru/ITEM1/images-index]]", note)
         self.assertIn("Imported child note", note)
+
+    def test_pipeline_parse_with_mineru_write_ai_summary_fills_empty_section(self):
+        def fake_extract(input_path, vault_path="", output_path="", **kwargs):
+            out = Path(vault_path) / output_path
+            (out / "images").mkdir(parents=True, exist_ok=True)
+            (out / "images" / "figure1.png").write_bytes(b"png")
+            (out / "paper.md").write_text(
+                "# Extracted\n\nThe process reduces solvent loss in pilot testing.\n\n![fig](images/figure1.png)\n\nFigure 1 Process flow diagram.\n",
+                encoding="utf-8",
+            )
+            return {"ok": True, "markdownPath": f"{output_path}/paper.md", "outputPath": output_path}
+
+        fake_api = self._fake_pipeline_api()
+        original_api = self._patch_zotero_api(fake_api)
+        original_extract = self.module._tools.obsidian_mineru_extract
+        self.module._tools.obsidian_mineru_extract = fake_extract
+        try:
+            self.module.obsidian_pipeline_ingest_item("ITEM1", str(self.vault), parse_with_mineru=False)
+            result = self.module.obsidian_pipeline_parse_with_mineru(
+                zotero_key="ITEM1",
+                vault_path=str(self.vault),
+                write_ai_summary=True,
+            )
+        finally:
+            self.module._tools._zotero_api = original_api
+            self.module._tools.obsidian_mineru_extract = original_extract
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["aiSummary"]["written"])
+        note = (self.vault / "literature" / "Lovelace 2024 - Zotero Article.md").read_text(encoding="utf-8")
+        self.assertIn("**Core Finding:** Abstract from Zotero.", note)
+        self.assertIn("## Reading Notes", note)
 
     def test_pipeline_rename_mineru_images_generates_english_index_and_mapping(self):
         base = self.vault / "attachments" / "mineru" / "ITEM1"
@@ -621,6 +697,22 @@ class ObsidianVaultMcpTests(unittest.TestCase):
             "obsidian_zotero_ping", "obsidian_zotero_search_items",
         }
         self.assertEqual(names, expected, f"Unexpected tools: {names - expected}, Missing: {expected - names}")
+
+    def test_check_skills_sync_passes_repository(self):
+        completed = subprocess.run(
+            [sys.executable, str(CHECK_SKILLS_SCRIPT_PATH), "--json"],
+            cwd=str(PLUGIN_ROOT),
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+
+        stdout = completed.stdout.decode("utf-8", errors="replace")
+        stderr = completed.stderr.decode("utf-8", errors="replace")
+        self.assertEqual(completed.returncode, 0, stderr or stdout)
+        result = json.loads(stdout)
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["errors"], [])
 
 
 if __name__ == "__main__":

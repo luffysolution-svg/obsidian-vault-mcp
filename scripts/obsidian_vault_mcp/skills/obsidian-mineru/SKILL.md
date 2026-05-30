@@ -12,11 +12,11 @@ Use this skill when the request is about full-document parsing and source-note i
 
 - If the request is Zotero-linked literature ingestion, prefer `obsidian_pipeline_ingest_item(parse_with_mineru=true)` or `obsidian_pipeline_parse_with_mineru`.
 - If MinerU output already exists under the pipeline layout, use `obsidian_pipeline_rename_mineru_images` to normalize images and regenerate `images-index.md`.
-- Use older `obsidian_mineru_*` tools only in the `full` or `legacy` profile for compatibility/debugging.
+- For direct, non-Zotero extraction, run the local MinerU CLI and then import or link the generated Markdown with `obsidian_write_file`.
 
 ## Direct Extraction Workflow
 
-1. Check `obsidian_pipeline_doctor` or `obsidian_mineru_status`.
+1. Check `obsidian_pipeline_doctor` before pipeline extraction, or `mineru-open-api --version` before direct CLI extraction.
 2. Parse copied Zotero PDFs into `attachments/mineru/<zoteroKey>/paper.md`.
 3. Rename extracted images to English semantic filenames such as `fig-01-process-flow-diagram.png`.
 4. Generate `attachments/mineru/<zoteroKey>/images-index.md`.
@@ -30,7 +30,7 @@ Use this skill when the request is about full-document parsing and source-note i
 ## Output Expectations
 
 - MinerU assets are machine-generated and may be overwritten on re-parse.
-- Literature notes are stable user workspaces; preserve custom YAML, `Reading Notes`, and `AI Summary`. To generate or update `## AI Summary` after parsing, use the `obsidian-ai-summary` skill. It can also be triggered via `obsidian_pipeline_parse_with_mineru(write_ai_summary=true)`.
+- Literature notes are stable user workspaces; preserve custom YAML, `Reading Notes`, and `AI Summary`. To generate an empty `## AI Summary` after parsing, pass `write_ai_summary=true` to `obsidian_pipeline_parse_with_mineru`.
 - The plugin does not generate AI summaries, wiki pages, graphs, or reviews from MinerU output.
 
 ## Troubleshooting
@@ -107,3 +107,9 @@ Use when the user asks a specific question about a figure, chart, or table in a 
 5. Answer using the extracted caption and surrounding text only. Do **not** attempt to decode image binary data — the image files are not readable as text.
 
 **Typical budget:** 2–3 tool calls (read index → search → answer, or read index → read section → answer).
+
+## Eval Scenarios
+
+- **Trigger:** "Parse Zotero item ITEM1 with MinerU and summarize it." Expected: use `obsidian_pipeline_parse_with_mineru(write_ai_summary=true)`. Must preserve literature-note YAML, `## Reading Notes`, and non-empty `## AI Summary`.
+- **Trigger:** "Rename the figures for this parsed paper." Expected: call `obsidian_pipeline_rename_mineru_images`, then report renamed files and cleanup candidates. Must treat MinerU assets as machine-generated and avoid editing the literature note except tool-managed links.
+- **Trigger:** "What does Figure 2 show?" Expected: read `images-index.md`, locate the semantic slug/caption, then search/read nearby `paper.md` context. Must answer from extracted text rather than image bytes.

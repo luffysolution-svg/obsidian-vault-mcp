@@ -103,6 +103,12 @@ If `stdout` contains `"Vault not found."` or similar error text, treat as failur
 
 Do not use `shell=True` on Windows — pass the executable path directly.
 
+## Eval Scenarios
+
+- **Trigger:** "Open this note in Obsidian." Expected: check CLI availability, then run `obsidian open --path ...`. Must not modify files.
+- **Trigger:** "Rename a note and keep links working." Expected: use `obsidian rename` or `obsidian move`, then verify the command output. Must not use raw filesystem rename while Obsidian is running.
+- **Trigger:** "List unfinished tasks in this note." Expected: use `obsidian tasks --format json --todo` and parse JSON. Must treat error text in stdout as failure even if exit code is zero.
+
 ---
 
 ## 中文说明
