@@ -30,7 +30,7 @@ Use the Zotero tools in this plugin when the request starts from the user's loca
 ## Re-ingest Behavior
 
 - Repeated pipeline runs preserve user-owned YAML fields, unknown custom fields, `## Reading Notes`, and `## AI Summary`.
-- The plugin does not generate AI summaries; skills may write that section later.
+- The plugin does not generate AI summaries. Use the `obsidian-ai-summary` skill to generate or update that section — it can be triggered after import or via `obsidian_pipeline_ingest_item(write_ai_summary=true)`.
 
 ## Related Tools
 
