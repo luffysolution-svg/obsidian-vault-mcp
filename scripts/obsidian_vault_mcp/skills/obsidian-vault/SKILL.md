@@ -99,6 +99,7 @@ To create a note with a template:
 - Never write outside the vault root.
 - Prefer `obsidian_update_properties` for frontmatter edits — it preserves body content.
 - When Obsidian desktop is open, prefer the `obsidian-cli` skill for moves and renames.
+- To generate AI summaries for literature notes, use the `obsidian-ai-summary` skill.
 
 ---
 

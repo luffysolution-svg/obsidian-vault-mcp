@@ -10,3 +10,4 @@ Use 17 MCP tools (literature profile) + Claude built-in tools. Key tools: `obsid
 - **Schema**: read frontmatter → check required fields → `obsidian_update_properties` to fill defaults
 - **Bulk edit**: read → show diff → confirm → write; keep backup for rollback
 - **File ops**: Bash `Move-Item`/`Remove-Item` for move/delete; `obsidian-cli` skill for Obsidian-open moves
+- **AI Summary**: use `obsidian-ai-summary` skill to generate summaries for literature notes
