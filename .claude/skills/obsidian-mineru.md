@@ -9,3 +9,4 @@ description: "Parse PDFs with MinerU — direct extraction, batch folders, Zoter
 - **Text only**: `Bash` → `python -c "import pypdf; r=pypdf.PdfReader('f.pdf'); print('\n'.join(p.extract_text() for p in r.pages))"`
 - After extraction: use `obsidian_pipeline_rename_mineru_images` (MCP) to rename images to semantic slugs.
 - **Figure analysis**: read `attachments/mineru/<key>/images-index.md` → identify figure by slug/caption → `obsidian_search` with slug filename to locate surrounding text in `paper.md` → answer from caption + context (never decode image bytes).
+- **AI Summary**: after parsing, use `obsidian-ai-summary` skill, or pass `write_ai_summary=true` to `obsidian_pipeline_parse_with_mineru`.

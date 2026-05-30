@@ -30,7 +30,7 @@ Use this skill when the request is about full-document parsing and source-note i
 ## Output Expectations
 
 - MinerU assets are machine-generated and may be overwritten on re-parse.
-- Literature notes are stable user workspaces; preserve custom YAML, `Reading Notes`, and `AI Summary`.
+- Literature notes are stable user workspaces; preserve custom YAML, `Reading Notes`, and `AI Summary`. To generate or update `## AI Summary` after parsing, use the `obsidian-ai-summary` skill. It can also be triggered via `obsidian_pipeline_parse_with_mineru(write_ai_summary=true)`.
 - The plugin does not generate AI summaries, wiki pages, graphs, or reviews from MinerU output.
 
 ## Troubleshooting
