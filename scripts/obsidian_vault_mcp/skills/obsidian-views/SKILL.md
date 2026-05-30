@@ -88,6 +88,8 @@ Omit the `color` field entirely when no colour is needed.
 6. Color presets are `"1"`–`"6"` or valid hex (e.g. `"#FF0000"`).
 7. JSON is valid and parseable.
 
+See [references/canvas-examples.md](references/canvas-examples.md) for complete worked examples (mind maps, project boards, research canvases, flowcharts).
+
 ## Obsidian Bases
 
 A `.base` file is YAML that defines a database-style table over vault notes.
