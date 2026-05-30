@@ -26,18 +26,67 @@ A `.canvas` file is a JSON object with `nodes` and `edges` arrays.
 
 **Node types:** `file` (vault note), `text` (inline text), `link` (URL), `group` (container).
 
-**Layouts:**
-- Grid: place nodes at evenly spaced `(x, y)` positions, e.g. 300px apart.
-- Radial: compute angles around a centre point.
-- Grouped: create `group` nodes first, position member nodes inside group bounds.
-- Layered: arrange by folder depth (x) and index within folder (y).
+**Kepano detection:** Before generating any Canvas, check whether `skills/json-canvas/SKILL.md` (project) or `.claude/skills/json-canvas.md` (user) exists. If found, invoke that skill instead of the built-in section below.
+
+**Layouts — coordinate formulas:**
+- **Grid:** `x = col * (nodeWidth + 60)`, `y = row * (nodeHeight + 40)`. Fill columns first, max 4 nodes per row.
+- **Radial:** `x = cx + r * cos(2π * i / n)`, `y = cy + r * sin(2π * i / n)`. Radius `r = max(200, n * 60)`.
+- **Layered (DAG):** Topological sort to get depth `d`; `x = d * 320`; nodes at same depth share `y` evenly. Recommended for 5+ nodes with a clear dependency direction.
+- **Grouped:** Place group nodes first; constrain member coordinates within group bounds with 30 px inner padding.
+
+**Overlap detection:** After placing all nodes, check every pair for bounding-box intersection:
+`overlap = !(ax+aw ≤ bx || bx+bw ≤ ax || ay+ah ≤ by || by+bh ≤ ay)`
+If overlap found, shift the later node right by `overlapWidth + 40`.
+
+**Colors:**
+
+| Preset | Color | Preset | Color |
+|--------|-------|--------|-------|
+| `"1"` | Red | `"4"` | Green |
+| `"2"` | Orange | `"5"` | Cyan |
+| `"3"` | Yellow | `"6"` | Purple |
+
+Omit the `color` field entirely when no colour is needed.
+
+**Node size guidelines:**
+
+| Type | width | height |
+|------|-------|--------|
+| Small text / label | 200–300 | 80–150 |
+| Normal note card | 250–400 | 150–250 |
+| Large card / file preview | 400–500 | 250–400 |
+
+**ID generation:** 16-character lowercase hex string, e.g. `"6f0ad84f44ce9c17"`. Never reuse an existing node or edge id.
 
 **Steps to create a Canvas from vault links:**
 1. `obsidian_search` with `query=""` to get all notes.
 2. `obsidian_read_file` each note to extract `[[wikilinks]]`.
 3. Build node list (one node per note) and edge list (one edge per link).
-4. Apply layout to assign `x`, `y` coordinates.
-5. `obsidian_write_file` the JSON to `<path>.canvas`.
+4. Apply layout using the coordinate formulas above.
+5. Run overlap detection; adjust positions if needed.
+6. `obsidian_write_file` the JSON to `<path>.canvas`.
+
+**Visual validation (pure JSON — after writing the file):**
+1. `obsidian_read_file` the written `.canvas` file.
+2. Output a position summary table for quick scan:
+   ```
+   id       type   x     y     w    h
+   ──────────────────────────────────
+   a1b2c3   file     0     0   300  150
+   d4e5f6   file   360     0   300  150
+   ```
+3. Run bounding-box overlap check on all node pairs; report any overlapping pairs.
+4. Check total canvas span: `(max_x − min_x)` and `(max_y − min_y)` should be < 3000 px.
+5. Verify every edge `fromNode`/`toNode` exists in the node list.
+
+**Validation checklist:**
+1. All `id` values unique across nodes and edges.
+2. Every `fromNode`/`toNode` references an existing node id.
+3. `type` is one of `text`, `file`, `link`, `group`.
+4. `fromSide`/`toSide` is one of `top`, `right`, `bottom`, `left`.
+5. `fromEnd`/`toEnd` is one of `none`, `arrow`.
+6. Color presets are `"1"`–`"6"` or valid hex (e.g. `"#FF0000"`).
+7. JSON is valid and parseable.
 
 ## Obsidian Bases
 
