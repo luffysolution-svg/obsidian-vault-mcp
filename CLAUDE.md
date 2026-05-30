@@ -10,12 +10,12 @@
 | `scripts/obsidian_vault_mcp/skills/<skill-name>/SKILL.md` | 打进 PyPI wheel 的那份（`package-data`） |
 | `.claude/skills/<skill-name>.md` | Claude Code 用的精简摘要版（bullet points） |
 
-**每次修改 `skills/` 下任何 SKILL.md，必须同步另外两处。**
+**每次修改 `skills/` 下任何文件（含 references/ 子目录），必须同步另外两处。**
 
 ```bash
-# 批量同步到 PyPI 包目录（完整内容）
-for skill in obsidian-vault obsidian-zotero obsidian-mineru obsidian-views obsidian-cli obsidian-graph; do
-  cp skills/$skill/SKILL.md scripts/obsidian_vault_mcp/skills/$skill/SKILL.md
+# 批量同步到 PyPI 包目录（递归复制整个 skill 目录，含 references/）
+for skill in obsidian-vault obsidian-zotero obsidian-mineru obsidian-views obsidian-cli obsidian-graph obsidian-ai-summary; do
+  cp -r skills/$skill/. scripts/obsidian_vault_mcp/skills/$skill/
 done
 ```
 
