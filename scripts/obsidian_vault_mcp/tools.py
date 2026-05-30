@@ -914,7 +914,7 @@ def obsidian_pipeline_rename_mineru_images(
         if not dry_run:
             if old_full.exists() and old_full.resolve() != new_full.resolve():
                 new_full.parent.mkdir(parents=True, exist_ok=True)
-                old_full.rename(new_full)
+                old_full.replace(new_full)
             elif not old_full.exists() and not new_full.exists():
                 errors.append({"path": image_path, "error": "Image file not found on disk"})
                 continue
@@ -1022,7 +1022,10 @@ def obsidian_pipeline_parse_with_mineru(
         "",
     ])
     _write_text(_safe_path(vault, markdown_rel), _join_frontmatter({**source_props, **paper_props}, paper_body))
-    rename = obsidian_pipeline_rename_mineru_images(effective_key, markdown_rel, str(vault), dry_run=False)
+    try:
+        rename = obsidian_pipeline_rename_mineru_images(effective_key, markdown_rel, str(vault), dry_run=False)
+    except Exception as exc:
+        rename = {"ok": False, "error": str(exc), "renamed": 0, "errors": [{"error": str(exc)}]}
 
     mineru_lit_props = {
         "mineruStatus": "parsed" if rename.get("ok") else "image_rename_failed",

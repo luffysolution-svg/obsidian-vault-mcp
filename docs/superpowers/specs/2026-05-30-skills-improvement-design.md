@@ -197,8 +197,42 @@ Create a new GitHub Release tagged with the new version; attach the zip of `skil
 
 ---
 
+## Section 5 — MCP Server Bug Fixes (tools.py)
+
+Two bugs in `scripts/obsidian_vault_mcp/tools.py` identified and fixed in this iteration.
+
+### Bug 1: `Path.rename()` not overwrite-safe on Windows (line 917)
+
+**Root cause:** `Path.rename()` calls `os.rename` which throws `OSError [WinError 183]` on Windows
+when the target file already exists. On retry after a partial run, both the original hash-named file
+and the previously renamed semantic file can exist simultaneously, triggering this error.
+
+**Fix:** Replace `old_full.rename(new_full)` with `old_full.replace(new_full)`.
+`Path.replace()` uses `MoveFileExW + MOVEFILE_REPLACE_EXISTING` on Windows — atomically
+overwrites the target if present, making the operation idempotent across retries.
+
+### Bug 2: Uncaught exception breaks extraction/rename decoupling (line 1025)
+
+**Root cause:** `obsidian_pipeline_parse_with_mineru` calls `obsidian_pipeline_rename_mineru_images`
+without a try/except. When rename raises (e.g. WinError 183 from Bug 1), the graceful-degradation
+code at lines 1027–1039 (which sets `mineruStatus: "image_rename_failed"`) never runs. The
+literature note is left without a status update and the mineru directory remains in intermediate state.
+
+**Fix:** Wrap the rename call in try/except:
+
+```python
+try:
+    rename = obsidian_pipeline_rename_mineru_images(effective_key, markdown_rel, str(vault), dry_run=False)
+except Exception as exc:
+    rename = {"ok": False, "error": str(exc), "renamed": 0, "errors": [{"error": str(exc)}]}
+```
+
+This ensures extraction results are always persisted to the literature note even when rename fails.
+
+---
+
 ## Out of Scope
 
-- Changes to MCP server Python code (pipeline flag `write_ai_summary` is documented as a skill-level convention; actual server implementation is a separate task).
+- Pipeline flag `write_ai_summary` server-side implementation (documented as skill-level convention; separate task).
 - Defuddle, obsidian-markdown, or obsidian-cli skill content changes.
 - Automated CI for skill sync.
