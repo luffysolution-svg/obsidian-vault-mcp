@@ -309,6 +309,55 @@ class ObsidianVaultMcpTests(unittest.TestCase):
         self.assertEqual(custom["config"]["mineruAttachmentsFolder"], "assets/mineru")
         self.assertTrue(custom["exists"])
 
+    def test_pipeline_ingest_item_copies_zotero_linked_attachment(self):
+        linked_base = self.vault / "linked-base"
+        linked_pdf = linked_base / "LLM_Agent" / "tech debit" / "linked article.pdf"
+        linked_pdf.parent.mkdir(parents=True, exist_ok=True)
+        linked_pdf.write_bytes(b"%PDF-1.4\n")
+        (self.vault / ".obsidian-vault-pipeline.json").write_text(
+            json.dumps({"zoteroLinkedAttachmentBaseDirectory": str(linked_base)}),
+            encoding="utf-8",
+        )
+
+        def fake_api(path, params=None, api_base=""):
+            if path == "users/0/items/ITEM1":
+                return {
+                    "key": "ITEM1",
+                    "version": 7,
+                    "data": {
+                        "key": "ITEM1",
+                        "version": 7,
+                        "itemType": "journalArticle",
+                        "title": "Linked Zotero Article",
+                        "creators": [{"firstName": "Ada", "lastName": "Lovelace"}],
+                        "date": "2024",
+                    },
+                }
+            if path == "users/0/items/ITEM1/children":
+                return [
+                    {
+                        "key": "PDF1",
+                        "data": {
+                            "key": "PDF1",
+                            "itemType": "attachment",
+                            "contentType": "application/pdf",
+                            "path": "attachments:LLM_Agent/tech debit/linked article.pdf",
+                        },
+                    }
+                ]
+            return []
+
+        original = self._patch_zotero_api(fake_api)
+        try:
+            result = self.module.obsidian_pipeline_ingest_item("ITEM1", str(self.vault), parse_with_mineru=False)
+        finally:
+            self.module._tools._zotero_api = original
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["pdfPath"], "attachments/zotero/ITEM1/linked-zotero-article.pdf")
+        self.assertEqual(result["zoteroAttachmentPaths"], [str(linked_pdf)])
+        self.assertTrue((self.vault / "attachments" / "zotero" / "ITEM1" / "linked-zotero-article.pdf").exists())
+
     def test_pipeline_ingest_item_without_mineru_creates_stable_note_and_links(self):
         fake_api = self._fake_pipeline_api()
         original = self._patch_zotero_api(fake_api)

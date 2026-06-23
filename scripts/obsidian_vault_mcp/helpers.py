@@ -1309,13 +1309,19 @@ def _zotero_item_summary(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _resolve_zotero_attachment_path(attachment: dict[str, Any]) -> Path:
+def _resolve_zotero_attachment_path(attachment: dict[str, Any], linked_attachment_base_dir: str = "") -> Path:
     path_value = str(attachment.get("rawData", {}).get("path") or attachment.get("attachmentPath") or "")
     if not path_value:
         raise ValueError("Attachment does not expose a local path through the Zotero API.")
     if path_value.startswith("storage:"):
         storage_root = Path(os.environ.get("ZOTERO_STORAGE_DIR", Path.home() / "Zotero" / "storage"))
         return storage_root / str(attachment["key"]) / path_value.replace("storage:", "", 1)
+    if path_value.startswith("attachments:"):
+        base_value = linked_attachment_base_dir or os.environ.get("ZOTERO_LINKED_ATTACHMENT_BASE_DIR", "")
+        if not base_value:
+            raise ValueError("Zotero linked attachment base directory is not configured.")
+        rel_value = path_value.replace("attachments:", "", 1).lstrip("/\\")
+        return Path(base_value).expanduser() / Path(rel_value)
     return Path(path_value).expanduser()
 
 

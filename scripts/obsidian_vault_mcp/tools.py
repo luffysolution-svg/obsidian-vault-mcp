@@ -306,6 +306,7 @@ PIPELINE_CONFIG_FILE = ".obsidian-vault-pipeline.json"
 PIPELINE_DEFAULT_CONFIG: dict[str, str] = {
     "literatureFolder": "literature",
     "zoteroAttachmentsFolder": "attachments/zotero",
+    "zoteroLinkedAttachmentBaseDirectory": "",
     "mineruAttachmentsFolder": "attachments/mineru",
     "noteFilenamePattern": "{firstAuthor} {year} - {shortTitle}",
     "pdfFilenamePattern": "{shortTitle}",
@@ -863,7 +864,7 @@ def obsidian_pipeline_ingest_item(
         if attachment.get("key"):
             pdf_keys.append(str(attachment["key"]))
         try:
-            source_pdf = _resolve_zotero_attachment_path(attachment)
+            source_pdf = _resolve_zotero_attachment_path(attachment, config.get("zoteroLinkedAttachmentBaseDirectory", ""))
             source_paths.append(str(source_pdf))
             pdf_name = _pipeline_pdf_filename(metadata, source_pdf, config)
             if len(children.get("attachments", [])) > 1 and index > 1:
