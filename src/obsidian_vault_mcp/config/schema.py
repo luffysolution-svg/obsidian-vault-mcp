@@ -41,7 +41,14 @@ _ALLOWED_KEYS: dict[str, set[str]] = {
         "embedPdf",
         "embedMineruMarkdown",
     },
-    "zotero": {"apiBase", "syncNotes", "syncAnnotations", "syncTags", "paginationSize"},
+    "zotero": {
+        "apiBase",
+        "linkedAttachmentBaseDir",
+        "syncNotes",
+        "syncAnnotations",
+        "syncTags",
+        "paginationSize",
+    },
     "bibtex": {"enabled", "provider", "fallback"},
     "mineru": {
         "enabled",
@@ -165,6 +172,7 @@ CONFIG_SCHEMA: dict[str, Any] = {
                     "minLength": 1,
                     "default": "http://127.0.0.1:23119/api",
                 },
+                "linkedAttachmentBaseDir": {"type": "string", "default": ""},
                 "syncNotes": {"type": "boolean", "default": True},
                 "syncAnnotations": {"type": "boolean", "default": True},
                 "syncTags": {"type": "boolean", "default": True},
@@ -368,6 +376,7 @@ def _validate_scalar_sections(config: dict[str, Any]) -> None:
 
     zotero = config["zotero"]
     _expect_string(zotero["apiBase"], "zotero.apiBase", non_empty=True)
+    _expect_string(zotero["linkedAttachmentBaseDir"], "zotero.linkedAttachmentBaseDir")
     for name in ("syncNotes", "syncAnnotations", "syncTags"):
         _expect_bool(zotero[name], f"zotero.{name}")
     _expect_int(zotero["paginationSize"], "zotero.paginationSize", minimum=1, maximum=1000)

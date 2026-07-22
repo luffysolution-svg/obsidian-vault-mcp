@@ -18,7 +18,7 @@ Index 仪表盘 + Obsidian Base + 可追溯 Wiki
 
 - 单篇或整套 Zotero 集合导入，完整处理分页，不静默漏掉第 100 条之后的文献。
 - 每个父条目只生成一份 `Literature/{zoteroKey}.md` 主笔记。
-- 同步元数据、标签、PDF、Zotero notes/annotations 与 BibTeX，同时保留托管区块外的用户正文和未知 Frontmatter 字段。
+- 同步元数据、标签、Zotero 存储附件或链接附件 PDF、notes/annotations 与 BibTeX，同时保留托管区块外的用户正文和未知 Frontmatter 字段。
 - 可选调用 MinerU Open API CLI，将 PDF 规范化为可移植的 Markdown 与相对图片链接。
 - 自动维护 `Literature/index.md`、`Literature/Literature.base` 和来源可追溯的 Wiki 页面。
 - 所有正式写入经过 dry-run、staging、原子替换、备份、锁和事务；支持预览与回滚。
@@ -34,7 +34,7 @@ Wiki 正文由连接的 AI 客户端综合撰写，本项目负责检索本地�
 
 ```powershell
 # 1. 安装 V2；Python distribution 名与 CLI 名不同
-python -m pip install "zotero-obsidian-mcp==2.0.0"
+python -m pip install "zotero-obsidian-mcp==2.0.1"
 
 # 2. 显式指定 Vault。auto 只会从进程当前目录向父目录查找 .obsidian
 $env:OBSIDIAN_VAULT_PATH = "D:\Notes\MyVault"
@@ -54,6 +54,8 @@ obsidian-vault-mcp import item ABCD1234
 ```
 
 `doctor` 顶层的 `ok` 只表示配置能够加载；请另外检查结果中的 `zotero.ok` 和 `mineru.available`。首次导入成功后应看到主笔记、PDF、Index 与 Base。完成 MinerU 认证后可继续：
+
+如果 Zotero 附件使用“链接到文件”，请先在配置中设置 `zotero.linkedAttachmentBaseDir`，或设置 `ZOTERO_LINKED_ATTACHMENT_BASE_DIR`；完整示例见[教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md#5-%E9%85%8D%E7%BD%AE-zotero-%E6%9C%AC%E5%9C%B0-api)。
 
 ```powershell
 mineru-open-api auth

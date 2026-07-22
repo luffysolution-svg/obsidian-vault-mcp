@@ -41,6 +41,7 @@ class ImportService:
         self.client = zotero_client or ZoteroClient(
             api_base=os.environ.get("ZOTERO_LOCAL_API") or str(self.config["zotero"]["apiBase"]),
             page_size=int(self.config["zotero"]["paginationSize"]),
+            linked_attachment_base_dir=str(self.config["zotero"]["linkedAttachmentBaseDir"]),
         )
 
     def import_item(

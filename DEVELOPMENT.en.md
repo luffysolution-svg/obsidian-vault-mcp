@@ -6,7 +6,7 @@ This document is the implementation and release contract for V2. The package is 
 
 ## Supported baseline
 
-- Release: `2.0.0`
+- Release: `2.0.1`
 - Python: 3.10–3.13
 - Runtime dependencies: `mcp>=1.10,<2`, `PyYAML>=6.0,<7`
 - Package/distribution: `zotero-obsidian-mcp`
@@ -15,7 +15,7 @@ This document is the implementation and release contract for V2. The package is 
 - MCP server name: `obsidian-literature`
 - License: MIT
 
-The version must agree in `pyproject.toml`, `.codex-plugin/plugin.json`, and `adapters/pi/package.json`. Release tags use `vMAJOR.MINOR.PATCH`; the V2 tag is `v2.0.0`.
+The version must agree in `pyproject.toml`, `src/obsidian_vault_mcp/__init__.py`, `.codex-plugin/plugin.json`, and `adapters/pi/package.json`. Release tags use `vMAJOR.MINOR.PATCH`; the current tag is `v2.0.1`.
 
 ## Non-negotiable V2 contracts
 
@@ -192,7 +192,7 @@ V2 talks to the Zotero Desktop local API, normally `http://127.0.0.1:23119/api`.
 
 Collection and search endpoints are exhausted with `start`/`limit` pagination. Offsets advance by the number actually returned, and duplicate identities across pages are treated as an upstream pagination error. Parent imports exclude `attachment`, `note`, and `annotation` items from the collection root and fetch those as children instead.
 
-PDF resolution supports Zotero attachment metadata and an optional `ZOTERO_STORAGE_DIR` override. Source absolute paths remain hidden. BibTeX provider order in `auto` mode is Better BibTeX, Zotero export, then the built-in deterministic fallback; local `file` fields are removed before content enters a vault note.
+PDF resolution supports Zotero attachment metadata and an optional `ZOTERO_STORAGE_DIR` override for `storage:` paths. Zotero `attachments:` linked-file paths resolve against the non-empty `zotero.linkedAttachmentBaseDir` config value or the `ZOTERO_LINKED_ATTACHMENT_BASE_DIR` environment fallback. Resolution rejects traversal, drive-prefixed relative values, and any result outside that base directory. Source absolute paths remain hidden. BibTeX provider order in `auto` mode is Better BibTeX, Zotero export, then the built-in deterministic fallback; local `file` fields are removed before content enters a vault note.
 
 ## MinerU adapter contract
 
@@ -268,7 +268,7 @@ python -m pytest tests/unit tests/contract tests/repository
 python scripts/verify_release.py
 ```
 
-The 2.0.0 release candidate currently reports 113 passing pytest cases. Treat the observed count as informational; the pass/fail result and release verifier are the contract.
+The 2.0.1 release candidate currently reports 119 passing pytest cases. Treat the observed count as informational; the pass/fail result and release verifier are the contract.
 
 CI runs Python 3.10, 3.11, 3.12, and 3.13 on Ubuntu, Windows, and macOS. It also builds and smoke-installs a wheel. A separate Node 22 job installs the Pi adapter dependencies and runs its TypeScript check.
 
@@ -300,12 +300,12 @@ cd ..
 python scripts/verify_release.py --checksums-dir dist
 ```
 
-Expected artifacts for `2.0.0` are:
+Expected artifacts for `2.0.1` are:
 
 ```text
-dist/zotero_obsidian_mcp-2.0.0-py3-none-any.whl
-dist/zotero_obsidian_mcp-2.0.0.tar.gz
-dist/obsidian-vault-mcp-2.0.0.zip
+dist/zotero_obsidian_mcp-2.0.1-py3-none-any.whl
+dist/zotero_obsidian_mcp-2.0.1.tar.gz
+dist/obsidian-vault-mcp-2.0.1.zip
 dist/SHA256SUMS
 ```
 
@@ -318,9 +318,9 @@ After the release commit has passed CI and reached `main`, create the tag, verif
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v2.0.0 -m "Obsidian Vault MCP V2.0.0"
-python scripts/verify_release.py --tag v2.0.0
-git push origin v2.0.0
+git tag -a v2.0.1 -m "Obsidian Vault MCP V2.0.1"
+python scripts/verify_release.py --tag v2.0.1
+git push origin v2.0.1
 ```
 
 The release workflow checks out the tag, repeats all gates, builds all three artifacts, and creates or updates the GitHub release. The tag must resolve to the checked-out commit.
@@ -339,7 +339,7 @@ Review these boundaries for every change:
 - User ownership: preserve unknown frontmatter and unmarked Markdown; never convert a failed parse into a partial success.
 - Release: exclude vaults, tokens, machine paths, virtual environments, caches, test output, staging, backups, and `dist/` from Git.
 
-## Current limitations in 2.0.0
+## Current limitations in 2.0.1
 
 - Zotero integration is local Desktop only; cloud libraries and cloud API keys are outside the V2 surface.
 - `OBSIDIAN_VAULT_PATH=auto` searches only the server process's current directory and parents. It does not enumerate Obsidian's registered vaults.
@@ -347,7 +347,7 @@ Review these boundaries for every change:
 - MinerU integration targets the Open API CLI. The config value `local` is a compatibility mapping to token-free `flash-extract`, not an offline local model backend.
 - MinerU parse dry-runs validate the imported item/PDF and report the planned staging/output paths, but do not contact MinerU or predict the extracted file set.
 - MinerU batch and collection operations return bounded summaries (20 entries by default); aggregate counts remain authoritative when `truncated` is true.
-- `safety.retainBackups` is validated but 2.0.0 does not prune old transaction backups automatically; operators must apply their own retention policy to the hidden backup directory.
+- `safety.retainBackups` is validated but 2.0.1 does not prune old transaction backups automatically; operators must apply their own retention policy to the hidden backup directory.
 - Wiki retrieval is lexical and bounded; semantic ranking and prose generation belong to the connected Agent.
 - The server accepts SSE and streamable HTTP but supplies no built-in authentication, authorization, or TLS.
 - One process invocation resolves one vault path. Multi-vault orchestration requires separate client entries or explicit per-tool `vault_path` values.

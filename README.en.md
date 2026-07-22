@@ -18,7 +18,7 @@ Index dashboard + Obsidian Base + traceable Wiki
 
 - Import one Zotero parent item or a fully paginated collection.
 - Keep exactly one main note at `Literature/{zoteroKey}.md` for each parent item.
-- Synchronize metadata, tags, PDF, Zotero notes/annotations, and BibTeX while preserving unknown frontmatter fields and user-authored Markdown.
+- Synchronize metadata, tags, stored or linked Zotero PDFs, notes/annotations, and BibTeX while preserving unknown frontmatter fields and user-authored Markdown.
 - Optionally normalize a PDF through the MinerU Open API CLI into portable Markdown and relative image links.
 - Rebuild `Literature/index.md`, `Literature/Literature.base`, and source-linked Wiki pages.
 - Preview writes, lock per item, stage and back up changes, replace files atomically, and roll back a committed transaction.
@@ -33,7 +33,7 @@ Prerequisites: Python 3.10+, an Obsidian vault that has been opened at least onc
 Install the exact V2 release:
 
 ```bash
-python -m pip install "zotero-obsidian-mcp==2.0.0"
+python -m pip install "zotero-obsidian-mcp==2.0.1"
 ```
 
 Point the process at the actual vault. `auto` searches only the current working directory and its parents for `.obsidian`; it does not scan all vaults on the machine.
@@ -65,6 +65,8 @@ obsidian-vault-mcp verify
 ```
 
 `doctor.ok` means that the vault configuration loaded successfully. Check `zotero.ok` and `mineru.available` separately before relying on those integrations.
+
+If Zotero uses **Link to File** attachments, set `zotero.linkedAttachmentBaseDir` or `ZOTERO_LINKED_ATTACHMENT_BASE_DIR` before importing. See [Make PDFs available](./docs/index.en.md#make-pdfs-available) for examples.
 
 For precision PDF parsing, install and authenticate the MinerU Open API CLI, then run:
 
