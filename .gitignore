@@ -11,11 +11,14 @@ build/
 *.egg-info/
 .venv/
 venv/
+node_modules/
 .env
 .DS_Store
 Thumbs.db
 
 # Local vault data and generated backups should never be published.
+.obsidian-vault-mcp/
+.obsidian-vault-mcp.json
 .obsidian-vault-backups/
 test/
 test-*/

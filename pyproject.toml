@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77,<81", "wheel>=0.43,<1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "zotero-obsidian-mcp"
-version = "1.1.5"
+version = "2.0.0"
 description = "Local MCP server for a Zotero + MinerU + Obsidian literature pipeline."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
   { name = "Obsidian Vault MCP Contributors" }
 ]
@@ -16,7 +16,6 @@ keywords = ["obsidian", "zotero", "mineru", "literature", "markdown", "mcp"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -24,19 +23,19 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "mcp",
-  "PyYAML",
-  "pypdf",
-  "networkx>=3.0",
+  "mcp>=1.10,<2",
+  "PyYAML>=6.0,<7",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "ruff==0.13.2",
+  "build>=1.2,<2",
+  "pytest>=8,<10",
+  "ruff>=0.13,<0.15",
 ]
 
 [project.scripts]
-obsidian-vault-mcp = "obsidian_vault_mcp.cli:main"
+obsidian-vault-mcp = "obsidian_vault_mcp.interfaces.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/luffysolution-svg/obsidian-vault-mcp"
@@ -44,15 +43,15 @@ Repository = "https://github.com/luffysolution-svg/obsidian-vault-mcp"
 Issues = "https://github.com/luffysolution-svg/obsidian-vault-mcp/issues"
 
 [tool.setuptools]
-package-dir = { "" = "scripts" }
-include-package-data = true
+package-dir = { "" = "src" }
+include-package-data = false
 
 [tool.setuptools.packages.find]
-where = ["scripts"]
+where = ["src"]
 include = ["obsidian_vault_mcp*"]
 
 [tool.setuptools.package-data]
-"obsidian_vault_mcp" = ["skills/**/*"]
+"obsidian_vault_mcp.interfaces.agent_install" = ["pi_extension.ts"]
 
 [tool.ruff]
 line-length = 160
@@ -60,11 +59,4 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
-ignore = ["E501", "F403", "F405"]
-
-[tool.ruff.lint.per-file-ignores]
-"scripts/obsidian_vault_mcp.py" = ["E402", "F401", "F403", "I001"]
-"scripts/obsidian_vault_mcp/__init__.py" = ["F401", "F403"]
-"scripts/obsidian_vault_mcp/common.py" = ["F401"]
-"scripts/obsidian_vault_mcp/helpers.py" = ["F821"]
-"scripts/obsidian_vault_mcp/tools.py" = ["F821"]
+ignore = ["E501"]

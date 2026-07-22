@@ -1,43 +1,83 @@
 # AGENTS.md
 
-## Skills 目录同步规则
+## V2 repository contract
 
-项目中有**三套 skills 目录**，必须保持同步：
+This repository implements a local Zotero → MinerU → Obsidian literature pipeline. Keep every change consistent with these invariants:
 
-| 目录 | 用途 |
-|------|------|
-| `skills/<skill-name>/SKILL.md` | 权威来源，用于 GitHub Release zip 和本地使用 |
-| `scripts/obsidian_vault_mcp/skills/<skill-name>/SKILL.md` | 打进 PyPI wheel 的那份（`package-data`） |
-| `.claude/skills/<skill-name>.md` | Agent 本地用的精简摘要版（bullet points） |
+- A Zotero parent item is identified permanently by `zoteroKey`.
+- One parent item maps to one main note, normally `Literature/{zoteroKey}.md`.
+- User-visible files contain vault-relative paths with `/` separators. Source machine paths may appear only in hidden state.
+- Managed frontmatter is deterministic, omits empty values, and preserves unknown user fields.
+- User-authored Markdown outside managed markers is never overwritten.
+- Every write supports preview, locking, staging, backup, atomic replacement, and rollback.
+- The vault has one configuration file: `.obsidian-vault-mcp.json` with `schemaVersion: 2`.
+- The supported MCP surface contains the 26 V2 literature tools. Do not restore removed modes or pre-V2 tool names.
+- Native agent clients connect through MCP. Pi uses the thin TypeScript Extension. Do not add mirrored agent-instruction directories or synchronization scripts.
 
-**每次修改 `skills/` 下任何文件（含 references/ 子目录），必须同步另外两处。**
+## Architecture boundaries
 
-```bash
-# 批量同步到 PyPI 包目录（递归复制整个 skill 目录，含 references/）
-for skill in obsidian-vault obsidian-zotero obsidian-mineru obsidian-views obsidian-cli obsidian-graph obsidian-ai-summary; do
-  cp -r skills/$skill/. scripts/obsidian_vault_mcp/skills/$skill/
-done
+Production Python code lives under `src/obsidian_vault_mcp/`:
+
+- `domain/`: identities, models, path rules, frontmatter, and domain errors.
+- `application/`: import, sync, MinerU, index, base, wiki, migration, and transaction orchestration.
+- `adapters/`: Zotero, MinerU, vault filesystem, and Obsidian rendering.
+- `interfaces/`: CLI, MCP, and agent configuration installers.
+- `config/`: defaults, schema validation, and loading.
+
+Business behavior belongs in the domain or application layer. CLI and MCP code only parse input, invoke an application service, and serialize output. Avoid wildcard imports, dynamic namespace injection, and duplicate business implementations.
+
+## Change discipline
+
+- Make the smallest change that satisfies the requested behavior.
+- Do not reformat or refactor unrelated files.
+- Preserve existing user changes in a dirty worktree.
+- Add a failing regression test before fixing a bug when practical.
+- Use vault-relative fixtures, including paths with spaces and non-ASCII characters.
+- Tests that write files must use temporary vaults and must not contact a real Zotero library or MinerU service.
+
+## Pi Extension synchronization
+
+`adapters/pi/index.ts` is the distributable Pi package source. The wheel also carries an installer resource at:
+
+```text
+src/obsidian_vault_mcp/interfaces/agent_install/pi_extension.ts
 ```
 
-`.claude/skills/<name>.md` 是精简摘要，需要人工维护（不是机械复制，保持 bullet-point 风格）。
+These two files must remain byte-identical. The Extension must call:
 
-新增 skill 目录时，三处都要创建对应文件。
-
-同步后运行：
-
-```bash
-python scripts/check_skills_sync.py
+```text
+obsidian-vault-mcp call <tool> --json <json>
 ```
 
-## 版本号同步规则
+Use `execFile` or `spawn` without a shell and retain cancellation, timeout, output-size, and JSON-error handling.
 
-发版时以下四个文件的 `version` 字段必须一致：
+## Verification
+
+Run the checks relevant to the changed surface:
+
+```bash
+python -m ruff check src tests scripts/verify_release.py
+python -m pytest tests/unit tests/contract tests/repository
+python scripts/verify_release.py
+```
+
+For a release candidate, also build and test the actual artifacts:
+
+```bash
+python -m build --wheel --sdist --outdir dist
+python scripts/verify_release.py --artifacts-dir dist --require-sdist --smoke-wheel
+```
+
+The release verifier enforces portable client configuration, removed-path hygiene, dependency bounds, version agreement, Pi resource synchronization, and artifact contents.
+
+## Version and release rules
+
+The version must agree in:
 
 - `pyproject.toml`
 - `.codex-plugin/plugin.json`
-- `.claude-plugin/plugin.json`
-- `scripts/obsidian_vault_mcp/skills/` 通过 wheel 自动携带，无单独版本字段
+- `adapters/pi/package.json`
 
-## PyPI 发布注意
+Release tags use `vMAJOR.MINOR.PATCH` and must point to the checked-out commit. Releases build wheel and sdist from the tag, install the wheel for smoke testing, and create a Codex bundle containing only the two allowlisted, Git-tracked configuration files.
 
-PyPI 不允许重复上传同一版本。修改了 skills 内容后必须升版本号再发布。
+Never commit vault contents, credentials, tokens, machine-specific paths, generated backups, staging data, virtual environments, caches, or build artifacts.

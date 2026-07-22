@@ -1,4 +1,0 @@
-interface:
-  display_name: "Obsidian MinerU"
-  short_description: "Parse documents with MinerU for Obsidian import"
-  default_prompt: "Use $obsidian-mineru to extract a PDF or Office document with MinerU and ingest the Markdown into my Obsidian vault."

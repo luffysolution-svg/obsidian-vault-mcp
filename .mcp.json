@@ -1,12 +1,11 @@
 {
   "mcpServers": {
-    "obsidian-vault": {
+    "obsidian-literature": {
       "type": "stdio",
-      "command": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
-      "args": ["F:\\化工设计比赛\\plugins\\obsidian-vault\\scripts\\obsidian_vault_mcp.py"],
+      "command": "obsidian-vault-mcp",
+      "args": ["serve", "--transport", "stdio"],
       "env": {
-        "OBSIDIAN_VAULT_PATH": "auto",
-        "OBSIDIAN_CLI_COMMAND": "obsidian"
+        "OBSIDIAN_VAULT_PATH": "auto"
       }
     }
   }
