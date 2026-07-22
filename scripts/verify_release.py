@@ -38,6 +38,11 @@ class VerificationError(RuntimeError):
     pass
 
 
+def text_resource_matches(left: bytes, right: bytes) -> bool:
+    """Compare UTF-8 text resources without platform checkout line endings."""
+    return left.replace(b"\r\n", b"\n") == right.replace(b"\r\n", b"\n")
+
+
 def read_json(relative_path: str) -> dict[str, Any]:
     path = ROOT / relative_path
     try:
@@ -287,7 +292,10 @@ def verify_wheel(wheel: Path, version: str) -> None:
         pi_resource = "obsidian_vault_mcp/interfaces/agent_install/pi_extension.ts"
         if pi_resource not in names:
             raise VerificationError("Wheel is missing the Pi installer Extension resource.")
-        if archive.read(pi_resource) != (ROOT / "adapters" / "pi" / "index.ts").read_bytes():
+        if not text_resource_matches(
+            archive.read(pi_resource),
+            (ROOT / "adapters" / "pi" / "index.ts").read_bytes(),
+        ):
             raise VerificationError("Wheel Pi Extension resource differs from adapters/pi/index.ts.")
         forbidden = [name for name in names if "/skills/" in name.lower() or name.startswith("scripts/")]
         if forbidden:
@@ -315,7 +323,10 @@ def verify_sdist(sdist: Path, version: str) -> None:
         if pi_resource not in names:
             raise VerificationError("Source distribution is missing the Pi installer Extension resource.")
         pi_resource_file = archive.extractfile(pi_resource)
-        if pi_resource_file is None or pi_resource_file.read() != (ROOT / "adapters" / "pi" / "index.ts").read_bytes():
+        if pi_resource_file is None or not text_resource_matches(
+            pi_resource_file.read(),
+            (ROOT / "adapters" / "pi" / "index.ts").read_bytes(),
+        ):
             raise VerificationError("Source distribution Pi Extension resource differs from adapters/pi/index.ts.")
         forbidden = [name for name in names if "/skills/" in name.lower()]
         if forbidden:
@@ -418,7 +429,7 @@ def check_bundle(directory: Path, version: str) -> None:
             raise VerificationError(f"Codex plugin bundle must contain only {sorted(expected_entries)}, found {sorted(entries)}.")
         for relative_path in BUNDLE_FILES:
             archived = archive.read(f"{BUNDLE_ROOT}/{relative_path}")
-            if archived != (ROOT / relative_path).read_bytes():
+            if not text_resource_matches(archived, (ROOT / relative_path).read_bytes()):
                 raise VerificationError(f"Bundled file differs from the tracked working-tree file: {relative_path}")
 
 

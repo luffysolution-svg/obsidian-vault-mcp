@@ -66,3 +66,8 @@ def test_checksum_verifier_covers_every_release_artifact(tmp_path: Path) -> None
     (tmp_path / "package.whl").write_bytes(b"tampered")
     with pytest.raises(verify_release.VerificationError, match="checksum mismatch"):
         verify_release.check_checksums(tmp_path)
+
+
+def test_text_resource_comparison_ignores_checkout_line_endings() -> None:
+    assert verify_release.text_resource_matches(b"first\r\nsecond\r\n", b"first\nsecond\n")
+    assert not verify_release.text_resource_matches(b"first\r\nchanged\r\n", b"first\nsecond\n")
