@@ -191,6 +191,10 @@ Rollback refuses to overwrite a file changed after the transaction. Use `--confl
 - [English developer guide](./DEVELOPMENT.en.md): architecture, contracts, 26 tools, tests, packaging, release procedure, security, and current limitations.
 - [中文用户文档](./README.md) · [中文完整教程](./docs/index.md) · [中文开发者文档](./DEVELOPMENT.md)
 
+## Contributors
+
+Thanks to [方珸 / Lym Fang (@LimFang)](https://github.com/LimFang) for identifying the Zotero linked-attachment compatibility need and proposing the original implementation in [PR #6](https://github.com/luffysolution-svg/obsidian-vault-mcp/pull/6). See [CONTRIBUTORS.md](./CONTRIBUTORS.md) for the complete contribution record.
+
 | Surface | Name |
 |---|---|
 | GitHub repository | `obsidian-vault-mcp` |
