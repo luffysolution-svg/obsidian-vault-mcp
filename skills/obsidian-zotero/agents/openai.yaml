@@ -1,4 +1,0 @@
-interface:
-  display_name: "Obsidian Zotero"
-  short_description: "Import Zotero literature into Obsidian vaults"
-  default_prompt: "Use $obsidian-zotero to import a Zotero item with notes, annotations, and attachments into my Obsidian vault."

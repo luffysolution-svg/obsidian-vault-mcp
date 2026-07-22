@@ -1,4 +1,0 @@
-interface:
-  display_name: "Obsidian Graph"
-  short_description: "Analyse citation networks and graph communities in an Obsidian vault"
-  default_prompt: "Use $obsidian-graph to analyse the wikilink and citation graph of my Obsidian vault."

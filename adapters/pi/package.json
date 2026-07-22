@@ -1,0 +1,35 @@
+{
+  "name": "obsidian-vault-mcp-pi-extension",
+  "version": "2.0.0",
+  "description": "Pi extension for the Obsidian Vault MCP V2 JSON CLI",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luffysolution-svg/obsidian-vault-mcp.git",
+    "directory": "adapters/pi"
+  },
+  "files": [
+    "index.ts",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@types/node": ">=20 <25",
+    "typescript": ">=5.7 <6"
+  }
+}

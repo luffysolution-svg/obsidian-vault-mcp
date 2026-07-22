@@ -1,4 +1,0 @@
-interface:
-  display_name: "Obsidian Views"
-  short_description: "Create Canvas, Bases, and Dataview views"
-  default_prompt: "Use $obsidian-views to create a Canvas map, Base, or Dataview note from my Obsidian vault content."

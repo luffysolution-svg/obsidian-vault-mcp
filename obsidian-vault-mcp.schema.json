@@ -1,0 +1,445 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/luffysolution-svg/obsidian-vault-mcp/main/obsidian-vault-mcp.schema.json",
+  "title": "Obsidian Vault MCP V2 configuration",
+  "description": "Configuration for the local Zotero, MinerU, and Obsidian literature pipeline.",
+  "type": "object",
+  "required": [
+    "schemaVersion"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1,
+      "default": "https://raw.githubusercontent.com/luffysolution-svg/obsidian-vault-mcp/main/obsidian-vault-mcp.schema.json"
+    },
+    "schemaVersion": {
+      "const": 2,
+      "default": 2
+    },
+    "literature": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "root": "Literature",
+        "index": "Literature/index.md",
+        "base": "Literature/Literature.base",
+        "wikiFolder": "Literature/Wiki"
+      },
+      "properties": {
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature"
+        },
+        "index": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/index.md"
+        },
+        "base": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/Literature.base"
+        },
+        "wikiFolder": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/Wiki"
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "strategy": "zoteroKey"
+      },
+      "properties": {
+        "strategy": {
+          "const": "zoteroKey",
+          "default": "zoteroKey"
+        }
+      }
+    },
+    "naming": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "note": "{zoteroKey}.md",
+        "pdf": "{zoteroKey}.pdf",
+        "mineruMarkdown": "{zoteroKey}.md",
+        "mineruImage": "{zoteroKey}-fig{index:02d}.{ext}"
+      },
+      "properties": {
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "default": "{zoteroKey}.md"
+        },
+        "pdf": {
+          "type": "string",
+          "minLength": 1,
+          "default": "{zoteroKey}.pdf"
+        },
+        "mineruMarkdown": {
+          "type": "string",
+          "minLength": 1,
+          "default": "{zoteroKey}.md"
+        },
+        "mineruImage": {
+          "type": "string",
+          "minLength": 1,
+          "default": "{zoteroKey}-fig{index:02d}.{ext}"
+        }
+      }
+    },
+    "attachments": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "pdfFolder": "Literature/attachment",
+        "copyPdf": true,
+        "overwritePolicy": "if-source-changed"
+      },
+      "properties": {
+        "pdfFolder": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/attachment"
+        },
+        "copyPdf": {
+          "type": "boolean",
+          "default": true
+        },
+        "overwritePolicy": {
+          "type": "string",
+          "enum": [
+            "always",
+            "never",
+            "if-source-changed"
+          ],
+          "default": "if-source-changed"
+        }
+      }
+    },
+    "frontmatter": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "omitEmpty": true,
+        "preserveUnknownFields": true,
+        "fieldOrder": [
+          "title",
+          "itemType",
+          "year",
+          "journal",
+          "tags",
+          "doi",
+          "url",
+          "abstract",
+          "zoteroKey",
+          "zoteroPdfLink",
+          "attachmentPdfLink",
+          "attachmentMinerULink"
+        ]
+      },
+      "properties": {
+        "omitEmpty": {
+          "type": "boolean",
+          "default": true
+        },
+        "preserveUnknownFields": {
+          "type": "boolean",
+          "default": true
+        },
+        "fieldOrder": {
+          "type": "array",
+          "const": [
+            "title",
+            "itemType",
+            "year",
+            "journal",
+            "tags",
+            "doi",
+            "url",
+            "abstract",
+            "zoteroKey",
+            "zoteroPdfLink",
+            "attachmentPdfLink",
+            "attachmentMinerULink"
+          ],
+          "default": [
+            "title",
+            "itemType",
+            "year",
+            "journal",
+            "tags",
+            "doi",
+            "url",
+            "abstract",
+            "zoteroKey",
+            "zoteroPdfLink",
+            "attachmentPdfLink",
+            "attachmentMinerULink"
+          ]
+        }
+      }
+    },
+    "note": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "omitEmptySections": true,
+        "preserveUserSections": true,
+        "readingNotesHeading": "Reading Notes",
+        "embedPdf": true,
+        "embedMineruMarkdown": true
+      },
+      "properties": {
+        "omitEmptySections": {
+          "type": "boolean",
+          "default": true
+        },
+        "preserveUserSections": {
+          "type": "boolean",
+          "default": true
+        },
+        "readingNotesHeading": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Reading Notes"
+        },
+        "embedPdf": {
+          "type": "boolean",
+          "default": true
+        },
+        "embedMineruMarkdown": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "zotero": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "apiBase": "http://127.0.0.1:23119/api",
+        "syncNotes": true,
+        "syncAnnotations": true,
+        "syncTags": true,
+        "paginationSize": 100
+      },
+      "properties": {
+        "apiBase": {
+          "type": "string",
+          "minLength": 1,
+          "default": "http://127.0.0.1:23119/api"
+        },
+        "syncNotes": {
+          "type": "boolean",
+          "default": true
+        },
+        "syncAnnotations": {
+          "type": "boolean",
+          "default": true
+        },
+        "syncTags": {
+          "type": "boolean",
+          "default": true
+        },
+        "paginationSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 100
+        }
+      }
+    },
+    "bibtex": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "enabled": true,
+        "provider": "auto",
+        "fallback": "builtin"
+      },
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "better-bibtex",
+            "zotero",
+            "builtin"
+          ],
+          "default": "auto"
+        },
+        "fallback": {
+          "type": "string",
+          "enum": [
+            "builtin",
+            "none"
+          ],
+          "default": "builtin"
+        }
+      }
+    },
+    "mineru": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "enabled": true,
+        "mode": "auto",
+        "markdownFolder": "Literature/attachment/MinerU",
+        "imageFolder": "Literature/attachment/MinerU/image",
+        "imageLinkStyle": "markdown-relative",
+        "replacePreviousOutput": true,
+        "maxConcurrentJobs": 2
+      },
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "local",
+            "api"
+          ],
+          "default": "auto"
+        },
+        "markdownFolder": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/attachment/MinerU"
+        },
+        "imageFolder": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/attachment/MinerU/image"
+        },
+        "imageLinkStyle": {
+          "type": "string",
+          "enum": [
+            "markdown-relative"
+          ],
+          "default": "markdown-relative"
+        },
+        "replacePreviousOutput": {
+          "type": "boolean",
+          "default": true
+        },
+        "maxConcurrentJobs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64,
+          "default": 2
+        }
+      }
+    },
+    "index": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "autoRebuild": true,
+        "recentLimit": 20,
+        "groupBy": [
+          "year",
+          "journal",
+          "tags"
+        ]
+      },
+      "properties": {
+        "autoRebuild": {
+          "type": "boolean",
+          "default": true
+        },
+        "recentLimit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 20
+        },
+        "groupBy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "year",
+              "journal",
+              "tags"
+            ]
+          },
+          "uniqueItems": true,
+          "default": [
+            "year",
+            "journal",
+            "tags"
+          ]
+        }
+      }
+    },
+    "base": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "autoRebuild": true,
+        "name": "Literature Matrix"
+      },
+      "properties": {
+        "autoRebuild": {
+          "type": "boolean",
+          "default": true
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature Matrix"
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "atomicWrites": true,
+        "backupBeforeReplace": true,
+        "retainBackups": 10,
+        "defaultDryRunForMigration": true,
+        "lockPerItem": true
+      },
+      "properties": {
+        "atomicWrites": {
+          "type": "boolean",
+          "default": true
+        },
+        "backupBeforeReplace": {
+          "type": "boolean",
+          "default": true
+        },
+        "retainBackups": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 10
+        },
+        "defaultDryRunForMigration": {
+          "type": "boolean",
+          "default": true
+        },
+        "lockPerItem": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  }
+}
