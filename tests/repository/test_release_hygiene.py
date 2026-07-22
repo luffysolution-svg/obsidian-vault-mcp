@@ -67,6 +67,9 @@ def test_ci_matrix_and_release_tag_checkout_cover_v2_requirements() -> None:
     for python_version in ("3.10", "3.11", "3.12", "3.13"):
         assert f'"{python_version}"' in ci
     assert "--smoke-wheel" in ci
+    assert "actions/checkout@v6" in ci and "actions/checkout@v6" in release
+    assert "actions/setup-node@v6" in ci and "actions/setup-node@v6" in release
+    assert "actions/upload-artifact@v6" in ci
 
     resolve_position = release.index("Resolve release tag")
     checkout_position = release.index("Check out release tag")
