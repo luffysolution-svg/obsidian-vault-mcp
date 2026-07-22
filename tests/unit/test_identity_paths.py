@@ -50,7 +50,8 @@ class IdentityAndPathTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             vault = Path(directory)
             resolved = resolve_vault_path(vault, "Literature/A.md")
-            self.assertEqual(resolved, vault / "Literature" / "A.md")
+            self.assertEqual(resolved, (vault / "Literature" / "A.md").resolve())
+            self.assertTrue(resolved.is_relative_to(vault.resolve()))
             paths = VaultPaths(vault)
             self.assertEqual(paths.note("ABCD1234"), "Literature/ABCD1234.md")
             self.assertEqual(paths.mineru_image("ABCD1234", 1, "png"), "Literature/attachment/MinerU/image/ABCD1234-fig01.png")
