@@ -54,6 +54,10 @@ def test_published_schema_exposes_runtime_enums_and_numeric_bounds() -> None:
         "maximum": 1000,
         "default": 100,
     }
+    assert properties["zotero"]["properties"]["linkedAttachmentBaseDir"] == {
+        "type": "string",
+        "default": "",
+    }
     assert properties["mineru"]["properties"]["maxConcurrentJobs"] == {
         "type": "integer",
         "minimum": 1,

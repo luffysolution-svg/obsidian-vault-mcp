@@ -4,8 +4,12 @@ import hashlib
 import json
 import tempfile
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
+import obsidian_vault_mcp.application.import_service as import_service_module
+from obsidian_vault_mcp.adapters.zotero.client import TransportResponse, ZoteroClient
 from obsidian_vault_mcp.application.import_service import ImportService
+from obsidian_vault_mcp.config import default_config
 from obsidian_vault_mcp.config.loader import initialize_config, load_config
 
 
@@ -45,6 +49,85 @@ class FakeZotero:
 
     def list_collection_items(self, key):
         return [{"key": "ABCD1234", "itemType": "journalArticle"}]
+
+
+def test_import_service_passes_linked_attachment_base_to_zotero_client(tmp_path, monkeypatch):
+    captured: dict[str, object] = {}
+
+    class CapturingClient:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    config = default_config()
+    config["zotero"]["linkedAttachmentBaseDir"] = str(tmp_path / "Linked PDFs")
+    monkeypatch.setattr(import_service_module, "ZoteroClient", CapturingClient)
+
+    ImportService(tmp_path, config=config)
+
+    assert captured["linked_attachment_base_dir"] == str(tmp_path / "Linked PDFs")
+
+
+def test_import_copies_zotero_linked_attachment_from_configured_base(tmp_path):
+    vault = tmp_path / "Vault"
+    (vault / ".obsidian").mkdir(parents=True)
+    linked_base = tmp_path / "Linked PDFs"
+    linked_pdf = linked_base / "LLM_Agent" / "tech debit" / "linked article.pdf"
+    linked_pdf.parent.mkdir(parents=True)
+    linked_pdf.write_bytes(b"%PDF-1.4 linked")
+    config = default_config()
+    config["zotero"]["linkedAttachmentBaseDir"] = str(linked_base)
+    config["bibtex"]["enabled"] = False
+
+    class LinkedTransport:
+        def request(self, method, url, *, headers, timeout):
+            del method, headers, timeout
+            parsed = urlsplit(url)
+            query = parse_qs(parsed.query)
+            if parsed.path == "/api/users/0/items/ITEM1":
+                payload = {
+                    "key": "ITEM1",
+                    "version": 7,
+                    "data": {
+                        "key": "ITEM1",
+                        "itemType": "journalArticle",
+                        "title": "Linked Zotero Article",
+                        "creators": [{"firstName": "Ada", "lastName": "Lovelace"}],
+                        "date": "2024",
+                    },
+                }
+            elif parsed.path == "/api/users/0/items/ITEM1/children":
+                payload = (
+                    [
+                        {
+                            "key": "PDF1",
+                            "version": 1,
+                            "data": {
+                                "key": "PDF1",
+                                "itemType": "attachment",
+                                "contentType": "application/pdf",
+                                "path": "attachments:LLM_Agent/tech debit/linked article.pdf",
+                            },
+                        }
+                    ]
+                    if query.get("start") == ["0"]
+                    else []
+                )
+            elif parsed.path == "/api/users/0/items" and query.get("itemType") == ["annotation"]:
+                payload = []
+            else:
+                raise AssertionError(f"unexpected route: {parsed.path} {query}")
+            return TransportResponse(200, json.dumps(payload).encode("utf-8"))
+
+    client = ZoteroClient(
+        transport=LinkedTransport(),
+        linked_attachment_base_dir=config["zotero"]["linkedAttachmentBaseDir"],
+    )
+    result = ImportService(vault, zotero_client=client, config=config).import_item("ITEM1")
+
+    copied = vault / "Literature" / "attachment" / "ITEM1.pdf"
+    assert result["pdfPath"] == "Literature/attachment/ITEM1.pdf"
+    assert copied.read_bytes() == linked_pdf.read_bytes()
+    assert str(linked_pdf) not in (vault / "Literature" / "ITEM1.md").read_text(encoding="utf-8")
 
 
 def _tree_hash(root: Path) -> str:

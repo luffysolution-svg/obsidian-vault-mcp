@@ -174,7 +174,7 @@ Index 的 `Broken attachment links` 当前仍是 renderer 占位统计，真正�
 - `attachments.pdfFolder/copyPdf/overwritePolicy`
 - `frontmatter.omitEmpty/preserveUnknownFields/fieldOrder`
 - `note.omitEmptySections/readingNotesHeading/embedPdf/embedMineruMarkdown`
-- `zotero.apiBase/syncTags/paginationSize`
+- `zotero.apiBase/linkedAttachmentBaseDir/syncTags/paginationSize`
 - `bibtex.enabled/provider`
 - `mineru.mode/markdownFolder/imageFolder/maxConcurrentJobs`
 - `index.autoRebuild/recentLimit`
@@ -350,9 +350,9 @@ python scripts/verify_release.py --checksums-dir dist
 产物：
 
 ```text
-dist/zotero_obsidian_mcp-2.0.0-py3-none-any.whl
-dist/zotero_obsidian_mcp-2.0.0.tar.gz
-dist/obsidian-vault-mcp-2.0.0.zip
+dist/zotero_obsidian_mcp-2.0.1-py3-none-any.whl
+dist/zotero_obsidian_mcp-2.0.1.tar.gz
+dist/obsidian-vault-mcp-2.0.1.zip
 dist/SHA256SUMS
 ```
 
@@ -370,9 +370,9 @@ obsidian-literature/.mcp.json
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v2.0.0 -m "Obsidian Vault MCP V2.0.0"
-python scripts/verify_release.py --tag v2.0.0
-git push origin v2.0.0
+git tag -a v2.0.1 -m "Obsidian Vault MCP V2.0.1"
+python scripts/verify_release.py --tag v2.0.1
+git push origin v2.0.1
 ```
 
 验证器检查 tag commit、Python package、Codex manifest、Pi package、源码版本与 adapter 配置的一致性。Release tag 必须使用 `vMAJOR.MINOR.PATCH`。
@@ -393,6 +393,7 @@ git push origin v2.0.0
 
 - 默认通过 `127.0.0.1:23119` 读取本地 API，不需要云端 key。
 - `ZOTERO_LOCAL_API` 可覆盖到其他地址，使用者应自行审查信任边界。
+- `storage:` 附件从 Zotero storage 解析；`attachments:` 链接附件相对于 `zotero.linkedAttachmentBaseDir` 或 `ZOTERO_LINKED_ATTACHMENT_BASE_DIR` 解析。解析后必须仍位于该基础目录内，拒绝 `..`、盘符和越界路径。
 
 ### MinerU
 

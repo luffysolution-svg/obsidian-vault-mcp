@@ -11,7 +11,7 @@ obsidian-vault-mcp call <tool-name> --json <arguments>
 Install the Python package first so `obsidian-vault-mcp` is on `PATH`, then install this directory as a Pi package:
 
 ```bash
-python -m pip install "zotero-obsidian-mcp==2.0.0"
+python -m pip install "zotero-obsidian-mcp==2.0.1"
 pi install ./adapters/pi
 ```
 

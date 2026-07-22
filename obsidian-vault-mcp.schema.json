@@ -226,6 +226,7 @@
       "additionalProperties": false,
       "default": {
         "apiBase": "http://127.0.0.1:23119/api",
+        "linkedAttachmentBaseDir": "",
         "syncNotes": true,
         "syncAnnotations": true,
         "syncTags": true,
@@ -236,6 +237,10 @@
           "type": "string",
           "minLength": 1,
           "default": "http://127.0.0.1:23119/api"
+        },
+        "linkedAttachmentBaseDir": {
+          "type": "string",
+          "default": ""
         },
         "syncNotes": {
           "type": "boolean",

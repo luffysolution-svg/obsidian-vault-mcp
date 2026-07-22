@@ -68,15 +68,15 @@ Bases 是 Obsidian 官方核心插件，不需要额外安装 Dataview。V2 生�
 普通用户建议固定 V2 版本，避免未来跨主版本升级：
 
 ```powershell
-python -m pip install --upgrade "zotero-obsidian-mcp==2.0.0"
+python -m pip install --upgrade "zotero-obsidian-mcp==2.0.1"
 ```
 
 也可以把 CLI 安装进隔离工具环境：
 
 ```powershell
-pipx install "zotero-obsidian-mcp==2.0.0"
+pipx install "zotero-obsidian-mcp==2.0.1"
 # 或
-uv tool install "zotero-obsidian-mcp==2.0.0"
+uv tool install "zotero-obsidian-mcp==2.0.1"
 ```
 
 `pipx` 或 `uv` 需要先按各自官方说明安装。无论采用哪种方式，都应验证：
@@ -93,7 +93,7 @@ Get-Command obsidian-vault-mcp
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install "zotero-obsidian-mcp==2.0.0"
+python -m pip install "zotero-obsidian-mcp==2.0.1"
 ```
 
 macOS/Linux 激活命令为：
@@ -102,7 +102,7 @@ macOS/Linux 激活命令为：
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install "zotero-obsidian-mcp==2.0.0"
+python -m pip install "zotero-obsidian-mcp==2.0.1"
 ```
 
 ### 3.3 源码安装
@@ -110,7 +110,7 @@ python -m pip install "zotero-obsidian-mcp==2.0.0"
 ```powershell
 git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git
 Set-Location obsidian-vault-mcp
-git checkout v2.0.0
+git checkout v2.0.1
 python -m pip install .
 ```
 
@@ -213,6 +213,30 @@ $env:ZOTERO_STORAGE_DIR = "D:\ZoteroData\storage"
 ```
 
 该绝对路径只用于找到源 PDF，并写入隐藏 state；不会写到用户可见笔记。
+
+如果附件是 Zotero 的“链接到文件”，Zotero 本地 API 会返回 `attachments:` 相对路径。请把 Zotero **设置 → 高级 → 文件和文件夹 → 链接附件基础目录**配置为一个固定目录，并在 Vault 的 `.obsidian-vault-mcp.json` 中填写同一目录：
+
+```json
+{
+  "zotero": {
+    "linkedAttachmentBaseDir": "D:\\Reference PDFs"
+  }
+}
+```
+
+也可以在启动 CLI/MCP server 前使用环境变量；非空配置值优先于环境变量：
+
+```powershell
+$env:ZOTERO_LINKED_ATTACHMENT_BASE_DIR = "D:\Reference PDFs"
+```
+
+macOS/Linux：
+
+```bash
+export ZOTERO_LINKED_ATTACHMENT_BASE_DIR="/Users/me/Reference PDFs"
+```
+
+`ZOTERO_STORAGE_DIR` 只处理 Zotero 管理的 `storage:` 附件，`linkedAttachmentBaseDir`/`ZOTERO_LINKED_ATTACHMENT_BASE_DIR` 只处理 `attachments:` 链接附件。V2.0.1 会拒绝越出基础目录的 `..` 和盘符路径；缺少基础目录时，导入会返回明确错误，而不会猜测本机路径。
 
 ### 5.1 安装 Better BibTeX（可选）
 
@@ -435,7 +459,7 @@ Codex/Claude/Hermes/WorkBuddy 模板中的 `OBSIDIAN_VAULT_PATH=auto` 会覆盖�
 ```text
 请安装并配置 Obsidian Vault MCP V2。任何写操作都先 dry-run。
 
-1. 检查 Python 版本至少为 3.10，并安装 zotero-obsidian-mcp==2.0.0；
+1. 检查 Python 版本至少为 3.10，并安装 zotero-obsidian-mcp==2.0.1；
    用 importlib.metadata 验证实际安装版本，不要把旧版 1.x 当成 V2。
 2. 询问我的 Obsidian Vault 路径，确认其中存在 .obsidian；不要依赖 auto，
    不要把绝对路径提交到 Git。
@@ -484,6 +508,7 @@ Codex/Claude/Hermes/WorkBuddy 模板中的 `OBSIDIAN_VAULT_PATH=auto` 会覆盖�
   },
   "zotero": {
     "apiBase": "http://127.0.0.1:23119/api",
+    "linkedAttachmentBaseDir": "D:\\Reference PDFs",
     "syncTags": true,
     "paginationSize": 100
   },
@@ -511,7 +536,7 @@ Codex/Claude/Hermes/WorkBuddy 模板中的 `OBSIDIAN_VAULT_PATH=auto` 会覆盖�
 关键约束：
 
 - `schemaVersion` 必须严格为 `2`。
-- 所有路径必须是 Vault 相对路径，拒绝盘符、UNC、`..` 和非法组件。
+- Vault 内容路径必须是 Vault 相对路径，拒绝盘符、UNC、`..` 和非法组件；唯一例外是 `zotero.linkedAttachmentBaseDir`，它是本机绝对源目录且只进入本地配置与隐藏 state。
 - 主笔记、PDF、MinerU Markdown 的 pattern 必须包含 `{zoteroKey}`。
 - 图片 pattern 必须包含 `{zoteroKey}`、`{index}` 和 `{ext}`。
 - `identity.strategy` 固定为 `zoteroKey`。
@@ -623,13 +648,14 @@ obsidian-vault-mcp verify
 
 | 现象 | 检查与处理 |
 |---|---|
-| 显示旧版 CLI 或只有 17 个工具 | 用 `importlib.metadata` 检查版本；安装 `zotero-obsidian-mcp==2.0.0` |
+| 显示旧版 CLI 或只有 17 个工具 | 用 `importlib.metadata` 检查版本；安装 `zotero-obsidian-mcp==2.0.1` |
 | 找不到 `obsidian-vault-mcp` | 用 `Get-Command`/`which` 检查 PATH；重新打开终端，或激活正确虚拟环境 |
 | `auto` 找不到 Vault | 设置显式 `OBSIDIAN_VAULT_PATH`，或从 Vault 内启动 Agent |
 | `config init` 提示已存在 | 保留原文件，编辑后运行 `config validate` |
 | Zotero 返回 403 | 启用“允许本机其他应用程序与 Zotero 通信” |
 | Zotero 连接被拒绝 | 确认 Desktop 正在运行、端口为 23119，代理不要接管 localhost |
-| 元数据成功但 PDF 未复制 | 检查条目是否有 PDF 子附件，以及 `ZOTERO_STORAGE_DIR` 是否指向 `storage` |
+| 元数据成功但 PDF 未复制 | 检查条目是否有已下载的 PDF 子附件。`storage:` 路径检查 `ZOTERO_STORAGE_DIR`；`attachments:` 路径设置 `zotero.linkedAttachmentBaseDir` 或 `ZOTERO_LINKED_ATTACHMENT_BASE_DIR` |
+| 链接附件提示越出基础目录 | 确认 Zotero 与本项目配置使用同一基础目录；附件必须是该目录内的相对路径，不能包含 `..` 或盘符前缀 |
 | Better BibTeX 不可用 | 它是可选项；检查返回的 provider/errors，V2 会继续尝试其他提供者 |
 | MinerU 401 | 重新运行 `mineru-open-api auth`；不要把 token 放进命令历史或聊天 |
 | doctor 显示 MinerU available 但解析失败 | `available` 只表示命令存在；执行一次真实 parse 检查 token/网络 |

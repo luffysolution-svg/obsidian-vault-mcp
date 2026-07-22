@@ -49,6 +49,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "zotero": {
         "apiBase": "http://127.0.0.1:23119/api",
+        "linkedAttachmentBaseDir": "",
         "syncNotes": True,
         "syncAnnotations": True,
         "syncTags": True,

@@ -161,6 +161,62 @@ def test_get_children_paginates_direct_children_and_nested_annotations(tmp_path)
     assert client.resolve_attachment_source("ITEM0000") == (tmp_path / "Zotero storage" / "ITEM0000" / "paper-0.pdf").resolve()
 
 
+def test_linked_attachment_uses_configured_base_directory(tmp_path, monkeypatch):
+    configured_base = tmp_path / "Configured Linked PDFs"
+    monkeypatch.setenv("ZOTERO_LINKED_ATTACHMENT_BASE_DIR", str(tmp_path / "Ignored Environment Base"))
+    client = ZoteroClient(linked_attachment_base_dir=configured_base)
+    attachment = _item(
+        1,
+        "attachment",
+        contentType="application/pdf",
+        path=r"attachments:LLM_Agent\tech debit\linked article.pdf",
+    )
+
+    source = client.resolve_attachment_source(attachment)
+
+    assert source == (configured_base / "LLM_Agent" / "tech debit" / "linked article.pdf").resolve()
+
+
+def test_linked_attachment_uses_environment_base_directory(tmp_path, monkeypatch):
+    linked_base = tmp_path / "Environment Linked PDFs"
+    monkeypatch.setenv("ZOTERO_LINKED_ATTACHMENT_BASE_DIR", str(linked_base))
+    client = ZoteroClient()
+    attachment = _item(
+        2,
+        "attachment",
+        contentType="application/pdf",
+        path="attachments:articles/paper.pdf",
+    )
+
+    assert client.resolve_attachment_source(attachment) == (linked_base / "articles" / "paper.pdf").resolve()
+
+
+def test_linked_attachment_requires_a_base_and_rejects_escape(tmp_path, monkeypatch):
+    monkeypatch.delenv("ZOTERO_LINKED_ATTACHMENT_BASE_DIR", raising=False)
+    missing_base = ZoteroClient()
+    attachment = _item(3, "attachment", contentType="application/pdf", path="attachments:paper.pdf")
+
+    with pytest.raises(ValueError, match="linked attachment base directory is not configured"):
+        missing_base.resolve_attachment_source(attachment)
+
+    configured = ZoteroClient(linked_attachment_base_dir=tmp_path / "Linked PDFs")
+    escaping = _item(4, "attachment", contentType="application/pdf", path="attachments:../outside.pdf")
+    drive_path = _item(5, "attachment", contentType="application/pdf", path="attachments:C:/outside.pdf")
+    absolute_path = _item(6, "attachment", contentType="application/pdf", path="attachments:/outside.pdf")
+    unc_path = _item(7, "attachment", contentType="application/pdf", path=r"attachments:\\server\share\outside.pdf")
+
+    with pytest.raises(ValueError, match="invalid or escapes"):
+        configured.resolve_attachment_source(escaping)
+    with pytest.raises(ValueError, match="invalid or escapes"):
+        configured.resolve_attachment_source(drive_path)
+    with pytest.raises(ValueError, match="invalid or escapes"):
+        configured.resolve_attachment_source(absolute_path)
+    with pytest.raises(ValueError, match="invalid or escapes"):
+        configured.resolve_attachment_source(unc_path)
+    with pytest.raises(ValueError, match="must be an absolute path"):
+        ZoteroClient(linked_attachment_base_dir="relative/linked-pdfs")
+
+
 def test_generic_paginator_rejects_repeated_item_identity():
     def fetch(start, limit):
         del limit

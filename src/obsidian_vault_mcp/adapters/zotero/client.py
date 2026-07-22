@@ -7,7 +7,7 @@ import os
 import re
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol, TypeAlias
 from urllib.error import HTTPError
 from urllib.parse import unquote, urlencode, urlsplit, urlunsplit
@@ -148,6 +148,7 @@ class ZoteroClient:
         timeout: float = DEFAULT_TIMEOUT,
         transport: HttpTransport | TransportCallable | None = None,
         storage_dir: str | Path | None = None,
+        linked_attachment_base_dir: str | Path | None = None,
         bbt_base: str | None = None,
         bbt_library_id: int = 1,
     ) -> None:
@@ -165,9 +166,15 @@ class ZoteroClient:
         self.transport = transport or UrllibTransport()
         configured_storage = storage_dir or os.environ.get("ZOTERO_STORAGE_DIR")
         self._storage_dir = Path(configured_storage).expanduser() if configured_storage else Path.home() / "Zotero" / "storage"
+        configured_linked_base = linked_attachment_base_dir or os.environ.get("ZOTERO_LINKED_ATTACHMENT_BASE_DIR")
+        linked_base_path = Path(configured_linked_base).expanduser() if configured_linked_base else None
+        if linked_base_path is not None and not linked_base_path.is_absolute():
+            raise ValueError("Zotero linked attachment base directory must be an absolute path.")
+        self._linked_attachment_base_dir = linked_base_path.resolve(strict=False) if linked_base_path is not None else None
         self.bbt_base = (bbt_base or _origin(self.api_base)).rstrip("/")
         self.bbt_library_id = bbt_library_id
         self._attachment_paths: dict[str, Path] = {}
+        self._attachment_path_errors: dict[str, str] = {}
 
     def ping(self) -> dict[str, Any]:
         """Verify that the local API can return one JSON item."""
@@ -846,9 +853,37 @@ class ZoteroClient:
     def _remember_attachment_path(self, key: str, raw_path: str) -> None:
         if not raw_path:
             return
+        self._attachment_paths.pop(key, None)
+        self._attachment_path_errors.pop(key, None)
         if raw_path.startswith("storage:"):
             relative_name = raw_path.removeprefix("storage:").replace("\\", "/").lstrip("/")
             self._attachment_paths[key] = (self._storage_dir / key / relative_name).resolve(strict=False)
+            return
+        if raw_path.startswith("attachments:"):
+            if self._linked_attachment_base_dir is None:
+                self._attachment_path_errors[key] = (
+                    "Zotero linked attachment base directory is not configured; set "
+                    "zotero.linkedAttachmentBaseDir or ZOTERO_LINKED_ATTACHMENT_BASE_DIR."
+                )
+                return
+            relative_value = raw_path.removeprefix("attachments:").replace("\\", "/")
+            relative_path = PurePosixPath(relative_value)
+            invalid = (
+                not relative_value
+                or relative_value.startswith("/")
+                or ".." in relative_path.parts
+                or bool(relative_path.parts and re.fullmatch(r"[A-Za-z]:", relative_path.parts[0]))
+            )
+            if invalid:
+                self._attachment_path_errors[key] = "Zotero linked attachment path is invalid or escapes its base directory."
+                return
+            candidate = self._linked_attachment_base_dir.joinpath(*relative_path.parts).resolve(strict=False)
+            try:
+                candidate.relative_to(self._linked_attachment_base_dir)
+            except ValueError:
+                self._attachment_path_errors[key] = "Zotero linked attachment path escapes its configured base directory."
+                return
+            self._attachment_paths[key] = candidate
             return
         if raw_path.startswith("file:"):
             parsed = urlsplit(raw_path)
@@ -893,9 +928,15 @@ class ZoteroClient:
         cached = self._attachment_paths.get(key)
         if cached is not None:
             return cached
+        error = self._attachment_path_errors.get(key)
+        if error:
+            raise ValueError(error)
         item = self.get_item(key)
         if item.get("itemType") != "attachment":
             return None
+        error = self._attachment_path_errors.get(key)
+        if error:
+            raise ValueError(error)
         return self._attachment_paths.get(key)
 
     def _attachment_source_path(self, key: str) -> Path | None:

@@ -101,6 +101,28 @@ export ZOTERO_STORAGE_DIR="/home/me/Zotero/storage"
 
 The source path is stored only in hidden transaction/item state, never in user-visible notes.
 
+For Zotero **Link to File** attachments, the local API returns an `attachments:` relative path. Set Zotero's **Settings → Advanced → Files and Folders → Linked Attachment Base Directory**, then configure this project with the same directory:
+
+```json
+{
+  "zotero": {
+    "linkedAttachmentBaseDir": "D:\\Reference PDFs"
+  }
+}
+```
+
+Alternatively, set an environment variable before starting the CLI/MCP server. A non-empty config value takes precedence:
+
+```powershell
+$env:ZOTERO_LINKED_ATTACHMENT_BASE_DIR = "D:\Reference PDFs"
+```
+
+```bash
+export ZOTERO_LINKED_ATTACHMENT_BASE_DIR="/Users/me/Reference PDFs"
+```
+
+`ZOTERO_STORAGE_DIR` is only for Zotero-managed `storage:` attachments. `linkedAttachmentBaseDir` and `ZOTERO_LINKED_ATTACHMENT_BASE_DIR` are only for `attachments:` linked files. Version 2.0.1 rejects `..` traversal and drive-prefixed paths that could escape the configured base; if no base is configured, import reports a clear error instead of guessing a machine path.
+
 ## 5. Optional Zotero components
 
 ### Better BibTeX
@@ -174,12 +196,12 @@ Mode behavior in V2 is exact:
 
 If the executable has a custom name or path, set `MINERU_CLI_COMMAND`. Windows `.cmd` shims are resolved automatically.
 
-## 7. Install Obsidian Vault MCP 2.0.0
+## 7. Install Obsidian Vault MCP 2.0.1
 
 ### Recommended: PyPI
 
 ```bash
-python -m pip install --upgrade "zotero-obsidian-mcp==2.0.0"
+python -m pip install --upgrade "zotero-obsidian-mcp==2.0.1"
 obsidian-vault-mcp --help
 ```
 
@@ -195,14 +217,14 @@ Windows PowerShell:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade "zotero-obsidian-mcp==2.0.0"
+python -m pip install --upgrade "zotero-obsidian-mcp==2.0.1"
 ```
 
 macOS/Linux:
 
 ```bash
 source .venv/bin/activate
-python -m pip install --upgrade "zotero-obsidian-mcp==2.0.0"
+python -m pip install --upgrade "zotero-obsidian-mcp==2.0.1"
 ```
 
 An AI client launched outside this activated environment will not see the CLI. For Agent integration, install into a persistent environment whose `Scripts`/`bin` directory is on the Agent's `PATH`, or launch the Agent from the activated environment.
@@ -212,7 +234,7 @@ An AI client launched outside this activated environment will not see the CLI. F
 ```bash
 git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git
 cd obsidian-vault-mcp
-git checkout v2.0.0
+git checkout v2.0.1
 python -m pip install -e ".[dev]"
 ```
 
@@ -280,6 +302,9 @@ The loader accepts partial sections and fills omitted values from V2 defaults, a
     "embedPdf": true,
     "embedMineruMarkdown": false
   },
+  "zotero": {
+    "linkedAttachmentBaseDir": "D:\\Reference PDFs"
+  },
   "mineru": {
     "mode": "auto",
     "markdownFolder": "Research/Literature/attachment/MinerU",
@@ -297,13 +322,13 @@ The loader accepts partial sections and fills omitted values from V2 defaults, a
 }
 ```
 
-All file/folder values above are vault-relative and use `/`, even on Windows.
+Vault content paths above are vault-relative and use `/`, even on Windows. `zotero.linkedAttachmentBaseDir` is the sole exception: it is an absolute, machine-local source directory and should not be committed.
 
 ### Live, fixed, and reserved fields
 
-The table below describes what the 2.0.0 implementation actually reads. Do not treat every generated schema field as a runtime toggle.
+The table below describes what the 2.0.1 implementation actually reads. Do not treat every generated schema field as a runtime toggle.
 
-| Section/field | Status in 2.0.0 | Meaning |
+| Section/field | Status in 2.0.1 | Meaning |
 |---|---|---|
 | `$schema` | Reserved | Editor hint emitted by the generator; leave it unchanged. |
 | `schemaVersion` | Fixed: `2` | Other values are rejected. |
@@ -316,17 +341,18 @@ The table below describes what the 2.0.0 implementation actually reads. Do not t
 | `note.omitEmptySections/readingNotesHeading/embedPdf/embedMineruMarkdown` | Live | Control generated note presentation. |
 | `note.preserveUserSections` | Reserved compatibility field | V2 always preserves unmarked user sections; this is not a switch to disable that guarantee. |
 | `zotero.apiBase/syncTags/paginationSize` | Live | Local endpoint, tag import, and page size (1–1000). |
-| `zotero.syncNotes/syncAnnotations` | Reserved compatibility fields | 2.0.0 renders available Zotero notes and annotations; these booleans are validated but are not independent runtime switches. |
+| `zotero.linkedAttachmentBaseDir` | Live | Absolute base directory for Zotero `attachments:` linked-file paths. A non-empty value overrides `ZOTERO_LINKED_ATTACHMENT_BASE_DIR`. |
+| `zotero.syncNotes/syncAnnotations` | Reserved compatibility fields | 2.0.1 renders available Zotero notes and annotations; these booleans are validated but are not independent runtime switches. |
 | `bibtex.enabled/provider` | Live | Provider: `auto`, `better-bibtex`, `zotero`, or `builtin`. |
-| `bibtex.fallback` | Partially effective | `none` disables builtin fallback for explicit `better-bibtex` or `zotero`, but `provider=auto` still includes the builtin provider in 2.0.0. |
+| `bibtex.fallback` | Partially effective | `none` disables builtin fallback for explicit `better-bibtex` or `zotero`, but `provider=auto` still includes the builtin provider in 2.0.1. |
 | `mineru.mode/markdownFolder/imageFolder/maxConcurrentJobs` | Live | Extraction route, normalized destinations, and batch concurrency (1–64). |
 | `mineru.enabled` | Informational | Reported by `doctor`; the parse command itself remains callable. |
 | `mineru.imageLinkStyle` | Fixed: `markdown-relative` | No other link style is accepted. |
 | `mineru.replacePreviousOutput` | Reserved compatibility field | Current normalization replaces the prior derived output transactionally. |
 | `index.autoRebuild/recentLimit` | Live | Automatic rebuild and recent-item count. |
-| `index.groupBy` | Reserved compatibility field | Validated to year/journal/tags, but 2.0.0 renders all three groups. |
+| `index.groupBy` | Reserved compatibility field | Validated to year/journal/tags, but 2.0.1 renders all three groups. |
 | `base.autoRebuild/name` | Live | Automatic rebuild and primary view name. |
-| `safety.*` | Reserved contract declaration | Transaction safety is always enforced in 2.0.0; these validated values are not switches that disable locks, backups, or atomic writes. |
+| `safety.*` | Reserved contract declaration | Transaction safety is always enforced in 2.0.1; these validated values are not switches that disable locks, backups, or atomic writes. |
 
 The managed frontmatter order is fixed to `title`, `itemType`, `year`, `journal`, `tags`, `doi`, `url`, `abstract`, `zoteroKey`, `zoteroPdfLink`, `attachmentPdfLink`, and `attachmentMinerULink`.
 
@@ -509,7 +535,7 @@ Pi receives a thin TypeScript Extension that calls the same JSON CLI. The other 
 
 The Codex, Claude, Hermes, and WorkBuddy templates set `OBSIDIAN_VAULT_PATH=auto`. If the project is outside the vault, edit the local client config to use an explicit path such as `D:\\Notes\\ResearchVault`, and keep that file uncommitted if it reveals a machine-specific location. OpenCode and Pi inherit `OBSIDIAN_VAULT_PATH` from the process that launches them, so set it before starting those clients.
 
-WorkBuddy distributions may expose a command other than `workbuddy`; the 2.0.0 one-click installer specifically probes `workbuddy` and will stop safely if it is absent.
+WorkBuddy distributions may expose a command other than `workbuddy`; the 2.0.1 one-click installer specifically probes `workbuddy` and will stop safely if it is absent.
 
 ### Manual MCP entry
 
@@ -537,7 +563,7 @@ Local `stdio` is recommended. `serve --transport sse` and `serve --transport str
 Give this prompt to a trusted local coding Agent from the target project:
 
 ```text
-Install zotero-obsidian-mcp==2.0.0 from PyPI. Do not store or print secrets.
+Install zotero-obsidian-mcp==2.0.1 from PyPI. Do not store or print secrets.
 Use my explicit Obsidian vault path only in local uncommitted configuration.
 Run config init with --dry-run first, then initialize and validate the V2 config.
 Run doctor and inspect config, zotero.ok, and mineru.available separately.
@@ -608,7 +634,11 @@ Check `zotero.ok` separately. Start Zotero, enable the local API, and verify `ht
 
 ### An imported note has no PDF
 
-Confirm the PDF is a child of the parent Zotero item and downloaded locally. Inspect `zotero_get_children`. If Zotero storage is nonstandard, set `ZOTERO_STORAGE_DIR` before starting the process.
+Confirm the PDF is a child of the parent Zotero item and downloaded locally. Inspect `zotero_get_children`. For `storage:` paths, check `ZOTERO_STORAGE_DIR`. For `attachments:` paths, set `zotero.linkedAttachmentBaseDir` or `ZOTERO_LINKED_ATTACHMENT_BASE_DIR` to Zotero's linked attachment base.
+
+### A linked attachment is reported outside its base directory
+
+Make sure Zotero and this project use the same linked attachment base. The attachment path must be relative to that directory and cannot contain `..` traversal or a drive prefix.
 
 ### MinerU is unavailable
 
@@ -704,4 +734,4 @@ The original screenshot showed ten rows because five MinerU Markdown files also 
 - Back up the vault independently; transaction backups are operational rollback data, not a complete backup policy.
 - Use only local `stdio` unless you add and operate a separate authenticated network boundary.
 
-For implementation details, tests, release artifacts, and known 2.0.0 limitations, continue with the [developer guide](../DEVELOPMENT.en.md). Report defects through [GitHub Issues](https://github.com/luffysolution-svg/obsidian-vault-mcp/issues).
+For implementation details, tests, release artifacts, and known 2.0.1 limitations, continue with the [developer guide](../DEVELOPMENT.en.md). Report defects through [GitHub Issues](https://github.com/luffysolution-svg/obsidian-vault-mcp/issues).
