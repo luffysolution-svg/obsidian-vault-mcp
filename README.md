@@ -161,6 +161,10 @@ obsidian-vault-mcp rollback <transaction-id>
 - [开发者文档](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.md)：架构、数据契约、26 个工具、测试、构建、发布、安全边界和已知限制。
 - [English user guide](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/README.en.md) · [English tutorial](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.en.md) · [English developer guide](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.en.md)
 
+## 贡献者
+
+感谢 [方珸 / Lym Fang (@LimFang)](https://github.com/LimFang) 发现 Zotero 链接附件兼容需求并在 [PR #6](https://github.com/luffysolution-svg/obsidian-vault-mcp/pull/6) 中提出原始实现。完整贡献记录见 [CONTRIBUTORS.md](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/CONTRIBUTORS.md)。
+
 ## 项目命名
 
 | 对象 | 名称 |
