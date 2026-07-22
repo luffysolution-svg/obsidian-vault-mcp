@@ -336,8 +336,11 @@ def smoke_wheel(wheel: Path, version: str) -> None:
 
         environment = os.environ.copy()
         environment.pop("PYTHONPATH", None)
+        environment.pop("OBSIDIAN_VAULT_PATH", None)
         environment["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
         environment["PIP_NO_INPUT"] = "1"
+        (temporary_path / ".obsidian").mkdir()
+        environment["OBSIDIAN_VAULT_PATH"] = str(temporary_path)
         subprocess.run(
             [str(python), "-m", "pip", "install", str(wheel.resolve())],
             check=True,

@@ -88,3 +88,4 @@ def test_wheel_smoke_uses_a_clean_environment_and_checks_dependencies() -> None:
     assert '"--no-deps"' not in verifier
     assert '"--ignore-installed"' not in verifier
     assert '[str(python), "-m", "pip", "check"]' in verifier
+    assert 'environment["OBSIDIAN_VAULT_PATH"] = str(temporary_path)' in verifier
