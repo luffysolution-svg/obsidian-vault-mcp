@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import uuid
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -345,7 +346,7 @@ class TransactionService:
 
     def _commit_locked(self, transaction: Transaction) -> dict[str, Any]:
         identifier = transaction.transaction_id
-        staging_root = self.paths.resolve(self.paths.staging(identifier))
+        staging_root = self._owned_staging_path(identifier, stage="prepare")
         transaction_files_root = staging_root / "transaction-files"
         backup_root = self.paths.resolve(self.paths.backup(identifier))
         manifest_path = self.paths.resolve(self.paths.manifest(identifier))
@@ -493,9 +494,8 @@ class TransactionService:
     def _remove_staging(self, identifier: str, path: Path) -> None:
         """Remove only the exact, validated staging directory for this id."""
 
-        expected = self.paths.resolve(self.paths.staging(validate_transaction_id(identifier)))
-        staging_parent = self.paths.resolve(f"{self.paths.internal_root}/staging")
-        if path.resolve(strict=False) != expected or expected.parent != staging_parent:
+        expected = self._owned_staging_path(identifier, stage="cleanup")
+        if path != expected:
             raise TransactionError(
                 "refusing to remove an unexpected staging path",
                 transaction_id=identifier,
@@ -503,6 +503,25 @@ class TransactionService:
             )
         if expected.exists():
             shutil.rmtree(expected)
+
+    def _owned_staging_path(self, identifier: str, *, stage: str) -> Path:
+        """Return the lexical transaction staging path without following links."""
+
+        validated = validate_transaction_id(identifier)
+        lexical_parent = self.paths.root / self.paths.internal_root / "staging"
+        resolved_parent = self.paths.resolve(f"{self.paths.internal_root}/staging")
+        expected = lexical_parent / validated
+        if (
+            resolved_parent != lexical_parent
+            or _is_link_or_reparse_point(lexical_parent)
+            or _is_link_or_reparse_point(expected)
+        ):
+            raise TransactionError(
+                "refusing to use a linked transaction staging path",
+                transaction_id=validated,
+                stage=stage,
+            )
+        return expected
 
     def _try_remove_owned_staging(self, identifier: str, path: Path) -> str | None:
         try:
@@ -515,6 +534,18 @@ class TransactionService:
 def _new_transaction_id() -> str:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     return f"{timestamp}-{uuid.uuid4().hex[:12]}"
+
+
+def _is_link_or_reparse_point(path: Path) -> bool:
+    """Detect POSIX symlinks and Windows junction/reparse-point directories."""
+
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    return stat.S_ISLNK(metadata.st_mode) or bool(
+        getattr(metadata, "st_file_attributes", 0) & 0x400
+    )
 
 
 def _utc_now() -> str:

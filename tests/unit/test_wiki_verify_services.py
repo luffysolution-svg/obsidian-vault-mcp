@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
+from obsidian_vault_mcp.application.evidence_service import EvidenceService
 from obsidian_vault_mcp.application.verify_service import VerifyService
 from obsidian_vault_mcp.application.wiki_service import WikiService
 from obsidian_vault_mcp.config.defaults import default_config
@@ -162,7 +165,27 @@ class VerifyServiceTests(unittest.TestCase):
             pdf.parent.mkdir(parents=True)
             mineru.parent.mkdir(parents=True)
             pdf.write_bytes(b"PDF")
-            mineru.write_text("---\nzoteroKey: ABCD1234\nsourcePdf: ../ABCD1234.pdf\n---\n\nText\n", encoding="utf-8")
+            mineru_text = "---\nzoteroKey: ABCD1234\nsourcePdf: ../ABCD1234.pdf\n---\n\nText\n"
+            mineru.write_text(mineru_text, encoding="utf-8")
+            manifest = vault / ".obsidian-vault-mcp" / "cache" / "mineru-assets" / "ABCD1234" / "manifest.json"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "zoteroKey": "ABCD1234",
+                        "sourceMarkdown": "Literature/attachment/MinerU/ABCD1234.md",
+                        "sourceMarkdownSha256": hashlib.sha256(mineru.read_bytes()).hexdigest(),
+                        "generatedAt": "2026-07-29T00:00:00Z",
+                        "assets": [],
+                        "counts": {"total": 0, "referenced": 0, "unlinkedCandidates": 0, "invalid": 0},
+                        "warnings": [],
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
             note.write_text(
                 compose_frontmatter(
                     {
@@ -175,6 +198,11 @@ class VerifyServiceTests(unittest.TestCase):
                     "# Clean\n",
                 ),
                 encoding="utf-8",
+            )
+            EvidenceService(vault, default_config()).rebuild(
+                "ABCD1234",
+                transaction_id="clean-evidence",
+                generated_at="2026-07-29T00:00:00Z",
             )
 
             result = VerifyService(vault, default_config()).verify()

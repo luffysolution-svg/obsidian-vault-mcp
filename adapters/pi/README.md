@@ -1,6 +1,6 @@
 # Pi extension
 
-This package exposes the Obsidian Vault MCP V2 tool surface to Pi. It contains no vault, Zotero, or MinerU business logic: every registered tool calls the installed JSON CLI in this form:
+This package exposes the fixed 33-tool Obsidian Vault MCP V2.1 surface to Pi. It is Extension-only and does not install the nine Codex/Claude/OpenCode Skills. It contains no vault, Zotero, or MinerU business logic: every registered tool calls the installed JSON CLI in this form:
 
 ```text
 obsidian-vault-mcp call <tool-name> --json <arguments>
@@ -8,16 +8,24 @@ obsidian-vault-mcp call <tool-name> --json <arguments>
 
 ## Install
 
-Install the Python package first so `obsidian-vault-mcp` is on `PATH`, then install this directory as a Pi package:
+Install the Python package persistently first so the Pi process can resolve `obsidian-vault-mcp` on `PATH`. Use the package selector after 2.1.0 is published, or replace it with `"<WHEEL_PATH>"` for local production acceptance:
 
 ```bash
-python -m pip install "zotero-obsidian-mcp==2.0.1"
-pi install ./adapters/pi
+pipx install "zotero-obsidian-mcp==2.1.0"
+# or: uv tool install "zotero-obsidian-mcp==2.1.0"
 ```
 
-For a checkout under development, run it directly:
+The release package carries the same thin Extension as a wheel resource. Preview and install it into the target Pi project:
 
 ```bash
+obsidian-vault-mcp agent install pi --project-dir "<PROJECT_DIR>" --dry-run
+obsidian-vault-mcp agent install pi --project-dir "<PROJECT_DIR>"
+```
+
+Restart Pi after changing `PATH` or installing the Extension. For a source checkout under development, install or run this directory directly:
+
+```bash
+pi install ./adapters/pi
 pi -e ./adapters/pi/index.ts
 ```
 

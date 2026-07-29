@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zotero-obsidian-mcp"
-version = "2.0.1"
+version = "2.1.0"
 description = "Local MCP server for a Zotero + MinerU + Obsidian literature pipeline."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -52,6 +52,15 @@ include = ["obsidian_vault_mcp*"]
 
 [tool.setuptools.package-data]
 "obsidian_vault_mcp.interfaces.agent_install" = ["pi_extension.ts"]
+"obsidian_vault_mcp.resources.agent_marketplace" = [
+  ".agents/plugins/marketplace.json",
+  ".claude-plugin/marketplace.json",
+  "plugins/obsidian-literature/.codex-plugin/plugin.json",
+  "plugins/obsidian-literature/.claude-plugin/plugin.json",
+  "plugins/obsidian-literature/.mcp.json",
+  "plugins/obsidian-literature/assets/icon.svg",
+  "plugins/obsidian-literature/skills/*/SKILL.md",
+]
 
 [tool.ruff]
 line-length = 160

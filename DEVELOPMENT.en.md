@@ -6,16 +6,18 @@ This document is the implementation and release contract for V2. The package is 
 
 ## Supported baseline
 
-- Release: `2.0.1`
+- Release: `2.1.0`
 - Python: 3.10–3.13
 - Runtime dependencies: `mcp>=1.10,<2`, `PyYAML>=6.0,<7`
 - Package/distribution: `zotero-obsidian-mcp`
 - Import package: `obsidian_vault_mcp`
 - Console entry point: `obsidian-vault-mcp`
 - MCP server name: `obsidian-literature`
+- Plugin marketplace: `obsidian-vault-mcp`
+- Codex/Claude plugin: `obsidian-literature`
 - License: MIT
 
-The version must agree in `pyproject.toml`, `src/obsidian_vault_mcp/__init__.py`, `.codex-plugin/plugin.json`, and `adapters/pi/package.json`. Release tags use `vMAJOR.MINOR.PATCH`; the current tag is `v2.0.1`.
+The version must agree in `pyproject.toml`, `src/obsidian_vault_mcp/__init__.py`, the version-bearing Claude marketplace fields, both packaged client manifests, and `adapters/pi/package.json`. The Codex marketplace manifest has no version field; its identity and local source path are still verified. Release tags use `vMAJOR.MINOR.PATCH`; the current release contract is `v2.1.0`.
 
 ## Non-negotiable V2 contracts
 
@@ -26,8 +28,8 @@ The version must agree in `pyproject.toml`, `src/obsidian_vault_mcp/__init__.py`
 5. User Markdown outside managed markers is never replaced by synchronization.
 6. Every formal write can be previewed and goes through locking, staging, backup, atomic replacement, and rollback.
 7. A vault has one configuration file: `.obsidian-vault-mcp.json` with `schemaVersion: 2`.
-8. The public MCP surface is exactly the 26 tools listed below. Do not restore V1 names or removed modes.
-9. Native Agent clients connect through MCP. Pi uses a thin TypeScript Extension that calls the JSON CLI; V2 ships no mirrored Skills.
+8. The public MCP surface is exactly the 33 tools listed below: all original 26 V2 tools plus seven V2.1 structured-reading tools. Do not restore V1 names or removed modes.
+9. Codex Desktop/CLI and Claude Code use their native marketplace plugin lifecycle. OpenCode uses project MCP plus Skills, Pi uses a thin TypeScript Extension, and Hermes/WorkBuddy remain MCP-only. Nine model-independent Skills live only inside one canonical packaged plugin tree, never client-specific mirrors.
 
 The fixed managed frontmatter order is:
 
@@ -56,6 +58,9 @@ Production code lives under `src/obsidian_vault_mcp/`:
 domain/
   identity.py       zoteroKey validation and filename rendering
   models.py         normalized item/state models
+  evidence.py       deterministic original-text EvidenceChunks
+  image_assets.py   image identity, status, and Manifest models
+  analysis.py       analysis claims and uncertainty models
   paths.py          vault-relative path rules
   frontmatter.py    strict parse/merge/ordering
   errors.py         structured domain failures
@@ -63,6 +68,12 @@ application/
   import_service.py     parent-item and collection import
   sync_service.py       incremental refresh of existing items
   mineru_service.py     staged extraction and normalization
+  evidence_service.py   rebuildable evidence state
+  paper_read_service.py bounded single-paper evidence views
+  analysis_service.py   structured context and safe Analysis writeback
+  uncertainty_service.py audited claim review
+  analysis_index_service.py deterministic Analysis index
+  retrieval_service.py / coverage_service.py bounded cross-paper retrieval
   index_service.py      deterministic dashboard
   base_service.py       native Obsidian Base
   wiki_service.py       context, source validation, safe writeback
@@ -77,11 +88,13 @@ adapters/
 interfaces/
   cli/               argument parsing and one-JSON-value output
   mcp/               MCP server registration and tool functions
-  agent_install/     merge-safe installers for six Agent clients
+  agent_install/     native Codex/Claude plugin entry points and four project adapters
 config/
   defaults.py        canonical effective config
   schema.py          strict validation and normalization
   loader.py          the single vault config loader
+resources/
+  agent_marketplace/ canonical dual-client marketplace, shared MCP, and nine Skills
 ```
 
 Dependencies point inward: interfaces parse/serialize, adapters perform I/O, application services orchestrate use cases, and domain/config code holds invariants. Business behavior does not belong in CLI or MCP wrappers.
@@ -103,6 +116,8 @@ CLI or MCP tool
 
 Import and sync are idempotent around `zoteroKey`. They search the direct children of the configured literature root for an existing main note with that key. More than one matching main note is an identity conflict, not a cue to guess.
 
+Item state also carries `collectionKeys`, the known Zotero memberships used by `literature_retrieve.scope.collection_key`, and `mineruAssetRoot`, the current per-item Manifest/candidate-cache root. The latter lets a `candidateCacheFolder` change remove the old root and install the new root in one rollback-capable transaction. Legacy state without either field remains readable and is incrementally populated by later import, sync, or MinerU work.
+
 ### User content ownership
 
 Generated note sections use `<!-- ovm:*:start -->` / `<!-- ovm:*:end -->` markers. Application services replace only the matching managed region. The configured Reading Notes heading and all unmarked user sections remain user-owned. Unknown frontmatter values are preserved after the fixed managed keys.
@@ -115,7 +130,7 @@ A transaction plans create/replace/delete/copy operations with vault-relative de
 
 Supported conflict policies are `preserve-user`, `overwrite-managed`, `fail`, and `rename`. Their effect is use-case-specific: for example, `rename` can resolve an occupied main-note or Wiki destination, while MinerU normalization uses stable paths and has no equivalent user-file collision to rename.
 
-## The 26 MCP tools
+## The 33 MCP tools
 
 The canonical order is `TOOL_FUNCTIONS` in `interfaces/mcp/tools/__init__.py`.
 
@@ -141,6 +156,13 @@ The canonical order is `TOOL_FUNCTIONS` in `interfaces/mcp/tools/__init__.py`.
 | Knowledge | `literature_rebuild_index` | Deterministically rebuild `Literature/index.md`. |
 | Knowledge | `literature_rebuild_base` | Deterministically rebuild `Literature/Literature.base`. |
 | Knowledge | `literature_verify` | Audit identities, links, paths, state, and generated assets. |
+| Structured reading | `literature_paper_read` | Read overview, targeted, section, full, or figure evidence from one paper. |
+| Structured reading | `literature_analysis_context` | Organize evidence for the 13-section reading template. |
+| Structured reading | `literature_analysis_write` | Validate anchors and transactionally write an Analysis note. |
+| Structured reading | `literature_uncertainty_list` | List uncertainty items and audit history. |
+| Structured reading | `literature_uncertainty_resolve` | Resolve one uncertainty with validated evidence. |
+| Structured reading | `literature_rebuild_analysis_index` | Rebuild the deterministic Analysis index. |
+| Structured reading | `literature_retrieve` | Retrieve bounded evidence across an explicit paper scope. |
 | Wiki | `literature_wiki_context` | Rank source-linked local context for an Agent-authored topic. |
 | Wiki | `literature_wiki_write` | Validate source keys and safely write Agent-supplied Wiki prose. |
 | Wiki | `literature_wiki_list` | List direct Wiki topic pages deterministically. |
@@ -152,7 +174,7 @@ The generic bridge is deliberately small:
 
 ```bash
 obsidian-vault-mcp call literature_import_item \
-  --json '{"zotero_key":"ABCD1234","vault_path":"/vault","dry_run":true}'
+  --json '{"zotero_key":"ABCD1234","vault_path":"<VAULT_DIR>","dry_run":true}'
 ```
 
 The CLI emits exactly one JSON value for each non-server invocation. On a legacy Windows console, it falls back to ASCII-escaped JSON rather than corrupting Unicode.
@@ -167,16 +189,33 @@ obsidian-vault-mcp serve --transport stdio
 
 SSE and streamable HTTP are available for controlled integration testing, but the server does not add authentication or TLS. Do not expose either directly to an untrusted network.
 
-The one-click client installer first detects the client executable, parses and validates the destination config, makes a timestamped backup when needed, merges only the `obsidian-literature` entry, writes atomically, and performs an MCP initialization handshake. A failed handshake restores the previous file.
+The production path for Codex Desktop/CLI and Claude Code is the client-native marketplace plugin lifecycle. `obsidian-vault-mcp agent install codex|claude` is a convenience wrapper: it resolves `obsidian_vault_mcp.resources.agent_marketplace` from the installed wheel, invokes the native CLI, and uses marketplace/plugin lists for idempotency. The uniform `project_dir` argument remains accepted but does not cause a project `.mcp.json` or project Skills write. An existing marketplace name that points elsewhere is a safe failure.
 
-| Client | Executable probed | Project-local destination | Vault environment in generated entry |
-|---|---|---|---|
-| Codex | `codex` | `.mcp.json` | `OBSIDIAN_VAULT_PATH=auto` |
-| Claude Code | `claude` | `.mcp.json` | `OBSIDIAN_VAULT_PATH=auto` |
-| OpenCode | `opencode` | `opencode.json` | Inherits launcher environment |
-| Hermes | `hermes` | `.hermes/config.yaml` | `OBSIDIAN_VAULT_PATH=auto` |
-| WorkBuddy | `workbuddy` | `.workbuddy/mcp.json` | `OBSIDIAN_VAULT_PATH=auto` |
-| Pi | `pi` | `.pi/extensions/obsidian-vault-mcp.ts` | Extension inherits launcher environment |
+| Client | Executable | Mechanism | MCP/Extension destination | Skill destination | Vault environment |
+|---|---|---|---|---|---|
+| Codex Desktop/CLI | `codex` | Native marketplace plugin | Codex-managed | Nine bundled Skills | Inherits launcher environment |
+| Claude Code | `claude` | Native marketplace plugin, user scope | Claude-managed | Nine bundled Skills | Inherits launcher environment |
+| OpenCode | `opencode` | Transactional project adapter | `opencode.json` | `.opencode/skills` | Inherits launcher environment |
+| Hermes | `hermes` | MCP-only profile adapter | `$HERMES_HOME/config.yaml` (default: `~/.hermes/config.yaml`) | None; warning | `OBSIDIAN_VAULT_PATH=auto` |
+| WorkBuddy | `codebuddy` (fallback: `cbc`) | MCP-only project adapter | `.workbuddy/mcp.json` | None; warning | `OBSIDIAN_VAULT_PATH=auto` |
+| Pi | `pi` | Thin Extension project adapter | `.pi/extensions/obsidian-vault-mcp.ts` | None; Extension-only | Inherits launcher environment |
+
+The native command contract is:
+
+```text
+codex plugin marketplace add <MARKETPLACE_DIR>
+codex plugin add obsidian-literature@obsidian-vault-mcp
+claude plugin marketplace add <MARKETPLACE_DIR> --scope user
+claude plugin install obsidian-literature@obsidian-vault-mcp --scope user
+```
+
+`PluginInstallResult` must serialize the client/executable, marketplace name/path, plugin selector/version, dry-run/changed state, preexisting/added/installed state, planned or executed commands, handshake state, and uninstall instructions. Native Codex/Claude installation performs a direct stdio initialization handshake after the plugin commands; this proves that the packaged runtime starts, while plugin and Skill discovery still requires a new client session. It never writes or handshakes through project configuration. Codex removal uses `plugin remove`; Claude uses `plugin uninstall --scope user`, and its marketplace removal must also use `--scope user`; remove the marketplace only after checking that nothing else depends on it.
+
+OpenCode, WorkBuddy, and Pi retain the project-adapter transaction, while Hermes uses the same transaction against its profile configuration: detect executable, plan, back up, write atomically, perform an MCP initialization handshake, and roll back on failure. Dry-runs do not write or handshake. OpenCode additionally validates managed Skill hashes and keeps config/Skills in one rollback boundary. The shared `project_dir` argument is ignored by Hermes; an explicit `config_path` override is available only through the Python installer API, not the `agent install` CLI.
+
+The sole canonical Skill tree is `src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature/skills/`. Codex/Claude consume it directly inside the plugin. OpenCode installs `.obsidian-vault-mcp-skills.json` with versions and managed-block hashes; upgrades replace only the managed block and preserve `User Customizations`. A modified managed block or legacy untracked format is rejected before writes. Do not add client mirrors or synchronization scripts, and do not guess `.hermes/skills` or `.workbuddy/skills`.
+
+The shared Codex/Claude `.mcp.json` does not set `OBSIDIAN_VAULT_PATH`; it inherits the launching process environment, as do OpenCode and Pi. The Hermes profile configuration and WorkBuddy project template may use `auto`, which searches only the process working directory and parents. Never commit a real machine path.
 
 Pi is the only non-native-MCP adapter. `adapters/pi/index.ts` is the distributable source, and `src/obsidian_vault_mcp/interfaces/agent_install/pi_extension.ts` is the wheel resource. The two files must remain byte-identical. The Extension invokes:
 
@@ -216,6 +255,17 @@ The Index renderer scans canonical top-level main notes, sorts deterministically
 The Base renderer emits a native `.base` YAML document filtered to the configured literature root and `zoteroKey != null`. It defines a primary table plus By Year, By Journal, By Tag, MinerU Complete, Missing PDF, and Missing DOI views.
 
 Wiki context is deterministic weighted lexical matching over titles, tags, abstracts, Zotero notes, and a bounded MinerU excerpt. It is not an embedding index and does not call a model. The connected Agent authors the synthesis and must pass at least one source `zoteroKey`; writeback verifies that every key resolves to exactly one main note and appends any missing source-note links.
+
+## V2.1 image, evidence, and analysis state
+
+- Each MinerU paper has `.obsidian-vault-mcp/cache/mineru-assets/{zoteroKey}/manifest.json`. Referenced images enter the formal image folder; unlinked candidates stay only in the adjacent hidden `assets/` cache. An `assetId` derives from `zoteroKey` and the content SHA-256, never `figNN` order.
+- `.obsidian-vault-mcp/state/evidence/{zoteroKey}.json` stores stable EvidenceChunks with section paths, original text, block links, content hashes, source fingerprints, and related assets. Rebuild physically writes deterministic `^ev-*` block IDs into derived MinerU Markdown in the same transaction as state/Manifest updates, and Verify requires every anchor to exist exactly once. An unverifiable page is always `null`.
+- `Literature/Analysis/{zoteroKey}.md` owns only the `ovm:analysis` and `ovm:analysis-uncertainties` blocks. `.obsidian-vault-mcp/state/uncertainties/{zoteroKey}.json` preserves the original claim and append-only resolution history.
+- Newly imported Zotero child notes and annotations use source markers inside the existing `ovm:zotero-notes` managed block, so `literature_analysis_context` can return `zoteroNotes` and `zoteroAnnotations` separately while offline. Legacy combined content remains in `zoteroNotes` with a compatibility warning.
+- `.obsidian-vault-mcp/state/coverage/{zoteroKey}.json` records what was actually read. Read tools do not write it by default: `record_coverage=true` explicitly routes the update through TransactionService, and the returned `coverageLedger` carries a real or dry-run `transactionId`. It is audit metadata, not paper evidence; a changed source hash makes the old record stale.
+- `Literature/Analysis/index.md` is rebuilt deterministically from Analysis notes and state. Its one-line positioning field is explicitly `agent_synthesis`.
+
+P0 does not include reliable PDF figure cropping, panel segmentation, OCR fallback, multimodal interpretation, embeddings, or reranking. The existence of a MinerU image is never visual verification.
 
 ## Configuration development
 
@@ -263,32 +313,29 @@ Tests that write must use temporary vaults, including cases with spaces and non-
 Run the focused suite while developing, then the full release gates before handoff:
 
 ```bash
-python -m ruff check src tests scripts/verify_release.py
+python -m ruff check src tests scripts
 python -m pytest tests/unit tests/contract tests/repository
 python scripts/verify_release.py
 ```
 
-The 2.0.1 release candidate currently reports 119 passing pytest cases. Treat the observed count as informational; the pass/fail result and release verifier are the contract.
+The observed pytest count is informational; the pass/fail result and release verifier are the contract.
 
 CI runs Python 3.10, 3.11, 3.12, and 3.13 on Ubuntu, Windows, and macOS. It also builds and smoke-installs a wheel. A separate Node 22 job installs the Pi adapter dependencies and runs its TypeScript check.
 
 ## Build and release
 
-Build in an empty output directory so the verifier sees exactly one wheel and one source distribution:
+Build in an empty output directory so the verifier sees exactly one wheel, one source distribution, and one dual-client plugin marketplace ZIP from the same checkout:
 
 ```bash
 python -m build --wheel --sdist --outdir dist
-python scripts/verify_release.py \
-  --artifacts-dir dist \
-  --require-sdist \
-  --smoke-wheel
+python scripts/build_release.py --version 2.1.0 --output-dir dist
+python scripts/verify_release.py --artifacts-dir dist --require-sdist --smoke-wheel --bundle-dir dist
 ```
 
-Build and verify the Codex plugin bundle:
+`scripts/build_release.py` is the canonical cross-platform entry point for Windows, macOS, and Linux. The PowerShell command below is a compatibility wrapper and must produce the same deterministic ZIP:
 
 ```powershell
-pwsh ./scripts/build_release.ps1
-python scripts/verify_release.py --bundle-dir dist
+./scripts/build_release.ps1 -Version 2.1.0 -OutputDir dist
 ```
 
 Generate and verify a checksum manifest (the release workflow runs this on Linux):
@@ -300,30 +347,59 @@ cd ..
 python scripts/verify_release.py --checksums-dir dist
 ```
 
-Expected artifacts for `2.0.1` are:
+Expected artifacts for `2.1.0` are:
 
 ```text
-dist/zotero_obsidian_mcp-2.0.1-py3-none-any.whl
-dist/zotero_obsidian_mcp-2.0.1.tar.gz
-dist/obsidian-vault-mcp-2.0.1.zip
+dist/zotero_obsidian_mcp-2.1.0-py3-none-any.whl
+dist/zotero_obsidian_mcp-2.1.0.tar.gz
+dist/obsidian-vault-mcp-2.1.0-plugins.zip
 dist/SHA256SUMS
 ```
 
-The Codex ZIP is intentionally limited to two tracked files under `obsidian-literature/`: `.codex-plugin/plugin.json` and `.mcp.json`. Do not add source, docs, credentials, or vault data to that bundle.
+The plugin ZIP root is `<MARKETPLACE_DIR>` itself; there is no extra `obsidian-literature/` wrapper. Its exact 15-file allowlist is:
 
-The artifact verifier checks dependency bounds, version agreement, portable client configs, removed-path hygiene, Pi source/resource identity, wheel/sdist contents, the installed console entry point, config validation, and a 26-tool stdio initialization handshake.
+```text
+.agents/plugins/marketplace.json
+.claude-plugin/marketplace.json
+plugins/obsidian-literature/.codex-plugin/plugin.json
+plugins/obsidian-literature/.claude-plugin/plugin.json
+plugins/obsidian-literature/.mcp.json
+plugins/obsidian-literature/assets/icon.svg
+plugins/obsidian-literature/skills/analyze-figures/SKILL.md
+plugins/obsidian-literature/skills/compare-papers/SKILL.md
+plugins/obsidian-literature/skills/evidence-based-qa/SKILL.md
+plugins/obsidian-literature/skills/literature-review/SKILL.md
+plugins/obsidian-literature/skills/structured-paper-note/SKILL.md
+plugins/obsidian-literature/skills/theory-note-synthesis/SKILL.md
+plugins/obsidian-literature/skills/topic-note-synthesis/SKILL.md
+plugins/obsidian-literature/skills/uncertainty-audit/SKILL.md
+plugins/obsidian-literature/skills/verify-paper-claims/SKILL.md
+```
 
-After the release commit has passed CI and reached `main`, create the tag, verify it locally, and only then push it:
+That contract is two marketplace manifests, two client plugin manifests, one shared compatible `.mcp.json`, one Codex App icon, and nine Skills. The ZIP contains no Python runtime, `__init__.py`, source, docs, credentials, vault data, or machine path. Wheel/sdist must contain the same canonical marketplace resource, the V2 CLI, and the Pi installer resource, with no legacy `agent_skills` tree or V1 Skill mirror.
+
+Validate the plugin itself before handoff. Keep the local Plugin Creator location as a placeholder instead of documenting a personal Codex Home path:
+
+```bash
+python "<PLUGIN_CREATOR_DIR>/scripts/validate_plugin.py" "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature"
+claude plugin validate --strict "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature"
+```
+
+The artifact verifier checks dependency bounds, both marketplace identities/sources, version agreement across version-bearing manifests, portable MCP config, the exact nine-Skill set, removed-path hygiene, Pi source/resource identity, wheel/sdist/plugin ZIP contents, the installed console entry point, config validation, and a 33-tool stdio initialization handshake.
+
+Production local acceptance starts from `dist`, not an editable checkout: install `"<WHEEL_PATH>"` with `pipx` or `uv tool`, extract the plugin ZIP, give its root to the native Codex/Claude marketplace commands, start new sessions, confirm 33 tools and nine Skills, then repeat real single-paper, batch, image, and Skill→MCP Zotero→MinerU→Obsidian flows. The shared marketplace protocol has passed isolated probes with Codex CLI 0.145 and Claude Code 2.1.217; every release candidate must still repeat full acceptance from its own artifacts.
+
+Only after explicit user authorization for remote publication, and after the release commit has passed CI and reached `main`, create the tag, verify it locally, and then push it. Preparing a production candidate or showing these commands does not assert that a tag, GitHub Release, or PyPI version already exists:
 
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v2.0.1 -m "Obsidian Vault MCP V2.0.1"
-python scripts/verify_release.py --tag v2.0.1
-git push origin v2.0.1
+git tag -a v2.1.0 -m "Obsidian Vault MCP V2.1.0"
+python scripts/verify_release.py --tag v2.1.0
+git push origin v2.1.0
 ```
 
-The release workflow checks out the tag, repeats all gates, builds all three artifacts, and creates or updates the GitHub release. The tag must resolve to the checked-out commit.
+The release workflow should check out the tag, repeat all gates, build all three artifacts, and create or update an authorized GitHub release. The tag must resolve to the checked-out commit.
 
 PyPI publication must use the already verified wheel and sdist, never a rebuild from another commit. Prefer a PyPI trusted publisher in CI. For a manual upload, keep the API token in `TWINE_PASSWORD` (username `__token__`) or an OS credential store, run `python -m twine check dist/*.whl dist/*.tar.gz`, and never paste the token into a command line, file, log, issue, commit, or release note.
 
@@ -339,7 +415,7 @@ Review these boundaries for every change:
 - User ownership: preserve unknown frontmatter and unmarked Markdown; never convert a failed parse into a partial success.
 - Release: exclude vaults, tokens, machine paths, virtual environments, caches, test output, staging, backups, and `dist/` from Git.
 
-## Current limitations in 2.0.1
+## Current limitations in 2.1.0
 
 - Zotero integration is local Desktop only; cloud libraries and cloud API keys are outside the V2 surface.
 - `OBSIDIAN_VAULT_PATH=auto` searches only the server process's current directory and parents. It does not enumerate Obsidian's registered vaults.
@@ -347,11 +423,11 @@ Review these boundaries for every change:
 - MinerU integration targets the Open API CLI. The config value `local` is a compatibility mapping to token-free `flash-extract`, not an offline local model backend.
 - MinerU parse dry-runs validate the imported item/PDF and report the planned staging/output paths, but do not contact MinerU or predict the extracted file set.
 - MinerU batch and collection operations return bounded summaries (20 entries by default); aggregate counts remain authoritative when `truncated` is true.
-- `safety.retainBackups` is validated but 2.0.1 does not prune old transaction backups automatically; operators must apply their own retention policy to the hidden backup directory.
+- `safety.retainBackups` is validated but 2.1.0 does not prune old transaction backups automatically; operators must apply their own retention policy to the hidden backup directory.
+- Precise PDF figure crops, panel segmentation, OCR fallback, multimodal interpretation, embeddings, reranking, citation graphs, and automated figure digitization remain post-P0 work.
 - Wiki retrieval is lexical and bounded; semantic ranking and prose generation belong to the connected Agent.
 - The server accepts SSE and streamable HTTP but supplies no built-in authentication, authorization, or TLS.
 - One process invocation resolves one vault path. Multi-vault orchestration requires separate client entries or explicit per-tool `vault_path` values.
-- The WorkBuddy installer currently probes an executable named `workbuddy`; client distributions that expose only another command name cannot use the one-click path without a compatible shim or a future installer update.
 - Pi tool calls have a 660-second Extension timeout. Exceptionally long MinerU jobs can still exceed it; use the native MCP/CLI path for those jobs or adjust the adapter in a reviewed change.
 
 ## Contribution checklist
@@ -361,7 +437,7 @@ Review these boundaries for every change:
 - No test contacts a private vault, Zotero library, or MinerU service.
 - `zoteroKey`, portable paths, user content, and transaction guarantees still hold.
 - CLI and MCP remain thin and return structured JSON-safe values.
-- The tool count and names remain exactly 26 unless a new versioned contract is approved.
+- The tool count and names remain exactly 33 unless another versioned contract is approved.
 - Pi sources are byte-identical after any Extension change.
 - Ruff, pytest, repository verification, artifact verification, and wheel smoke tests pass as appropriate.
 - English and Chinese canonical docs agree with the live implementation.

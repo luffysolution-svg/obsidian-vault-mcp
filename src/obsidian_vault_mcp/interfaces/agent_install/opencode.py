@@ -1,4 +1,4 @@
-"""OpenCode project MCP installer."""
+"""OpenCode project MCP and Agent Skill installer."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from .common import Handshake, InstallResult, Which, detect_client, install_conf
 CLIENT = "opencode"
 EXECUTABLE = "opencode"
 CONFIG_RELATIVE_PATH = Path("opencode.json")
+SKILL_RELATIVE_PATH = Path(".opencode") / "skills"
 
 
 def detect(*, which: Which | None = None) -> bool:
@@ -24,7 +25,8 @@ def install(
     which: Which | None = None,
     handshake: Handshake | None = None,
 ) -> InstallResult:
-    target = Path(config_path).expanduser().resolve() if config_path is not None else project_config_path(project_dir, CONFIG_RELATIVE_PATH)
+    project_root = project_config_path(project_dir, ".")
+    target = Path(config_path).expanduser().resolve() if config_path is not None else project_root / CONFIG_RELATIVE_PATH
     update = {
         "$schema": "https://opencode.ai/config.json",
         "mcp": {
@@ -41,10 +43,15 @@ def install(
         config_path=target,
         update=update,
         config_format="json",
-        uninstall_instructions=f'Remove "mcp.obsidian-literature" from {target} and keep all other MCP servers.',
+        uninstall_instructions=(
+            f'Remove "mcp.obsidian-literature" from {target}; remove the nine managed Skill folders and manifest from '
+            f"{project_root / SKILL_RELATIVE_PATH}."
+        ),
         dry_run=dry_run,
         which=which,
         handshake=handshake,
+        project_root=project_root,
+        skill_directory=project_root / SKILL_RELATIVE_PATH,
     )
 
 

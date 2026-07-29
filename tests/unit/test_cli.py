@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+from pathlib import Path
 
 from obsidian_vault_mcp.interfaces.cli import main as package_main
 from obsidian_vault_mcp.interfaces.cli.main import main
@@ -55,6 +56,31 @@ def test_human_command_maps_write_options(monkeypatch, capsys) -> None:
         "transaction_id": "tx-1",
         "conflict_policy": "fail",
     }
+
+
+def test_agent_install_cli_serializes_native_plugin_result(monkeypatch, capsys, tmp_path: Path) -> None:
+    received = {}
+
+    class Result:
+        def as_dict(self):
+            return {
+                "client": "codex",
+                "marketplace_path": str(tmp_path / "marketplace"),
+                "plugin_selector": "obsidian-literature@obsidian-vault-mcp",
+                "commands": [["codex", "plugin", "add", "obsidian-literature@obsidian-vault-mcp"]],
+            }
+
+    def fake_install(client, project_dir, *, dry_run):
+        received.update(client=client, project_dir=project_dir, dry_run=dry_run)
+        return Result()
+
+    monkeypatch.setitem(main.__globals__, "install_agent", fake_install)
+    assert main(["agent", "install", "codex", "--project-dir", str(tmp_path), "--dry-run"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["plugin_selector"] == "obsidian-literature@obsidian-vault-mcp"
+    assert payload["commands"][0][1:3] == ["plugin", "add"]
+    assert received == {"client": "codex", "project_dir": tmp_path, "dry_run": True}
 
 
 def test_cli_returns_structured_json_error(monkeypatch, capsys) -> None:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,7 +14,45 @@ from obsidian_vault_mcp.application.transaction_service import TransactionServic
 from obsidian_vault_mcp.domain.errors import AtomicWriteError, LockTimeoutError, TransactionConflictError, TransactionError
 
 
+def _create_directory_link(link: Path, target: Path) -> None:
+    if os.name == "nt":
+        result = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode:
+            raise unittest.SkipTest(f"could not create a Windows junction: {result.stderr or result.stdout}")
+        return
+    link.symlink_to(target, target_is_directory=True)
+
+
+def _remove_directory_link(link: Path) -> None:
+    if os.name == "nt":
+        os.rmdir(link)
+    else:
+        link.unlink(missing_ok=True)
+
+
 class AtomicIoTests(unittest.TestCase):
+    def test_transaction_staging_link_cannot_delete_another_transaction(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            vault = Path(directory)
+            staging = vault / ".obsidian-vault-mcp" / "staging"
+            victim = staging / "tx-b"
+            victim.mkdir(parents=True)
+            marker = victim / "marker.txt"
+            marker.write_text("other transaction", encoding="utf-8")
+            linked = staging / "tx-a"
+            _create_directory_link(linked, victim)
+            try:
+                with self.assertRaisesRegex(TransactionError, "linked transaction staging path"):
+                    TransactionService(vault).begin(transaction_id="tx-a").commit()
+                self.assertEqual(marker.read_text(encoding="utf-8"), "other transaction")
+            finally:
+                _remove_directory_link(linked)
+
     def test_atomic_write_replaces_utf8_and_cleans_temp_on_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "中文.md"

@@ -1,6 +1,0 @@
-{
-  "name": "obsidian-literature",
-  "version": "2.0.1",
-  "description": "Zotero, MinerU and Obsidian literature pipeline",
-  "mcpServers": "./.mcp.json"
-}

@@ -37,7 +37,7 @@ jobs:
         run: python scripts/verify_release.py
 
       - name: Lint Python sources
-        run: python -m ruff check src tests scripts/verify_release.py
+        run: python -m ruff check src tests scripts/build_release.py scripts/verify_release.py
 
       - name: Run tests
         run: python -m pytest
@@ -63,7 +63,7 @@ jobs:
 
       - name: Install Pi adapter dependencies
         working-directory: adapters/pi
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Type-check Pi adapter
         working-directory: adapters/pi
@@ -92,11 +92,10 @@ jobs:
       - name: Verify Python artifacts
         run: python scripts/verify_release.py --artifacts-dir dist --require-sdist
 
-      - name: Build Codex plugin bundle
-        shell: pwsh
-        run: ./scripts/build_release.ps1
+      - name: Build Codex/Claude plugin marketplace bundle
+        run: python scripts/build_release.py --output-dir dist
 
-      - name: Verify Codex plugin bundle
+      - name: Verify Codex/Claude plugin marketplace bundle
         run: python scripts/verify_release.py --bundle-dir dist
 
       - name: Generate SHA256 checksums

@@ -13,10 +13,11 @@
 | Python package | `obsidian_vault_mcp` |
 | Console entry point | `obsidian-vault-mcp` |
 | MCP server | `obsidian-literature` |
-| Codex plugin | `obsidian-literature` |
+| 插件 marketplace | `obsidian-vault-mcp` |
+| Codex/Claude plugin | `obsidian-literature` |
 | Pi package | `obsidian-vault-mcp-pi-extension` |
 
-V2.0.0 是破坏性重构：删除 V1 Skills 镜像、旧脚本入口、分裂配置和标题身份，改为 `src/` 包、单一配置、26 个 MCP 工具、统一 JSON CLI、事务和多客户端薄适配。
+V2.0.0 是破坏性重构：删除 V1 Skills 镜像、旧脚本入口、分裂配置和标题身份，改为 `src/` 包、单一配置、最初 26 个 MCP 工具、统一 JSON CLI、事务和多客户端薄适配。V2.1.0 在不改名或删除旧工具的前提下新增 7 个结构化精读工具，公开工具面为 33 个。
 
 ## 2. 核心不变量
 
@@ -69,17 +70,20 @@ src/obsidian_vault_mcp/
 │  ├─ vault/               # filesystem、atomic writer、locks
 │  └─ obsidian/            # note、index、base renderers
 ├─ interfaces/
-│  ├─ mcp/                 # FastMCP server 与 26 tools
+│  ├─ mcp/                 # FastMCP server 与 33 tools
 │  ├─ cli/                 # argparse + 单 JSON 输出
-│  └─ agent_install/       # 六种客户端事务式安装器与 Pi resource
+│  └─ agent_install/       # Codex/Claude 原生插件入口 + 四种项目适配器 + Pi resource
+├─ resources/
+│  └─ agent_marketplace/   # 双 marketplace/manifest、共享 MCP 与 9 Skills 的唯一规范源
 └─ config/                 # defaults、loader、strict validation
 
 adapters/pi/               # 可独立分发/开发的 Pi Extension
 tests/unit/                # 领域、adapter、service 与 renderer
 tests/contract/            # 工具面、客户端配置、握手/回滚、Pi bridge
 tests/repository/          # 目录、依赖、CI、release hygiene
-scripts/verify_release.py  # 版本、仓库和产物验证
-scripts/build_release.ps1  # 可复现 Codex plugin zip
+scripts/verify_release.py  # 版本、仓库和 Python/plugin 产物验证
+scripts/build_release.py   # 跨平台、可复现的双客户端 plugin marketplace zip
+scripts/build_release.ps1  # PowerShell 兼容 wrapper
 ```
 
 ## 5. 稳定数据契约
@@ -158,6 +162,17 @@ MinerU 输入是 Vault 内 PDF 副本。输出先进入事务 staging；normaliz
 
 Index 的 `Broken attachment links` 当前仍是 renderer 占位统计，真正链接问题以 `literature_verify` 为准。
 
+### 5.6 V2.1 图片、证据与精读状态
+
+- 图片 Manifest 位于 `.obsidian-vault-mcp/cache/mineru-assets/{zoteroKey}/manifest.json`。正文明确引用的图片进入正式 `imageFolder`；未引用候选仅进入同目录下的 `assets/` 缓存。`assetId` 由 `zoteroKey` 和内容 SHA-256 确定，不依赖 `figNN` 顺序。
+- Evidence state 位于 `.obsidian-vault-mcp/state/evidence/{zoteroKey}.json`，包含稳定 `evidenceId`、章节路径、原文、block link、内容哈希、source fingerprint 和关联 `assetId`；重建时确定性的 `^ev-*` block ID 会与 state/Manifest 同事务物理写入派生 MinerU Markdown，Verify 会检查锚点存在且唯一。页码无法可靠确认时始终为 `null`。
+- Analysis 笔记默认位于 `Literature/Analysis/{zoteroKey}.md`，只更新 `ovm:analysis` 与 `ovm:analysis-uncertainties` 区块。待复核 state 位于 `.obsidian-vault-mcp/state/uncertainties/{zoteroKey}.json`，resolve 保留原 claim 和追加式审计历史。
+- 新导入的 Zotero child notes 与 annotations 在原 `ovm:zotero-notes` 受管区块内使用内部来源标记，`literature_analysis_context` 可离线分别返回 `zoteroNotes`/`zoteroAnnotations`。旧笔记的合并内容继续作为 `zoteroNotes` 返回，并附兼容 warning。
+- Coverage Ledger 位于 `.obsidian-vault-mcp/state/coverage/{zoteroKey}.json`。读取工具默认不写账本，只有 `record_coverage=true` 才走 TransactionService；返回的 `coverageLedger` 带真实或 dry-run `transactionId`。它记录实际读取粒度和覆盖边界，不是论文事实证据；源哈希变化后旧记录标记 stale。
+- Analysis index 位于 `Literature/Analysis/index.md`，只能由结构化 Analysis/state 确定性重建。一句话定位明确标记为 `agent_synthesis`。
+
+P0 不包含可靠 PDF 图表裁剪、panel 分割、OCR、多模态视觉解释、embedding 或 reranker。MinerU 图片存在只表示候选资产，不等于视觉结论已验证。
+
 ## 6. 配置契约
 
 默认配置和编辑器 JSON Schema 分别位于：
@@ -177,6 +192,9 @@ Index 的 `Broken attachment links` 当前仍是 renderer 占位统计，真正�
 - `zotero.apiBase/linkedAttachmentBaseDir/syncTags/paginationSize`
 - `bibtex.enabled/provider`
 - `mineru.mode/markdownFolder/imageFolder/maxConcurrentJobs`
+- `mineru.preserveUnlinkedImageCandidates/imageManifestEnabled/candidateCacheFolder`
+- `analysis.folder/index/topicFolder/theoryFolder`
+- `evidence.enabled/blockIdPrefix/maxChunkChars/overlapChars`
 - `index.autoRebuild/recentLimit`
 - `base.autoRebuild/name`
 
@@ -202,6 +220,7 @@ Index 的 `Broken attachment links` 当前仍是 renderer 占位统计，真正�
 - 统一按父条目 `zoteroKey` 查找身份。
 - Zotero 搜索、集合和 children 使用分页迭代；集合导入不会截断在 100 条。
 - Import 建立主笔记、PDF、state、Index、Base；Sync 对相同路径做增量事务。
+- item state 的 `collectionKeys` 保存已知集合成员关系，供 `literature_retrieve.scope.collection_key` 使用；`mineruAssetRoot` 保存当前条目 Manifest/候选缓存根，使 `candidateCacheFolder` 改动时能在同一事务迁移旧目录。缺少这两个字段的旧 state 保持可读，并在后续导入/同步/解析时增量补齐。
 - PDF overwrite policy 影响复制规划，最终 SHA 相同则事务 no-op。
 - `rename` 只在目标路径被其他身份占用时提供特殊处理；其他策略拒绝危险覆盖。
 
@@ -223,7 +242,7 @@ Verify 扫描整个 Vault 中可见的 `.md` 和 `.base`，排除顶层隐藏目
 - Rollback 先比较当前 SHA 与事务 `afterSha256`，防止覆盖事务后的用户编辑。
 - 冲突时只有 `overwrite-managed` 会强制恢复；其他 policy 拒绝覆盖。
 
-## 8. CLI 与 26 个 MCP Tools
+## 8. CLI 与 33 个 MCP Tools
 
 CLI 成功时向 stdout 输出一个 JSON 值。业务异常输出 `{"ok":false,"error":...}` 并返回退出码 2；Windows legacy code page 无法表示字符时回退到 ASCII escaped JSON。
 
@@ -256,6 +275,7 @@ Tool surface：
 | 导入同步（4） | `literature_import_item`, `literature_import_collection`, `literature_sync_item`, `literature_sync_collection` |
 | MinerU（3） | `literature_parse_mineru`, `literature_parse_mineru_batch`, `literature_remove_mineru_output` |
 | 知识库（3） | `literature_rebuild_index`, `literature_rebuild_base`, `literature_verify` |
+| 结构化精读（7） | `literature_paper_read`, `literature_analysis_context`, `literature_analysis_write`, `literature_uncertainty_list`, `literature_uncertainty_resolve`, `literature_rebuild_analysis_index`, `literature_retrieve` |
 | Wiki（3） | `literature_wiki_context`, `literature_wiki_write`, `literature_wiki_list` |
 | 迁移事务（3） | `literature_migrate_v1_to_v2`, `literature_preview_transaction`, `literature_rollback_transaction` |
 
@@ -265,16 +285,29 @@ Tool surface：
 
 `SUPPORTED_CLIENTS`：`codex`、`claude`、`opencode`、`pi`、`hermes`、`workbuddy`。
 
-安装器的共同步骤：检测可执行文件 → 读取/验证原配置 → deep merge → 同目录备份 → 原子写入 → MCP initialize handshake → 失败回滚。`--dry-run` 不写文件也不 handshake。
+Codex Desktop/CLI 与 Claude Code 的生产主路径是客户端原生 marketplace plugin。`obsidian-vault-mcp agent install codex|claude` 只是便捷入口：从 wheel 的 `obsidian_vault_mcp.resources.agent_marketplace` 解析稳定绝对目录，调用客户端原生 CLI，并用 marketplace/plugin list 做幂等检测。`project_dir` 仅为统一接口兼容保留，不写项目 `.mcp.json`，也不复制项目 Skills；同名 marketplace 已指向其他目录时必须安全失败。
 
-| 客户端 | 目标 | 格式/机制 |
-|---|---|---|
-| Codex | `.mcp.json` | JSON `mcpServers` |
-| Claude Code | `.mcp.json` | JSON `mcpServers` |
-| OpenCode | `opencode.json` | JSON `mcp` + argv array |
-| Hermes | `.hermes/config.yaml` | YAML `mcp_servers` |
-| WorkBuddy | `.workbuddy/mcp.json` | JSON `mcpServers` |
-| Pi | `.pi/extensions/obsidian-vault-mcp.ts` | packaged TypeScript resource |
+| 客户端 | 机制 | MCP/Extension 目标 | Skill 目标 |
+|---|---|---|---|
+| Codex Desktop/CLI | 原生 marketplace plugin | Codex 管理 | plugin 内 9 Skills |
+| Claude Code | 原生 marketplace plugin，user scope | Claude 管理 | plugin 内 9 Skills |
+| OpenCode | 事务式项目适配器 | `opencode.json` | `.opencode/skills` 的 9 个受管 Skills |
+| Hermes | MCP-only profile 适配器 | `$HERMES_HOME/config.yaml`（默认 `~/.hermes/config.yaml`） | 无；返回 warning |
+| WorkBuddy | MCP-only 项目适配器；探测 `codebuddy`，回退 `cbc` | `.workbuddy/mcp.json` | 无；返回 warning |
+| Pi | 薄 Extension 项目适配器 | `.pi/extensions/obsidian-vault-mcp.ts` | 无；Extension-only |
+
+原生插件命令契约：
+
+```text
+codex plugin marketplace add <MARKETPLACE_DIR>
+codex plugin add obsidian-literature@obsidian-vault-mcp
+claude plugin marketplace add <MARKETPLACE_DIR> --scope user
+claude plugin install obsidian-literature@obsidian-vault-mcp --scope user
+```
+
+`PluginInstallResult` 必须把 client、executable、marketplace name/path、plugin selector/version、dry-run/changed、preexisting/added/installed 状态、实际或计划命令、handshake 状态和卸载说明完整 JSON 化。Codex/Claude 原生命令完成后会直接执行一次 stdio initialize handshake；它证明打包 runtime 可启动，但 plugin 与 Skill 发现仍需新客户端会话。整个过程不写项目配置，也不通过项目配置握手。Codex 卸载使用 `plugin remove`；Claude 使用 `plugin uninstall --scope user`，移除 marketplace 时也必须带 `--scope user`；marketplace 只在确认无其他依赖后移除。
+
+OpenCode、WorkBuddy 与 Pi 项目适配器，以及写 Hermes profile 配置的适配器，都会执行：检测可执行文件 → 规划 → 备份 → 原子写入 → MCP initialize handshake → 失败回滚；`--dry-run` 零写且不 handshake。OpenCode 还会验证受管 Skill 哈希并把配置/Skills 纳入同一事务边界。Hermes 忽略统一接口的 `project_dir`；显式 `config_path` 覆盖仅供 Python 安装器 API 使用，不是 `agent install` CLI 选项。`workbuddy` 是安装器客户端名称，不是平台 executable。
 
 原生 MCP 配置统一调用：
 
@@ -284,7 +317,9 @@ obsidian-vault-mcp serve --transport stdio
 
 Pi Extension 不复制业务逻辑，以 `execFile(shell=false)` 调用 `obsidian-vault-mcp call ... --json ...`。`adapters/pi/index.ts` 与 wheel resource `src/.../pi_extension.ts` 必须字节一致。
 
-模板的 `OBSIDIAN_VAULT_PATH=auto` 只搜索进程 cwd 的父链。普通项目需要本机显式 Vault 路径；不要把该绝对路径提交到仓库。
+9 个 Skill 的唯一规范源是 `src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature/skills/`。Codex/Claude 直接消费 plugin 内 Skills；OpenCode 安装目标包含 `.obsidian-vault-mcp-skills.json`，升级只替换受管区块并保留 `User Customizations`，发现篡改或旧格式时写前拒绝。不得增加客户端镜像或同步脚本。Hermes/WorkBuddy 不猜测 `.hermes/skills` 或 `.workbuddy/skills`。
+
+Codex/Claude plugin 的共享 `.mcp.json` 不写 `OBSIDIAN_VAULT_PATH`，由启动进程继承；OpenCode/Pi 同样继承。Hermes profile 配置与 WorkBuddy 项目模板可用 `auto`，但它只搜索进程 cwd 的父链。普通项目需要本机显式 Vault 路径；不要把该绝对路径提交到仓库。
 
 ## 10. 事务、并发与文件安全
 
@@ -306,7 +341,7 @@ plan → stage → backup old file + manifest → same-directory temp file
 
 ```bash
 python -m pip install -e ".[dev]"
-python -m ruff check src tests scripts/verify_release.py
+python -m ruff check src tests scripts
 python -m pytest tests/unit tests/contract tests/repository
 python scripts/verify_release.py
 ```
@@ -322,21 +357,22 @@ npm run check
 测试层次：
 
 - `unit`：identity/path/frontmatter、事务、Zotero 分页、BibTeX、MinerU、renderers、services、migration。
-- `contract`：26 工具、客户端配置合并、备份/握手恢复、Pi bridge。
+- `contract`：33 工具、原生 plugin 命令、客户端配置合并、备份/握手恢复、Pi bridge。
 - `repository`：`src/` layout、删除 V1 路径、依赖边界、CI 和 release bundle。
 
 自动测试不得连接真实 Zotero/MinerU，也不得写用户 Vault。5 篇真实文献是手工端到端验收，不替代 fixtures 和回归测试。
 
 ## 12. 构建与发行验证
 
-先确保 `dist/` 没有旧产物，再构建：
+先确保 `dist/` 没有旧产物，再从同一 checkout 构建 Python 产物和跨客户端 plugin marketplace：
 
 ```bash
 python -m build --wheel --sdist --outdir dist
-python scripts/verify_release.py --artifacts-dir dist --require-sdist --smoke-wheel
-pwsh ./scripts/build_release.ps1
-python scripts/verify_release.py --bundle-dir dist
+python scripts/build_release.py --version 2.1.0 --output-dir dist
+python scripts/verify_release.py --artifacts-dir dist --require-sdist --smoke-wheel --bundle-dir dist
 ```
+
+`scripts/build_release.py` 是 Windows、macOS、Linux 共用的规范入口；`./scripts/build_release.ps1 -Version 2.1.0 -OutputDir dist` 只是 PowerShell 兼容 wrapper。两者必须生成相同的确定性 ZIP。
 
 Release workflow 在 Linux 上生成并验证校验和；本地使用 Git Bash、WSL 或 macOS/Linux 时可执行：
 
@@ -350,34 +386,56 @@ python scripts/verify_release.py --checksums-dir dist
 产物：
 
 ```text
-dist/zotero_obsidian_mcp-2.0.1-py3-none-any.whl
-dist/zotero_obsidian_mcp-2.0.1.tar.gz
-dist/obsidian-vault-mcp-2.0.1.zip
+dist/zotero_obsidian_mcp-2.1.0-py3-none-any.whl
+dist/zotero_obsidian_mcp-2.1.0.tar.gz
+dist/obsidian-vault-mcp-2.1.0-plugins.zip
 dist/SHA256SUMS
 ```
 
-Codex zip 的 allowlist 只有：
+plugin ZIP 根目录就是 `<MARKETPLACE_DIR>`，没有额外 `obsidian-literature/` 包裹层。精确 allowlist 为 15 个文件：
 
 ```text
-obsidian-literature/.codex-plugin/plugin.json
-obsidian-literature/.mcp.json
+.agents/plugins/marketplace.json
+.claude-plugin/marketplace.json
+plugins/obsidian-literature/.codex-plugin/plugin.json
+plugins/obsidian-literature/.claude-plugin/plugin.json
+plugins/obsidian-literature/.mcp.json
+plugins/obsidian-literature/assets/icon.svg
+plugins/obsidian-literature/skills/analyze-figures/SKILL.md
+plugins/obsidian-literature/skills/compare-papers/SKILL.md
+plugins/obsidian-literature/skills/evidence-based-qa/SKILL.md
+plugins/obsidian-literature/skills/literature-review/SKILL.md
+plugins/obsidian-literature/skills/structured-paper-note/SKILL.md
+plugins/obsidian-literature/skills/theory-note-synthesis/SKILL.md
+plugins/obsidian-literature/skills/topic-note-synthesis/SKILL.md
+plugins/obsidian-literature/skills/uncertainty-audit/SKILL.md
+plugins/obsidian-literature/skills/verify-paper-claims/SKILL.md
 ```
 
-它不包含 Python runtime，使用者仍需从 PyPI 安装 CLI。Wheel 必须包含 V2 CLI 与 Pi installer resource，不得包含 V1 Skills、仓库脚本、凭据、Vault 数据或缓存。
+这等于两份 marketplace manifest、两份 client plugin manifest、一份共享兼容 `.mcp.json`、一个 Codex App 图标和 9 个 Skills。ZIP 不包含 Python runtime、`__init__.py`、源码、文档、凭据、Vault 数据或缓存。Wheel/sdist 必须包含相同 canonical marketplace resource、V2 CLI 与 Pi installer resource，不得包含旧 `agent_skills` 镜像或 V1 Skills。
 
-发布提交通过 CI 并进入 `main` 后，先创建 tag，再让验证器核对 tag 与当前提交，最后推送：
+交付前除仓库验证器外，还要验证 plugin 目录本身；路径使用占位符，禁止把个人 Codex Home 写进文档或脚本：
+
+```bash
+python "<PLUGIN_CREATOR_DIR>/scripts/validate_plugin.py" "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature"
+claude plugin validate --strict "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature"
+```
+
+生产本机验收必须从 `dist` 产物开始，而不是从 editable checkout 启动：用 `pipx install "<WHEEL_PATH>"` 或 `uv tool install "<WHEEL_PATH>"`，解压 plugin ZIP，把解压根目录交给 Codex/Claude 原生命令，启动新会话后核对 33 Tools、9 Skills，并重跑真实 Zotero→MinerU→Obsidian 的单篇、批量、图片与 Skill→MCP 流程。共享 bundle 的原生安装协议已用 Codex CLI 0.145 和 Claude Code 2.1.217 做过隔离探针；每个候选产物仍必须重复完整验收。
+
+只有在用户明确授权远程发布、发布提交通过 CI 并进入 `main` 后，才创建 tag、让验证器核对 tag 与当前提交并推送。准备生产候选或运行以下命令不代表 tag、GitHub Release 或 PyPI 版本已经存在：
 
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v2.0.1 -m "Obsidian Vault MCP V2.0.1"
-python scripts/verify_release.py --tag v2.0.1
-git push origin v2.0.1
+git tag -a v2.1.0 -m "Obsidian Vault MCP V2.1.0"
+python scripts/verify_release.py --tag v2.1.0
+git push origin v2.1.0
 ```
 
-验证器检查 tag commit、Python package、Codex manifest、Pi package、源码版本与 adapter 配置的一致性。Release tag 必须使用 `vMAJOR.MINOR.PATCH`。
+验证器检查 tag commit、Python package、两份 marketplace、两份 plugin manifest、共享 MCP、9 Skills、Pi package、源码版本与 adapter 配置的一致性。Release tag 必须使用 `vMAJOR.MINOR.PATCH`。
 
-`.github/workflows/ci.yml` 在 Windows/Linux/macOS × Python 3.10–3.13 上测试，并单独 type-check Pi。`.github/workflows/release.yml` checkout 对应 tag、重跑验证、构建 wheel/sdist/Codex zip、生成校验和、上传 GitHub Release，并使用 GitHub Secret `PYPI_API_TOKEN` 发布 PyPI。
+`.github/workflows/ci.yml` 在 Windows/Linux/macOS × Python 3.10–3.13 上测试，并单独 type-check Pi。`.github/workflows/release.yml` 应 checkout 对应 tag、重跑验证、构建 wheel/sdist/双客户端 plugin ZIP、生成校验和并上传经过授权的 GitHub Release；PyPI 发布只能使用同一批已验证 Python 产物。
 
 发布账号必须把 PyPI token 存在 GitHub Secret 或安全的本机凭据中，绝不能写入 workflow、`.pypirc` 示例、文档或提交历史。长期建议迁移到 PyPI Trusted Publishing/OIDC。
 

@@ -14,10 +14,14 @@ from .common import (
     HandshakeContext,
     HandshakeError,
     InstallResult,
+    MarketplaceConflictError,
+    PluginInstallResult,
+    SkillInstallResult,
 )
 
 SUPPORTED_CLIENTS = ("codex", "claude", "opencode", "pi", "hermes", "workbuddy")
-INSTALLERS: dict[str, Callable[..., InstallResult]] = {
+AgentInstallResult = InstallResult | PluginInstallResult
+INSTALLERS: dict[str, Callable[..., AgentInstallResult]] = {
     "codex": codex.install,
     "claude": claude.install,
     "opencode": opencode.install,
@@ -27,7 +31,7 @@ INSTALLERS: dict[str, Callable[..., InstallResult]] = {
 }
 
 
-def get_installer(client: str) -> Callable[..., InstallResult]:
+def get_installer(client: str) -> Callable[..., AgentInstallResult]:
     """Return the normalized client installer."""
 
     normalized = client.strip().lower()
@@ -42,8 +46,8 @@ def install_agent(
     client: str,
     project_dir: str | os.PathLike[str] | None = None,
     **kwargs: Any,
-) -> InstallResult:
-    """Install one supported Agent adapter into a project-local config."""
+) -> AgentInstallResult:
+    """Install one supported Agent adapter with its native client lifecycle."""
 
     return get_installer(client)(project_dir, **kwargs)
 
@@ -51,6 +55,7 @@ def install_agent(
 install = install_agent
 
 __all__ = [
+    "AgentInstallResult",
     "AgentInstallError",
     "ClientNotFoundError",
     "ConfigurationValidationError",
@@ -58,6 +63,9 @@ __all__ = [
     "HandshakeError",
     "INSTALLERS",
     "InstallResult",
+    "MarketplaceConflictError",
+    "PluginInstallResult",
+    "SkillInstallResult",
     "SUPPORTED_CLIENTS",
     "get_installer",
     "install",

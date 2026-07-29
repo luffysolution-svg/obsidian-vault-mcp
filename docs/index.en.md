@@ -57,12 +57,10 @@ If Windows maps `python` to the Microsoft Store instead of your installation, re
 
 No Obsidian community plugin is required. V2 generates a native `.base` file and ordinary Markdown.
 
-Remember the vault root itself, not a folder inside it. Examples:
+Remember the vault root itself, not a folder inside it. This guide uses one platform-neutral placeholder:
 
 ```text
-D:\Notes\ResearchVault        # Windows
-/Users/me/Notes/ResearchVault # macOS
-/home/me/Notes/ResearchVault  # Linux
+<VAULT_DIR> # the directory that directly contains .obsidian
 ```
 
 ## 4. Enable and test the Zotero local API
@@ -92,11 +90,11 @@ The pipeline copies a PDF only when the Zotero parent item has a PDF child attac
 For a nonstandard Zotero storage layout, set an override before starting the CLI/server:
 
 ```powershell
-$env:ZOTERO_STORAGE_DIR = "D:\Zotero\storage"
+$env:ZOTERO_STORAGE_DIR = "<ZOTERO_STORAGE_DIR>"
 ```
 
 ```bash
-export ZOTERO_STORAGE_DIR="/home/me/Zotero/storage"
+export ZOTERO_STORAGE_DIR="<ZOTERO_STORAGE_DIR>"
 ```
 
 The source path is stored only in hidden transaction/item state, never in user-visible notes.
@@ -106,7 +104,7 @@ For Zotero **Link to File** attachments, the local API returns an `attachments:`
 ```json
 {
   "zotero": {
-    "linkedAttachmentBaseDir": "D:\\Reference PDFs"
+    "linkedAttachmentBaseDir": "<ZOTERO_LINKED_ATTACHMENT_BASE_DIR>"
   }
 }
 ```
@@ -114,14 +112,14 @@ For Zotero **Link to File** attachments, the local API returns an `attachments:`
 Alternatively, set an environment variable before starting the CLI/MCP server. A non-empty config value takes precedence:
 
 ```powershell
-$env:ZOTERO_LINKED_ATTACHMENT_BASE_DIR = "D:\Reference PDFs"
+$env:ZOTERO_LINKED_ATTACHMENT_BASE_DIR = "<ZOTERO_LINKED_ATTACHMENT_BASE_DIR>"
 ```
 
 ```bash
-export ZOTERO_LINKED_ATTACHMENT_BASE_DIR="/Users/me/Reference PDFs"
+export ZOTERO_LINKED_ATTACHMENT_BASE_DIR="<ZOTERO_LINKED_ATTACHMENT_BASE_DIR>"
 ```
 
-`ZOTERO_STORAGE_DIR` is only for Zotero-managed `storage:` attachments. `linkedAttachmentBaseDir` and `ZOTERO_LINKED_ATTACHMENT_BASE_DIR` are only for `attachments:` linked files. Version 2.0.1 rejects `..` traversal and drive-prefixed paths that could escape the configured base; if no base is configured, import reports a clear error instead of guessing a machine path.
+`ZOTERO_STORAGE_DIR` is only for Zotero-managed `storage:` attachments. `linkedAttachmentBaseDir` and `ZOTERO_LINKED_ATTACHMENT_BASE_DIR` are only for `attachments:` linked files. Version 2.1.0 rejects `..` traversal and drive-prefixed paths that could escape the configured base; if no base is configured, import reports a clear error instead of guessing a machine path.
 
 ## 5. Optional Zotero components
 
@@ -196,16 +194,35 @@ Mode behavior in V2 is exact:
 
 If the executable has a custom name or path, set `MINERU_CLI_COMMAND`. Windows `.cmd` shims are resolved automatically.
 
-## 7. Install Obsidian Vault MCP 2.0.1
+## 7. Install Obsidian Vault MCP 2.1.0
 
-### Recommended: PyPI
+### Recommended for Agents: persistent tool environment
+
+Codex Desktop/CLI, Claude Code, and other independently launched MCP clients must resolve `obsidian-vault-mcp` on their own startup `PATH`. Install the package with `pipx` or `uv tool` into a persistent isolated environment. Use this package selector once 2.1.0 is published to PyPI; use the local wheel path in the next block for production acceptance before publication:
 
 ```bash
-python -m pip install --upgrade "zotero-obsidian-mcp==2.0.1"
-obsidian-vault-mcp --help
+pipx install "zotero-obsidian-mcp==2.1.0"
+# or
+uv tool install "zotero-obsidian-mcp==2.1.0"
 ```
 
-The PyPI distribution is `zotero-obsidian-mcp`; the installed command is `obsidian-vault-mcp`.
+For a locally built production wheel, use the artifact path instead of the package selector:
+
+```bash
+pipx install "<WHEEL_PATH>"
+# or
+uv tool install "<WHEEL_PATH>"
+```
+
+Run `pipx ensurepath` or `uv tool update-shell` when required, then fully restart terminals and GUI clients. Verify the environment inherited by the client:
+
+```bash
+obsidian-vault-mcp --help
+pipx list    # when using pipx
+uv tool list # when using uv
+```
+
+The PyPI distribution is `zotero-obsidian-mcp`; the installed command is `obsidian-vault-mcp`; the plugin marketplace is `obsidian-vault-mcp`; and the Codex/Claude plugin selector starts with `obsidian-literature`.
 
 ### Isolated virtual environment
 
@@ -217,28 +234,28 @@ Windows PowerShell:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade "zotero-obsidian-mcp==2.0.1"
+python -m pip install --upgrade "zotero-obsidian-mcp==2.1.0"
 ```
 
 macOS/Linux:
 
 ```bash
 source .venv/bin/activate
-python -m pip install --upgrade "zotero-obsidian-mcp==2.0.1"
+python -m pip install --upgrade "zotero-obsidian-mcp==2.1.0"
 ```
 
 An AI client launched outside this activated environment will not see the CLI. For Agent integration, install into a persistent environment whose `Scripts`/`bin` directory is on the Agent's `PATH`, or launch the Agent from the activated environment.
 
-### Install from the release source
+### Install from a source checkout
 
 ```bash
 git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git
 cd obsidian-vault-mcp
-git checkout v2.0.1
+git checkout "<RELEASE_TAG>"
 python -m pip install -e ".[dev]"
 ```
 
-Use editable install only when developing or testing the checkout. Ordinary users should prefer the pinned PyPI package.
+Use editable install only when developing or testing a verified checkout. Ordinary Agent installations should use the pinned published package, once available, or the locally verified production wheel; this guide does not assert that an unreleased tag or artifact has already been published remotely.
 
 ## 8. Select the vault explicitly
 
@@ -247,22 +264,22 @@ For interactive CLI work, set the environment variable in the same terminal.
 Windows PowerShell:
 
 ```powershell
-$env:OBSIDIAN_VAULT_PATH = "D:\Notes\ResearchVault"
+$env:OBSIDIAN_VAULT_PATH = "<VAULT_DIR>"
 ```
 
 macOS/Linux:
 
 ```bash
-export OBSIDIAN_VAULT_PATH="/home/me/Notes/ResearchVault"
+export OBSIDIAN_VAULT_PATH="<VAULT_DIR>"
 ```
 
 Or pass `--vault-path` to commands that expose it:
 
 ```bash
-obsidian-vault-mcp doctor --vault-path "/home/me/Notes/ResearchVault"
+obsidian-vault-mcp doctor --vault-path "<VAULT_DIR>"
 ```
 
-`OBSIDIAN_VAULT_PATH=auto` is not a global Obsidian vault lookup. It starts at the server process's current directory and walks upward until it finds `.obsidian`. Use `auto` only when the Agent's project lives inside the vault tree. Otherwise put the explicit local vault path in that client's uncommitted MCP environment.
+`OBSIDIAN_VAULT_PATH=auto` is not a global Obsidian vault lookup. It starts at the server process's current directory and walks upward until it finds `.obsidian`. Use `auto` only when the Agent's project lives inside the vault tree. Otherwise set the explicit local vault path in the client process environment; the native Codex/Claude plugin inherits that environment and does not store a project path.
 
 ## 9. Initialize the one vault configuration
 
@@ -303,7 +320,7 @@ The loader accepts partial sections and fills omitted values from V2 defaults, a
     "embedMineruMarkdown": false
   },
   "zotero": {
-    "linkedAttachmentBaseDir": "D:\\Reference PDFs"
+    "linkedAttachmentBaseDir": "<ZOTERO_LINKED_ATTACHMENT_BASE_DIR>"
   },
   "mineru": {
     "mode": "auto",
@@ -326,9 +343,9 @@ Vault content paths above are vault-relative and use `/`, even on Windows. `zote
 
 ### Live, fixed, and reserved fields
 
-The table below describes what the 2.0.1 implementation actually reads. Do not treat every generated schema field as a runtime toggle.
+The table below describes what the 2.1.0 implementation actually reads. Do not treat every generated schema field as a runtime toggle.
 
-| Section/field | Status in 2.0.1 | Meaning |
+| Section/field | Status in 2.1.0 | Meaning |
 |---|---|---|
 | `$schema` | Reserved | Editor hint emitted by the generator; leave it unchanged. |
 | `schemaVersion` | Fixed: `2` | Other values are rejected. |
@@ -342,17 +359,20 @@ The table below describes what the 2.0.1 implementation actually reads. Do not t
 | `note.preserveUserSections` | Reserved compatibility field | V2 always preserves unmarked user sections; this is not a switch to disable that guarantee. |
 | `zotero.apiBase/syncTags/paginationSize` | Live | Local endpoint, tag import, and page size (1–1000). |
 | `zotero.linkedAttachmentBaseDir` | Live | Absolute base directory for Zotero `attachments:` linked-file paths. A non-empty value overrides `ZOTERO_LINKED_ATTACHMENT_BASE_DIR`. |
-| `zotero.syncNotes/syncAnnotations` | Reserved compatibility fields | 2.0.1 renders available Zotero notes and annotations; these booleans are validated but are not independent runtime switches. |
+| `zotero.syncNotes/syncAnnotations` | Reserved compatibility fields | 2.1.0 renders available Zotero notes and annotations; these booleans are validated but are not independent runtime switches. |
 | `bibtex.enabled/provider` | Live | Provider: `auto`, `better-bibtex`, `zotero`, or `builtin`. |
-| `bibtex.fallback` | Partially effective | `none` disables builtin fallback for explicit `better-bibtex` or `zotero`, but `provider=auto` still includes the builtin provider in 2.0.1. |
+| `bibtex.fallback` | Partially effective | `none` disables builtin fallback for explicit `better-bibtex` or `zotero`, but `provider=auto` still includes the builtin provider in 2.1.0. |
 | `mineru.mode/markdownFolder/imageFolder/maxConcurrentJobs` | Live | Extraction route, normalized destinations, and batch concurrency (1–64). |
+| `mineru.preserveUnlinkedImageCandidates/imageManifestEnabled/candidateCacheFolder` | Live | Hidden candidate preservation and the per-paper image Manifest/cache path. |
+| `analysis.folder/index/topicFolder/theoryFolder` | Live | Vault-relative Analysis and knowledge-synthesis destinations. |
+| `evidence.enabled/blockIdPrefix/maxChunkChars/overlapChars` | Live | Evidence indexing, deterministic block prefix, and bounded chunk sizing; overlap must be smaller than the chunk limit. |
 | `mineru.enabled` | Informational | Reported by `doctor`; the parse command itself remains callable. |
 | `mineru.imageLinkStyle` | Fixed: `markdown-relative` | No other link style is accepted. |
 | `mineru.replacePreviousOutput` | Reserved compatibility field | Current normalization replaces the prior derived output transactionally. |
 | `index.autoRebuild/recentLimit` | Live | Automatic rebuild and recent-item count. |
-| `index.groupBy` | Reserved compatibility field | Validated to year/journal/tags, but 2.0.1 renders all three groups. |
+| `index.groupBy` | Reserved compatibility field | Validated to year/journal/tags, but 2.1.0 renders all three groups. |
 | `base.autoRebuild/name` | Live | Automatic rebuild and primary view name. |
-| `safety.*` | Reserved contract declaration | Transaction safety is always enforced in 2.0.1; these validated values are not switches that disable locks, backups, or atomic writes. |
+| `safety.*` | Reserved contract declaration | Transaction safety is always enforced in 2.1.0; these validated values are not switches that disable locks, backups, or atomic writes. |
 
 The managed frontmatter order is fixed to `title`, `itemType`, `year`, `journal`, `tags`, `doi`, `url`, `abstract`, `zoteroKey`, `zoteroPdfLink`, `attachmentPdfLink`, and `attachmentMinerULink`.
 
@@ -369,7 +389,7 @@ Read the JSON by subsection:
 - `zotero.ok`: the local API is reachable;
 - `mineru.available`: the CLI executable is on `PATH`;
 - `mineru.enabled`: the informational config flag;
-- `tools`: the exact 26 registered V2 tool names.
+- `tools`: the exact 33 registered V2.1 tool names.
 
 A top-level `"ok": true` does not mean Zotero or MinerU is ready.
 
@@ -449,6 +469,36 @@ obsidian-vault-mcp mineru remove ABCD1234 --dry-run
 obsidian-vault-mcp mineru remove ABCD1234
 ```
 
+### Structured reading, review, and cross-paper retrieval
+
+A successful MinerU parse maintains an image Manifest and physically writes deterministic `^ev-*` block IDs into derived Markdown. Read bounded EvidenceChunks whose real anchors can be checked by Verify in overview, targeted, sections, full, or figures mode:
+
+```bash
+obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"overview","max_chars":12000,"record_coverage":true}'
+obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"targeted","query":"charge transfer mechanism","query_variants":["interfacial electron transfer"],"record_coverage":true}'
+obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"figures","include_images":true,"record_coverage":true}'
+```
+
+The external Agent gets the 13-section packet from `literature_analysis_context`, authors the prose, and previews writeback:
+
+```bash
+obsidian-vault-mcp call literature_analysis_context --json '{"zotero_key":"ABCD1234","include_figures":true}'
+obsidian-vault-mcp call literature_analysis_write --json '{"zotero_key":"ABCD1234","sections":{"findings":[{"claimType":"source_fact","content":"Example grounded finding","evidenceIds":["ABCD1234-results-..."],"assetIds":[],"verificationStatus":"verified"}]},"dry_run":true}'
+```
+
+After an approved write, list or resolve uncertainty items, rebuild the Analysis index, and retrieve across an explicit paper scope:
+
+```bash
+obsidian-vault-mcp call literature_uncertainty_list --json '{"zotero_key":"ABCD1234","statuses":["pending"]}'
+obsidian-vault-mcp call literature_uncertainty_resolve --json '{"zotero_key":"ABCD1234","uncertainty_id":"U-ABCD1234-...","status":"unresolved","resolution_note":"Original evidence remains insufficient","dry_run":true}'
+obsidian-vault-mcp call literature_rebuild_analysis_index --json '{"dry_run":true}'
+obsidian-vault-mcp call literature_retrieve --json '{"query":"CdS nickel cocatalyst","scope":{"zotero_keys":["ABCD1234"]},"intent":"summarize","depth":"evidence","record_coverage":true}'
+```
+
+Reads do not write Coverage by default. Pass `record_coverage=true` explicitly to update the ledger and receive real `transactionId` values in `coverageLedger`; use `coverage_dry_run=true` for a zero-write preview. Cross-paper retrieval returns one transaction result per paper. Coverage is not paper evidence.
+
+Hidden state lives under `state/evidence/`, `state/uncertainties/`, `state/coverage/`, and `cache/mineru-assets/`. Legacy item state needs no manual migration: later work adds `mineruAssetRoot` (for transactional candidate-cache migration after `candidateCacheFolder` changes) and `collectionKeys` (for collection scope). New imports return Zotero child notes and annotations separately; combined legacy main-note content remains in `zoteroNotes` with a warning. User-visible Analysis notes live under `Literature/Analysis/`. An asset ID never replaces text evidence. A PDF crop only makes external inspection possible; only `visualStatus=visual_verified` can support a visual conclusion.
+
 ## 13. Rebuild the Index and Base
 
 Imports rebuild both by default. Run explicit rebuilds after manual maintenance or configuration changes:
@@ -508,34 +558,64 @@ Install only the client you actually use and verify that its executable is on `P
 | OpenCode | [OpenCode docs](https://opencode.ai/docs/) | `opencode` |
 | Pi | [Pi documentation](https://pi.dev/docs/latest) | `pi` |
 | Hermes | [Hermes Agent docs](https://hermes-agent.nousresearch.com/docs/) | `hermes` |
-| WorkBuddy | [Work Buddy docs](https://docs.work-buddy.ai/) | `workbuddy` |
+| WorkBuddy | [MCP guide](https://www.workbuddy.ai/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/MCP-Guide) / [CLI reference](https://www.workbuddy.ai/docs/cli/reference) | `codebuddy` (fallback: `cbc`) |
 
-From the project that should receive the integration, preview one installer:
+### Codex Desktop/CLI and Claude Code: native plugins
+
+This is the production installation path for Codex and Claude Code. First complete the persistent Python installation in section 7 and confirm that the **new terminal or GUI process that launches the client** can resolve `obsidian-vault-mcp`. Obtain and extract `obsidian-vault-mcp-2.1.0-plugins.zip`; `<MARKETPLACE_DIR>` must be the extracted root that directly contains `.agents/`, `.claude-plugin/`, and `plugins/`.
+
+Codex Desktop/CLI:
 
 ```bash
-obsidian-vault-mcp agent install codex --project-dir "/path/to/project" --dry-run
-obsidian-vault-mcp agent install claude --project-dir "/path/to/project" --dry-run
-obsidian-vault-mcp agent install opencode --project-dir "/path/to/project" --dry-run
-obsidian-vault-mcp agent install pi --project-dir "/path/to/project" --dry-run
-obsidian-vault-mcp agent install hermes --project-dir "/path/to/project" --dry-run
-obsidian-vault-mcp agent install workbuddy --project-dir "/path/to/project" --dry-run
+codex plugin marketplace add "<MARKETPLACE_DIR>"
+codex plugin add obsidian-literature@obsidian-vault-mcp
 ```
 
-Then repeat only the chosen command without `--dry-run`. The installer detects the client, backs up and merges existing configuration, validates its output, writes atomically, and performs an MCP initialization handshake. A failed handshake restores the old config.
+Claude Code:
 
-| Client | Destination |
-|---|---|
-| Codex / Claude Code | `.mcp.json` |
-| OpenCode | `opencode.json` |
-| Hermes | `.hermes/config.yaml` |
-| WorkBuddy | `.workbuddy/mcp.json` |
-| Pi | `.pi/extensions/obsidian-vault-mcp.ts` |
+```bash
+claude plugin marketplace add "<MARKETPLACE_DIR>" --scope user
+claude plugin install obsidian-literature@obsidian-vault-mcp --scope user
+```
 
-Pi receives a thin TypeScript Extension that calls the same JSON CLI. The other clients receive a native MCP `stdio` entry.
+The convenience entry point resolves the same marketplace from the installed Python package and invokes those native CLIs. `--project-dir` remains accepted only for the uniform six-client API; Codex/Claude do not write project MCP configuration or copy project Skills:
 
-The Codex, Claude, Hermes, and WorkBuddy templates set `OBSIDIAN_VAULT_PATH=auto`. If the project is outside the vault, edit the local client config to use an explicit path such as `D:\\Notes\\ResearchVault`, and keep that file uncommitted if it reveals a machine-specific location. OpenCode and Pi inherit `OBSIDIAN_VAULT_PATH` from the process that launches them, so set it before starting those clients.
+```bash
+obsidian-vault-mcp agent install codex --dry-run
+obsidian-vault-mcp agent install codex
+obsidian-vault-mcp agent install claude --dry-run
+obsidian-vault-mcp agent install claude
+```
 
-WorkBuddy distributions may expose a command other than `workbuddy`; the 2.0.1 one-click installer specifically probes `workbuddy` and will stop safely if it is absent.
+Repeat runs inspect the client's marketplace/plugin lists for idempotency. If the same marketplace name already points to another directory, installation stops safely instead of silently replacing the source. Fully quit and reopen Codex Desktop/Claude Code or start a new CLI session after installation; existing sessions do not load a newly installed plugin. The Codex IDE extension is not this plugin surface.
+
+The production ZIP has exactly 15 files: two marketplace manifests, separate Codex and Claude plugin manifests, one shared compatible `.mcp.json`, one Codex App icon, and these nine Skills: `analyze-figures`, `compare-papers`, `evidence-based-qa`, `literature-review`, `structured-paper-note`, `theory-note-synthesis`, `topic-note-synthesis`, `uncertainty-audit`, and `verify-paper-claims`. The shared MCP entry exposes the fixed 33-tool surface. The ZIP contains no Python runtime, vault data, credentials, or machine path.
+
+### OpenCode, Pi, Hermes, and WorkBuddy
+
+These four clients keep the integration mechanism that fits their native behavior. Both the selected platform executable and `obsidian-vault-mcp` must be on `PATH`. Preview the relevant installer, then repeat only that command without `--dry-run`. Hermes stores MCP configuration in its profile, so the uniform `--project-dir` argument is accepted but ignored:
+
+```bash
+obsidian-vault-mcp agent install opencode --project-dir "<PROJECT_DIR>" --dry-run
+obsidian-vault-mcp agent install pi --project-dir "<PROJECT_DIR>" --dry-run
+obsidian-vault-mcp agent install hermes --dry-run
+obsidian-vault-mcp agent install workbuddy --project-dir "<PROJECT_DIR>" --dry-run
+```
+
+| Client | Production mechanism | MCP/Extension destination | Skill destination |
+|---|---|---|---|
+| Codex Desktop/CLI | Native marketplace plugin | Client-managed | Nine bundled Skills |
+| Claude Code | Native marketplace plugin, user scope | Client-managed | Nine bundled Skills |
+| OpenCode | Project config installer | `opencode.json` | Nine managed Skills in `.opencode/skills` |
+| Pi | Thin TypeScript Extension | `.pi/extensions/obsidian-vault-mcp.ts` | None; Extension-only |
+| Hermes | MCP-only profile config | `$HERMES_HOME/config.yaml` (default: `~/.hermes/config.yaml`) | None; warning returned |
+| WorkBuddy | MCP-only project config | `.workbuddy/mcp.json` | None; warning returned |
+
+OpenCode configuration and Skills share validation, backup, atomic write, and rollback. Managed upgrades preserve `User Customizations`, and a modified managed block is rejected before writes. Pi installs only the thin Extension that calls the JSON CLI. The Hermes and WorkBuddy adapters remain MCP-only and do not populate any Skill directory. The Hermes profile installer and the three project installers perform one MCP initialization handshake; it proves that the server starts, not that the vault, Zotero, and MinerU are ready.
+
+The Codex/Claude plugin `.mcp.json` does not hard-code `OBSIDIAN_VAULT_PATH`; it inherits the client process environment, as do OpenCode and Pi. If the project is outside the vault tree, set `OBSIDIAN_VAULT_PATH=<VAULT_DIR>` securely on the machine and restart the client. The Hermes profile config and WorkBuddy project template may use `auto`, which searches only the process working directory and parents. Never commit a real absolute path.
+
+`workbuddy` is the convenience-installer client name, not the platform executable. The installer probes the official `codebuddy` command first and falls back to its `cbc` alias. For Hermes, an explicit `config_path` override exists only in the Python installer API; it is not an `agent install` CLI option.
 
 ### Manual MCP entry
 
@@ -549,27 +629,33 @@ If a client is not covered by the installer, configure a local stdio server:
       "command": "obsidian-vault-mcp",
       "args": ["serve", "--transport", "stdio"],
       "env": {
-        "OBSIDIAN_VAULT_PATH": "D:\\Notes\\ResearchVault"
+        "OBSIDIAN_VAULT_PATH": "<VAULT_DIR>"
       }
     }
   }
 }
 ```
 
-Local `stdio` is recommended. `serve --transport sse` and `serve --transport streamable-http` do not add authentication or TLS; do not expose them directly to a LAN or the internet.
+For Codex/Claude, prefer the native plugin instead of writing project configuration manually. Other uncovered native MCP clients can translate the outer field names according to their own documentation. Local `stdio` is recommended. `serve --transport sse` and `serve --transport streamable-http` do not add authentication or TLS; do not expose them directly to a LAN or the internet.
 
 ### AI-assisted installation prompt
 
 Give this prompt to a trusted local coding Agent from the target project:
 
 ```text
-Install zotero-obsidian-mcp==2.0.1 from PyPI. Do not store or print secrets.
-Use my explicit Obsidian vault path only in local uncommitted configuration.
+Persistently install zotero-obsidian-mcp==2.1.0 with pipx or uv tool. Do not
+store or print secrets, and verify the Agent startup environment can resolve
+obsidian-vault-mcp.
+Use my explicit Obsidian vault path only in the local client startup environment
+or an uncommitted client configuration.
 Run config init with --dry-run first, then initialize and validate the V2 config.
 Run doctor and inspect config, zotero.ok, and mineru.available separately.
-Preview `obsidian-vault-mcp agent install <my-client> --project-dir <this-project>`;
-show me the destination and diff, apply it only after review, complete the MCP
-handshake, and finally call literature_doctor through MCP. Do not use SSE/HTTP.
+For Codex/Claude, preview `agent install <client> --dry-run`, then use the native
+marketplace plugin without writing project MCP/Skill files. For OpenCode, Pi, or
+WorkBuddy, preview the project adapter with --project-dir <PROJECT_DIR>. For
+Hermes, preview `agent install hermes --dry-run`; it writes the Hermes profile
+config and ignores --project-dir. Apply only after review, start a new client
+session, and finally call literature_doctor through MCP. Do not use SSE/HTTP.
 ```
 
 ### End-to-end research prompt
@@ -618,11 +704,13 @@ If a destination changed after the original commit, rollback reports a conflict 
 ### `obsidian-vault-mcp` is not recognized
 
 ```bash
+pipx list
+uv tool list
 python -m pip show zotero-obsidian-mcp
 python -m pip --version
 ```
 
-The package may have been installed into a different Python or virtual environment. Activate that environment or add its `Scripts`/`bin` directory to `PATH`. Restart the AI client after changing `PATH`.
+Use the list command that matches the original installation; `python -m pip show` applies only to that Python environment. The package may have been installed into a different tool or virtual environment. Ensure its `Scripts`/`bin` directory is on the client startup `PATH`, then restart the AI client.
 
 ### The vault cannot be resolved
 
@@ -664,15 +752,61 @@ Upgrade to `zotero-obsidian-mcp==2.0.0` and rebuild the Base. Current generation
 
 The exact expected executable must be on the installer's `PATH`. Install the client from its official guide, open a new terminal, run its executable once, and retry the dry-run.
 
-### The handshake fails
+### A Codex/Claude plugin is installed but Skills or tools are absent
 
-The installer restores the old config. Check that `obsidian-vault-mcp` is on the Agent process's `PATH`, the vault path resolves, and no stale server process is holding an incompatible environment. Re-run `doctor`, then retry the installer dry-run.
+Run `codex plugin list` or `claude plugin list` to confirm that the plugin is installed. Fully close the old client and start a new session, then verify that the client startup environment can resolve `obsidian-vault-mcp`. The plugin carries manifests and Skills, not the Python runtime.
+
+### A marketplace name already points to another directory
+
+Do not overwrite the source silently. Uninstall `obsidian-literature@obsidian-vault-mcp`, remove the old `obsidian-vault-mcp` marketplace, then add the stable `<MARKETPLACE_DIR>` and reinstall.
+
+### A project installer handshake fails
+
+This handshake applies to the OpenCode, Pi, and WorkBuddy project adapters and the Hermes profile adapter. The installer restores the old configuration or Extension. Check that `obsidian-vault-mcp` is on the Agent process's `PATH`, the vault path resolves, and no stale server process is holding an incompatible environment. Re-run `doctor`, then retry the installer dry-run.
 
 ### Windows console output contains escaped Unicode
 
 The CLI intentionally emits valid ASCII-escaped JSON when the active console code page cannot represent a character. JSON consumers decode it losslessly; use a UTF-8 terminal for direct reading.
 
-## 19. Effect gallery
+## 19. Update and uninstall
+
+Update the persistent Python tool environment first, using the command that matches the original installation:
+
+```bash
+pipx upgrade zotero-obsidian-mcp
+# or
+uv tool upgrade zotero-obsidian-mcp
+```
+
+For a local wheel candidate, replace the tool environment with `pipx install --force "<WHEEL_PATH>"` or `uv tool install --force "<WHEEL_PATH>"`, then recheck `obsidian-vault-mcp --help`.
+
+Codex currently has no `plugin update` subcommand. After updating the marketplace contents, remove the old plugin and rerun the convenience installer. Claude Code can update its marketplace and plugin directly:
+
+```bash
+codex plugin remove obsidian-literature@obsidian-vault-mcp --json
+obsidian-vault-mcp agent install codex
+
+claude plugin marketplace update obsidian-vault-mcp
+claude plugin update obsidian-literature@obsidian-vault-mcp --scope user
+```
+
+Fully restart the GUI client or start a new CLI session after an install or update. If the new bundle was extracted to another directory, remove the old marketplace and add the new `<MARKETPLACE_DIR>` instead of allowing the source to drift.
+
+Uninstall the plugin first. Remove its marketplace only after confirming that no other installed plugin needs it:
+
+```bash
+codex plugin remove obsidian-literature@obsidian-vault-mcp --json
+codex plugin marketplace remove obsidian-vault-mcp --json
+
+claude plugin uninstall obsidian-literature@obsidian-vault-mcp --scope user
+claude plugin marketplace remove obsidian-vault-mcp --scope user
+```
+
+For OpenCode, Pi, Hermes, and WorkBuddy, follow the exact `uninstall_instructions` returned by `agent install`; remove only the reported project entry, Extension, or Hermes profile entry. Finally uninstall the Python package with `pipx uninstall zotero-obsidian-mcp`, `uv tool uninstall zotero-obsidian-mcp`, or the command matching the original environment.
+
+Removing a plugin or Python package does not delete literature notes, PDFs, Wiki pages, transactions, or backups in the vault.
+
+## 20. Effect gallery
 
 The five original screenshots from the real five-paper Zotero → MinerU precision → Obsidian acceptance run are preserved below. A sixth, newly captured Base screenshot shows the corrected five-row result.
 
@@ -722,7 +856,7 @@ The original screenshot showed ten rows because five MinerU Markdown files also 
 
 </details>
 
-## 20. Privacy and maintenance checklist
+## 21. Privacy and maintenance checklist
 
 - Keep Zotero and the vault local; expose only the content needed to a trusted Agent host.
 - Understand that MinerU sends selected PDFs to its service.
@@ -734,4 +868,4 @@ The original screenshot showed ten rows because five MinerU Markdown files also 
 - Back up the vault independently; transaction backups are operational rollback data, not a complete backup policy.
 - Use only local `stdio` unless you add and operate a separate authenticated network boundary.
 
-For implementation details, tests, release artifacts, and known 2.0.1 limitations, continue with the [developer guide](../DEVELOPMENT.en.md). Report defects through [GitHub Issues](https://github.com/luffysolution-svg/obsidian-vault-mcp/issues).
+For implementation details, tests, release artifacts, and known 2.1.0 limitations, continue with the [developer guide](../DEVELOPMENT.en.md). Report defects through [GitHub Issues](https://github.com/luffysolution-svg/obsidian-vault-mcp/issues).

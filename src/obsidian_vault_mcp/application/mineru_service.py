@@ -4,21 +4,30 @@ import hashlib
 import json
 import os
 import posixpath
+import re
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from ..adapters.mineru.client import MinerUClient
-from ..adapters.mineru.normalizer import normalize_mineru_output, relative_source_pdf
+from ..adapters.mineru.normalizer import (
+    normalize_mineru_output,
+    parse_image_destination,
+    parse_image_references,
+    relative_source_pdf,
+)
 from ..adapters.obsidian.markdown_renderer import replace_managed_section
 from ..adapters.vault.filesystem import VaultFilesystem
 from ..adapters.vault.lock import GlobalLock
 from ..config.loader import load_config
 from ..domain.frontmatter import compose_frontmatter, merge_frontmatter, parse_frontmatter
 from ..domain.identity import validate_zotero_key
+from ..domain.image_assets import ImageAssetManifest, parse_image_manifest, render_image_manifest
 from ..domain.models import ItemState
-from ..domain.paths import VaultPaths
+from ..domain.paths import VaultPaths, normalize_vault_relative
+from .evidence_service import EvidenceService
 from .index_service import IndexService
 from .transaction_service import Transaction, TransactionService
 
@@ -29,6 +38,8 @@ _STATE_FIELD_ORDER = (
     "notePath",
     "pdfPath",
     "mineruPath",
+    "mineruAssetRoot",
+    "collectionKeys",
     "sourcePdfPath",
     "sourcePdfSha256",
     "copiedPdfSha256",
@@ -87,6 +98,8 @@ class MinerUService:
                 "zoteroKey": key,
                 "pdfPath": pdf_path,
                 "mineruPath": mineru_path,
+                "manifestPath": self.paths.image_manifest(key),
+                "evidencePath": self.paths.evidence_state(key),
                 "stagingPath": staging_rel,
                 "planned": True,
             }
@@ -106,6 +119,17 @@ class MinerUService:
 
             image_folder = str(self.config["mineru"]["imageFolder"]).replace("\\", "/")
             markdown_folder = PurePosixPath(mineru_path.replace("\\", "/")).parent.as_posix()
+            manifest_path = self.paths.image_manifest(key)
+            candidate_folder = self.paths.image_candidate_cache(key)
+            asset_root = PurePosixPath(manifest_path).parent.as_posix()
+            previous_asset_root = self._previous_asset_root(state, key, asset_root)
+            previous_manifest_path = f"{previous_asset_root}/manifest.json"
+            existing_manifest = self._image_manifest_path(manifest_path)
+            if existing_manifest is None and previous_manifest_path != manifest_path:
+                existing_manifest = self._image_manifest_path(previous_manifest_path)
+            manifest_enabled = bool(self.config["mineru"]["imageManifestEnabled"])
+            preserve_candidates = bool(self.config["mineru"]["preserveUnlinkedImageCandidates"])
+            old_formal_images = self._owned_formal_images(key, mineru_path, existing_manifest)
             normalized = normalize_mineru_output(
                 staging,
                 zotero_key=key,
@@ -113,16 +137,73 @@ class MinerUService:
                 source_pdf_path=relative_source_pdf(mineru_path, pdf_path),
                 image_namer=image_namer,
                 image_link_prefix=posixpath.relpath(image_folder, start=markdown_folder),
+                output_markdown_path=mineru_path,
+                normalized_image_folder=image_folder,
+                candidate_cache_folder=candidate_folder,
+            )
+            manifest = _apply_candidate_policy(
+                _merge_manifest_relationships(normalized.manifest, existing_manifest),
+                preserve=preserve_candidates,
+            )
+            evidence = EvidenceService(self.vault_path, self.config)
+            materialized_markdown, block_warnings = evidence.materialize_source_text(
+                key,
+                source_path=mineru_path,
+                source_text=normalized.markdown,
+            )
+            materialized_bytes = materialized_markdown.encode("utf-8")
+            manifest = replace(
+                manifest,
+                source_markdown_sha256=hashlib.sha256(materialized_bytes).hexdigest(),
+            )
+            evidence_state = evidence.build_from_text(
+                key,
+                source_path=mineru_path,
+                source_text=materialized_markdown,
+                source_bytes=materialized_bytes,
+                asset_manifest=manifest.as_dict(),
+                warnings=block_warnings,
+            )
+            manifest = _finalize_manifest(
+                _apply_evidence_relationships(manifest, evidence_state.get("assetRelationships", {})),
+                existing_manifest,
             )
             desired_images: set[str] = set()
-            transaction.write_text(mineru_path, normalized.markdown)
+            desired_candidates: set[str] = set()
+            transaction.write_text(mineru_path, materialized_markdown)
             for image in normalized.images:
                 image_path = f"{image_folder.rstrip('/')}/{image.filename}"
                 desired_images.add(image_path)
                 transaction.write_bytes(image_path, image.content)
-            for old_path in self.fs.list_files(image_folder):
-                if key in PurePosixPath(old_path).name and old_path not in desired_images:
+            for candidate in normalized.candidate_images if preserve_candidates else ():
+                candidate_path = self.paths.image_candidate_cache(
+                    key,
+                    candidate.asset_id,
+                    PurePosixPath(candidate.filename).suffix,
+                )
+                desired_candidates.add(candidate_path)
+                transaction.write_bytes(candidate_path, candidate.content)
+            for old_path in sorted(old_formal_images):
+                if old_path not in desired_images and self.fs.exists(old_path):
                     transaction.delete(old_path)
+            for old_path in self.fs.list_files(candidate_folder):
+                if old_path not in desired_candidates:
+                    transaction.delete(old_path)
+            if previous_asset_root != asset_root:
+                protected_asset_paths = set(desired_candidates)
+                if manifest_enabled:
+                    protected_asset_paths.add(manifest_path)
+                for old_path in self.fs.list_files(previous_asset_root):
+                    if old_path not in protected_asset_paths:
+                        transaction.delete(old_path)
+            if manifest_enabled:
+                transaction.write_text(manifest_path, render_image_manifest(manifest))
+            elif self.fs.exists(manifest_path):
+                transaction.delete(manifest_path)
+            transaction.write_text(
+                self.paths.evidence_state(key),
+                json.dumps(evidence_state, ensure_ascii=False, indent=2) + "\n",
+            )
 
             mineru_link = f"[[{_without_md(mineru_path)}]]"
             merged = merge_frontmatter(
@@ -149,6 +230,7 @@ class MinerUService:
                 schemaVersion=2,
                 zoteroKey=key,
                 mineruPath=mineru_path,
+                mineruAssetRoot=asset_root,
                 mineruSourceSha256=source_sha,
                 lastMineruAt=last_mineru_at,
                 lastTransactionId=transaction.transaction_id if output_changed else state.get("lastTransactionId"),
@@ -173,6 +255,11 @@ class MinerUService:
                 "zoteroKey": key,
                 "mineruPath": mineru_path,
                 "images": sorted(desired_images),
+                "manifestPath": manifest_path,
+                "evidencePath": self.paths.evidence_state(key),
+                "evidenceCount": len(evidence_state["chunks"]),
+                "assets": manifest.as_dict()["assets"],
+                "counts": manifest.counts,
             }
         except Exception as exc:
             _remove_staging(self.paths, transaction.transaction_id)
@@ -226,13 +313,30 @@ class MinerUService:
         state = self._state(key)
         note_path = str(state.get("notePath") or "")
         mineru_path = str(state.get("mineruPath") or self.paths.mineru_markdown(key, firstAuthor="", year="", shortTitle=key))
+        manifest = self._image_manifest(key)
+        owned_images = self._owned_formal_images(key, mineru_path, manifest)
         transaction = self.transactions.begin(item_key=key, transaction_id=transaction_id, dry_run=dry_run)
         if self.fs.exists(mineru_path):
             transaction.delete(mineru_path)
-        image_folder = str(self.config["mineru"]["imageFolder"])
-        for old_path in self.fs.list_files(image_folder):
-            if key in PurePosixPath(old_path).name:
+        for old_path in sorted(owned_images):
+            if self.fs.exists(old_path):
                 transaction.delete(old_path)
+        manifest_path = self.paths.image_manifest(key)
+        current_asset_root = PurePosixPath(manifest_path).parent.as_posix()
+        asset_roots = {
+            current_asset_root,
+            self._previous_asset_root(state, key, current_asset_root),
+        }
+        owned_asset_files = {
+            old_path
+            for asset_root in asset_roots
+            for old_path in self.fs.list_files(asset_root)
+        }
+        for old_path in sorted(owned_asset_files):
+            transaction.delete(old_path)
+        evidence_path = self.paths.evidence_state(key)
+        if self.fs.exists(evidence_path):
+            transaction.delete(evidence_path)
 
         overlay: dict[str, Any] | None = None
         if note_path and self.fs.exists(note_path):
@@ -249,7 +353,15 @@ class MinerUService:
             overlay = dict(merged)
             overlay.update(notePath=note_path, lastImportedAt=state.get("lastImportedAt") or "")
         next_state = dict(state)
-        next_state.update(mineruPath=None, mineruSourceSha256=None, lastMineruAt=None, lastTransactionId=transaction.transaction_id, status="ready", errors=[])
+        next_state.update(
+            mineruPath=None,
+            mineruAssetRoot=None,
+            mineruSourceSha256=None,
+            lastMineruAt=None,
+            lastTransactionId=transaction.transaction_id,
+            status="ready",
+            errors=[],
+        )
         self._add_state_if_changed(transaction, key, next_state)
         if overlay is not None and self.config["index"]["autoRebuild"]:
             index = IndexService(self.vault_path, self.config)
@@ -261,7 +373,13 @@ class MinerUService:
                 result = transaction.commit()
         else:
             result = transaction.commit()
-        return {**result, "zoteroKey": key, "mineruPath": mineru_path}
+        return {
+            **result,
+            "zoteroKey": key,
+            "mineruPath": mineru_path,
+            "manifestPath": manifest_path,
+            "evidencePath": evidence_path,
+        }
 
     def _state(self, key: str) -> dict[str, Any]:
         path = self.paths.state(key)
@@ -287,6 +405,54 @@ class MinerUService:
         text = json.dumps(ordered, ensure_ascii=False, indent=2) + "\n"
         if not self.fs.exists(path) or self.fs.read_text(path) != text:
             transaction.write_text(path, text)
+
+    def _image_manifest(self, key: str) -> ImageAssetManifest | None:
+        return self._image_manifest_path(self.paths.image_manifest(key))
+
+    def _image_manifest_path(self, path: str) -> ImageAssetManifest | None:
+        if not self.fs.exists(path):
+            return None
+        try:
+            return parse_image_manifest(self.fs.read_text(path))
+        except (OSError, UnicodeError, ValueError):
+            return None
+
+    def _previous_asset_root(self, state: dict[str, Any], key: str, current_root: str) -> str:
+        raw = state.get("mineruAssetRoot")
+        if isinstance(raw, str) and raw:
+            previous = normalize_vault_relative(raw)
+            if PurePosixPath(previous).name != key:
+                raise ValueError("item state mineruAssetRoot identity mismatch")
+            return previous
+        legacy = f".obsidian-vault-mcp/cache/mineru-assets/{key}"
+        if legacy != current_root and self.fs.list_files(legacy):
+            return legacy
+        return current_root
+
+    def _owned_formal_images(
+        self,
+        key: str,
+        mineru_path: str,
+        manifest: ImageAssetManifest | None,
+    ) -> set[str]:
+        del key
+        image_folder = normalize_vault_relative(str(self.config["mineru"]["imageFolder"]))
+        owned: set[str] = set()
+        if manifest is not None:
+            for asset in manifest.assets:
+                if asset.status == "referenced" and asset.normalized_path and _inside_folder(asset.normalized_path, image_folder):
+                    owned.add(asset.normalized_path)
+        if self.fs.exists(mineru_path):
+            try:
+                markdown = self.fs.read_text(mineru_path)
+            except (OSError, UnicodeError):
+                return owned
+            for reference in parse_image_references(markdown):
+                raw_path, _suffix = parse_image_destination(reference.destination)
+                target = _resolve_markdown_image_path(mineru_path, raw_path)
+                if target and _inside_folder(target, image_folder):
+                    owned.add(target)
+        return owned
 
     def _record_failure(self, transaction: Transaction, key: str, state: dict[str, Any], stage: str, exc: Exception) -> dict[str, Any]:
         failed = dict(state)
@@ -316,6 +482,95 @@ def _hash_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _finalize_manifest(
+    manifest: ImageAssetManifest,
+    previous: ImageAssetManifest | None,
+) -> ImageAssetManifest:
+    if previous is not None:
+        current_value = manifest.as_dict()
+        previous_value = previous.as_dict()
+        current_value["generatedAt"] = ""
+        previous_value["generatedAt"] = ""
+        if current_value == previous_value:
+            return manifest.with_generated_at(previous.generated_at)
+    return manifest.with_generated_at(ItemState.utc_now())
+
+
+def _merge_manifest_relationships(
+    manifest: ImageAssetManifest,
+    previous: ImageAssetManifest | None,
+) -> ImageAssetManifest:
+    if previous is None:
+        return manifest
+    previous_by_id = {asset.asset_id: asset for asset in previous.assets}
+    assets = []
+    for asset in manifest.assets:
+        old = previous_by_id.get(asset.asset_id)
+        if old is None:
+            assets.append(asset)
+            continue
+        visual_status = old.visual_status if old.visual_status in {"pdf_crop_available", "visual_verified"} else asset.visual_status
+        assets.append(
+            replace(
+                asset,
+                figure_label=old.figure_label,
+                page=old.page,
+                visual_status=visual_status,
+                pdf_crop_path=old.pdf_crop_path,
+            )
+        )
+    return replace(manifest, assets=tuple(assets))
+
+
+def _apply_candidate_policy(manifest: ImageAssetManifest, *, preserve: bool) -> ImageAssetManifest:
+    if preserve:
+        return manifest
+    return replace(manifest, assets=tuple(asset for asset in manifest.assets if asset.status != "unlinked_candidate"))
+
+
+def _apply_evidence_relationships(
+    manifest: ImageAssetManifest,
+    relationships: Any,
+) -> ImageAssetManifest:
+    values = relationships if isinstance(relationships, dict) else {}
+    assets = []
+    for asset in manifest.assets:
+        relation = values.get(asset.asset_id, {})
+        captions = sorted(set(str(value) for value in relation.get("captionEvidenceIds", []))) if isinstance(relation, dict) else []
+        contexts = sorted(set(str(value) for value in relation.get("contextEvidenceIds", []))) if isinstance(relation, dict) else []
+        assets.append(
+            replace(
+                asset,
+                caption_evidence_id=captions[0] if captions else None,
+                context_evidence_ids=tuple(contexts),
+            )
+        )
+    return replace(manifest, assets=tuple(assets))
+
+
+def _resolve_markdown_image_path(markdown_path: str, raw_path: str) -> str | None:
+    value = raw_path.strip().replace("\\", "/")
+    if (
+        not value
+        or value.startswith("/")
+        or re.match(r"^[A-Za-z]:/", value)
+        or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", value)
+    ):
+        return None
+    parent = PurePosixPath(markdown_path.replace("\\", "/")).parent.as_posix()
+    candidate = posixpath.normpath(posixpath.join(parent, value))
+    if candidate in {"", ".", ".."} or candidate.startswith("../"):
+        return None
+    try:
+        return normalize_vault_relative(candidate)
+    except ValueError:
+        return None
+
+
+def _inside_folder(path: str, folder: str) -> bool:
+    return path == folder or path.startswith(f"{folder}/")
 
 
 def _without_md(path: str) -> str:

@@ -14,6 +14,7 @@ from .errors import (
     TransactionError,
     TransactionRollbackError,
 )
+from .evidence import EVIDENCE_CONTENT_TYPES, EVIDENCE_SCHEMA_VERSION, EvidenceChunk, EvidenceParseResult, parse_evidence_markdown
 from .frontmatter import MANAGED_FIELD_ORDER, compose_frontmatter, merge_frontmatter, parse_frontmatter
 from .identity import item_id, render_filename, sanitize_filename, validate_naming_pattern, validate_zotero_key
 from .models import AssetPaths, FileChange, ItemState, LiteratureItem, ZoteroItem
@@ -23,6 +24,10 @@ __all__ = [
     "AssetPaths",
     "AtomicWriteError",
     "ConfigurationError",
+    "EVIDENCE_CONTENT_TYPES",
+    "EVIDENCE_SCHEMA_VERSION",
+    "EvidenceChunk",
+    "EvidenceParseResult",
     "FileChange",
     "FrontmatterError",
     "IdentityError",
@@ -44,6 +49,7 @@ __all__ = [
     "merge_frontmatter",
     "normalize_vault_relative",
     "parse_frontmatter",
+    "parse_evidence_markdown",
     "render_filename",
     "resolve_vault_path",
     "sanitize_filename",

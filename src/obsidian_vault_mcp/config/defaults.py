@@ -68,6 +68,21 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "imageLinkStyle": "markdown-relative",
         "replacePreviousOutput": True,
         "maxConcurrentJobs": 2,
+        "preserveUnlinkedImageCandidates": True,
+        "imageManifestEnabled": True,
+        "candidateCacheFolder": ".obsidian-vault-mcp/cache/mineru-assets",
+    },
+    "analysis": {
+        "folder": "Literature/Analysis",
+        "index": "Literature/Analysis/index.md",
+        "topicFolder": "Literature/Topic",
+        "theoryFolder": "Literature/Theory",
+    },
+    "evidence": {
+        "enabled": True,
+        "blockIdPrefix": "ev",
+        "maxChunkChars": 2500,
+        "overlapChars": 200,
     },
     "index": {
         "autoRebuild": True,

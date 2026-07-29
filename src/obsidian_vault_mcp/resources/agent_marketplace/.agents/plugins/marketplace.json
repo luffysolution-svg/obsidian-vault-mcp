@@ -1,0 +1,20 @@
+{
+  "name": "obsidian-vault-mcp",
+  "interface": {
+    "displayName": "Obsidian Vault MCP"
+  },
+  "plugins": [
+    {
+      "name": "obsidian-literature",
+      "source": {
+        "source": "local",
+        "path": "./plugins/obsidian-literature"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

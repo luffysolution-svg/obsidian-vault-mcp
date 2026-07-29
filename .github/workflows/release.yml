@@ -75,14 +75,14 @@ jobs:
       - name: Type-check Pi adapter
         working-directory: adapters/pi
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           npm run check
 
       - name: Verify tag and repository versions
         run: python scripts/verify_release.py --tag "${{ steps.tag.outputs.tag }}"
 
       - name: Lint Python sources
-        run: python -m ruff check src tests scripts/verify_release.py
+        run: python -m ruff check src tests scripts/build_release.py scripts/verify_release.py
 
       - name: Run tests
         run: python -m pytest
@@ -93,11 +93,10 @@ jobs:
       - name: Smoke-test and verify Python artifacts
         run: python scripts/verify_release.py --artifacts-dir dist --require-sdist --smoke-wheel
 
-      - name: Build Codex plugin bundle
-        shell: pwsh
-        run: ./scripts/build_release.ps1
+      - name: Build Codex/Claude plugin marketplace bundle
+        run: python scripts/build_release.py --output-dir dist
 
-      - name: Verify Codex plugin bundle
+      - name: Verify Codex/Claude plugin marketplace bundle
         run: python scripts/verify_release.py --bundle-dir dist
 
       - name: Generate SHA256 checksums
@@ -127,7 +126,7 @@ jobs:
           cp dist/*.whl dist/*.tar.gz pypi-dist/
 
       - name: Publish wheel and source distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           packages-dir: pypi-dist/

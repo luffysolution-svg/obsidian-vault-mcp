@@ -6,28 +6,41 @@ from pathlib import Path
 from obsidian_vault_mcp import __version__
 
 ROOT = Path(__file__).resolve().parents[2]
+MARKETPLACE_ROOT = ROOT / "src" / "obsidian_vault_mcp" / "resources" / "agent_marketplace"
+PLUGIN_ROOT = MARKETPLACE_ROOT / "plugins" / "obsidian-literature"
 
 
-def test_codex_manifest_and_mcp_config_are_minimal_and_portable() -> None:
-    plugin = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
-    mcp = json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8"))
+def test_codex_and_claude_plugin_manifests_share_one_portable_bundle() -> None:
+    codex = json.loads((PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    claude = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    mcp = json.loads((PLUGIN_ROOT / ".mcp.json").read_text(encoding="utf-8"))
 
-    assert plugin == {
-        "name": "obsidian-literature",
-        "version": __version__,
-        "description": "Zotero, MinerU and Obsidian literature pipeline",
-        "mcpServers": "./.mcp.json",
-    }
+    assert codex["name"] == claude["name"] == "obsidian-literature"
+    assert codex["version"] == claude["version"] == __version__
+    assert codex["author"] == claude["author"]
+    assert codex["repository"] == claude["repository"]
+    assert codex["skills"] == "./skills/"
+    assert codex["mcpServers"] == "./.mcp.json"
+    assert codex["interface"]["displayName"] == "Obsidian Literature"
     assert mcp == {
         "mcpServers": {
             "obsidian-literature": {
-                "type": "stdio",
                 "command": "obsidian-vault-mcp",
                 "args": ["serve", "--transport", "stdio"],
-                "env": {"OBSIDIAN_VAULT_PATH": "auto"},
             }
         }
     }
+    assert "env" not in mcp["mcpServers"]["obsidian-literature"]
+
+
+def test_codex_and_claude_marketplaces_point_to_the_same_plugin() -> None:
+    codex = json.loads((MARKETPLACE_ROOT / ".agents" / "plugins" / "marketplace.json").read_text(encoding="utf-8"))
+    claude = json.loads((MARKETPLACE_ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+
+    assert codex["name"] == claude["name"] == "obsidian-vault-mcp"
+    assert codex["plugins"][0]["name"] == claude["plugins"][0]["name"] == "obsidian-literature"
+    assert codex["plugins"][0]["source"]["path"] == claude["plugins"][0]["source"] == "./plugins/obsidian-literature"
+    assert claude["plugins"][0]["version"] == claude["metadata"]["version"] == __version__
 
 
 def test_opencode_uses_the_same_console_entrypoint() -> None:
@@ -81,6 +94,13 @@ def test_pi_extension_registers_the_complete_v2_tool_surface() -> None:
         "literature_rebuild_index",
         "literature_rebuild_base",
         "literature_verify",
+        "literature_paper_read",
+        "literature_analysis_context",
+        "literature_analysis_write",
+        "literature_uncertainty_list",
+        "literature_uncertainty_resolve",
+        "literature_rebuild_analysis_index",
+        "literature_retrieve",
         "literature_wiki_context",
         "literature_wiki_write",
         "literature_wiki_list",

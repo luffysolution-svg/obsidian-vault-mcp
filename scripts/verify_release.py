@@ -17,13 +17,48 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT_NAME = "zotero-obsidian-mcp"
-BUNDLE_ROOT = "obsidian-literature"
-BUNDLE_FILES = (".codex-plugin/plugin.json", ".mcp.json")
-PLUGIN_FIELDS = {"name", "version", "description", "mcpServers"}
+PLUGIN_NAME = "obsidian-literature"
+MARKETPLACE_RELATIVE = Path("src/obsidian_vault_mcp/resources/agent_marketplace")
+MARKETPLACE_ROOT = ROOT / MARKETPLACE_RELATIVE
+PLUGIN_RELATIVE = Path("plugins") / PLUGIN_NAME
+AGENT_SKILL_NAMES = (
+    "analyze-figures",
+    "compare-papers",
+    "evidence-based-qa",
+    "literature-review",
+    "structured-paper-note",
+    "theory-note-synthesis",
+    "topic-note-synthesis",
+    "uncertainty-audit",
+    "verify-paper-claims",
+)
+BUNDLE_FILES = (
+    ".agents/plugins/marketplace.json",
+    ".claude-plugin/marketplace.json",
+    f"plugins/{PLUGIN_NAME}/.codex-plugin/plugin.json",
+    f"plugins/{PLUGIN_NAME}/.claude-plugin/plugin.json",
+    f"plugins/{PLUGIN_NAME}/.mcp.json",
+    f"plugins/{PLUGIN_NAME}/assets/icon.svg",
+    *(f"plugins/{PLUGIN_NAME}/skills/{name}/SKILL.md" for name in AGENT_SKILL_NAMES),
+)
+TRACKED_RELEASE_INPUTS = (
+    "pyproject.toml",
+    "src/obsidian_vault_mcp/__init__.py",
+    "adapters/pi/package.json",
+    "adapters/pi/package-lock.json",
+    "adapters/pi/index.ts",
+    "src/obsidian_vault_mcp/interfaces/agent_install/pi_extension.ts",
+    "opencode.json",
+    *(f"{MARKETPLACE_RELATIVE.as_posix()}/{relative_path}" for relative_path in BUNDLE_FILES),
+)
 REMOVED_PATHS = (
+    ".agents",
+    ".codex-plugin",
     ".claude-plugin",
+    ".mcp.json",
     ".claude/skills",
     "skills",
+    "src/obsidian_vault_mcp/resources/agent_skills",
     "scripts/obsidian_vault_mcp/skills",
     "scripts/check_skills_sync.py",
     "scripts/obsidian_vault_mcp.py",
@@ -32,6 +67,21 @@ REMOVED_PATHS = (
     "docs/superpowers",
     "requirements.txt",
 )
+TEXT_SUFFIXES = {".json", ".md", ".ps1", ".py", ".svg", ".toml", ".ts", ".yaml", ".yml"}
+PERSONAL_PATH_PATTERNS = (
+    re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]"),
+    re.compile(r"(?<![A-Za-z0-9:])/(?:Users|home)/[^/\s\"']+", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9:])/" + r"root(?:/|\b)", re.IGNORECASE),
+)
+CREDENTIAL_PATTERNS = (
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])ghp_[A-Za-z0-9]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])github_pat_[A-Za-z0-9_]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])AKIA[A-Z0-9]{16}"),
+    re.compile(r"(?<![A-Za-z0-9])xox[baprs]-[A-Za-z0-9-]{10,}"),
+)
+ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
 
 class VerificationError(RuntimeError):
@@ -52,6 +102,17 @@ def read_json(relative_path: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise VerificationError(f"Expected a JSON object in {relative_path}.")
     return value
+
+
+def read_marketplace_json(relative_path: str) -> dict[str, Any]:
+    return read_json((MARKETPLACE_RELATIVE / relative_path).as_posix())
+
+
+def one_plugin_entry(payload: dict[str, Any], relative_path: str) -> dict[str, Any]:
+    plugins = payload.get("plugins")
+    if not isinstance(plugins, list) or len(plugins) != 1 or not isinstance(plugins[0], dict):
+        raise VerificationError(f"{relative_path} must contain exactly one plugin entry.")
+    return plugins[0]
 
 
 def toml_section(text: str, name: str) -> str:
@@ -175,6 +236,16 @@ def git(*arguments: str) -> str:
     return result.stdout.strip()
 
 
+def check_release_inputs_tracked(ref: str) -> None:
+    """Require production inputs in the release commit without rejecting a dirty local checkout."""
+
+    for relative_path in TRACKED_RELEASE_INPUTS:
+        try:
+            git("cat-file", "-e", f"{ref}:{relative_path}")
+        except VerificationError as exc:
+            raise VerificationError(f"Release input is not tracked at {ref}: {relative_path}") from exc
+
+
 def check_versions(tag: str | None) -> str:
     project_name, version = project_metadata()
     if project_name != PROJECT_NAME:
@@ -187,23 +258,61 @@ def check_versions(tag: str | None) -> str:
         raise VerificationError(f"Python project version {version} does not match package __version__ {package_version}.")
     check_installer_version_binding()
 
-    plugin = read_json(".codex-plugin/plugin.json")
-    if set(plugin) != PLUGIN_FIELDS:
-        raise VerificationError(f"Codex plugin manifest must contain only {sorted(PLUGIN_FIELDS)}.")
-    if plugin.get("version") != version:
-        raise VerificationError(f"Python version {version} does not match plugin version {plugin.get('version')}.")
-    expected_plugin = {
-        "name": "obsidian-literature",
-        "version": version,
-        "description": "Zotero, MinerU and Obsidian literature pipeline",
-        "mcpServers": "./.mcp.json",
-    }
-    if plugin != expected_plugin:
-        raise VerificationError("Codex plugin manifest does not match the minimal V2 manifest.")
+    codex_plugin_path = f"{PLUGIN_RELATIVE.as_posix()}/.codex-plugin/plugin.json"
+    claude_plugin_path = f"{PLUGIN_RELATIVE.as_posix()}/.claude-plugin/plugin.json"
+    codex_plugin = read_marketplace_json(codex_plugin_path)
+    claude_plugin = read_marketplace_json(claude_plugin_path)
+    for label, manifest in (("Codex", codex_plugin), ("Claude", claude_plugin)):
+        if manifest.get("name") != PLUGIN_NAME:
+            raise VerificationError(f"{label} plugin name must be {PLUGIN_NAME}.")
+        if manifest.get("version") != version:
+            raise VerificationError(f"Python version {version} does not match {label} plugin version {manifest.get('version')}.")
+        if not isinstance(manifest.get("description"), str) or not manifest["description"].strip():
+            raise VerificationError(f"{label} plugin manifest must have a non-empty description.")
+    if codex_plugin.get("skills") != "./skills/":
+        raise VerificationError("Codex plugin manifest must load the canonical ./skills/ directory.")
+    if codex_plugin.get("mcpServers") != "./.mcp.json":
+        raise VerificationError("Codex plugin manifest must point mcpServers at the shared ./.mcp.json file.")
+
+    codex_marketplace_path = ".agents/plugins/marketplace.json"
+    claude_marketplace_path = ".claude-plugin/marketplace.json"
+    codex_marketplace = read_marketplace_json(codex_marketplace_path)
+    claude_marketplace = read_marketplace_json(claude_marketplace_path)
+    if codex_marketplace.get("name") != "obsidian-vault-mcp" or claude_marketplace.get("name") != "obsidian-vault-mcp":
+        raise VerificationError("Codex and Claude marketplace names must both be obsidian-vault-mcp.")
+
+    codex_entry = one_plugin_entry(codex_marketplace, codex_marketplace_path)
+    claude_entry = one_plugin_entry(claude_marketplace, claude_marketplace_path)
+    expected_source = f"./plugins/{PLUGIN_NAME}"
+    expected_codex_source = {"source": "local", "path": expected_source}
+    if codex_entry.get("name") != PLUGIN_NAME or codex_entry.get("source") != expected_codex_source:
+        raise VerificationError("Codex marketplace must point to the canonical local plugin directory.")
+    if codex_entry.get("policy") != {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}:
+        raise VerificationError("Codex marketplace plugin policy does not match the production defaults.")
+    if codex_entry.get("category") != "Productivity":
+        raise VerificationError("Codex marketplace plugin category must be Productivity.")
+
+    metadata = claude_marketplace.get("metadata")
+    if not isinstance(metadata, dict) or metadata.get("version") != version:
+        found = metadata.get("version") if isinstance(metadata, dict) else None
+        raise VerificationError(f"Python version {version} does not match Claude marketplace metadata version {found}.")
+    if claude_entry.get("name") != PLUGIN_NAME or claude_entry.get("source") != expected_source:
+        raise VerificationError("Claude marketplace must point to the canonical local plugin directory.")
+    if claude_entry.get("version") != version:
+        raise VerificationError(f"Python version {version} does not match Claude marketplace plugin version {claude_entry.get('version')}.")
 
     pi_package = read_json("adapters/pi/package.json")
     if pi_package.get("version") != version:
         raise VerificationError(f"Python version {version} does not match Pi package version {pi_package.get('version')}.")
+    pi_lock = read_json("adapters/pi/package-lock.json")
+    lock_root = pi_lock.get("packages", {}).get("") if isinstance(pi_lock.get("packages"), dict) else None
+    if (
+        pi_lock.get("lockfileVersion") != 3
+        or pi_lock.get("version") != version
+        or not isinstance(lock_root, dict)
+        or lock_root.get("version") != version
+    ):
+        raise VerificationError("Pi package-lock.json must use lockfileVersion 3 and match the production package version.")
 
     if tag is not None:
         if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
@@ -214,23 +323,33 @@ def check_versions(tag: str | None) -> str:
         head_commit = git("rev-parse", "HEAD")
         if tag_commit != head_commit:
             raise VerificationError(f"Checked-out commit {head_commit} is not release tag {tag} ({tag_commit}).")
+        check_release_inputs_tracked(tag)
 
     return version
 
 
 def check_adapter_configs() -> None:
-    expected_mcp = {
-        "mcpServers": {
-            "obsidian-literature": {
-                "type": "stdio",
-                "command": "obsidian-vault-mcp",
-                "args": ["serve", "--transport", "stdio"],
-                "env": {"OBSIDIAN_VAULT_PATH": "auto"},
-            }
+    expected_servers = {
+        PLUGIN_NAME: {
+            "command": "obsidian-vault-mcp",
+            "args": ["serve", "--transport", "stdio"],
         }
     }
-    if read_json(".mcp.json") != expected_mcp:
-        raise VerificationError(".mcp.json does not match the portable V2 stdio configuration.")
+    mcp = read_marketplace_json(f"{PLUGIN_RELATIVE.as_posix()}/.mcp.json")
+    if mcp != {"mcpServers": expected_servers}:
+        raise VerificationError("Shared .mcp.json must use Claude's portable mcpServers wrapper.")
+
+    codex = read_marketplace_json(f"{PLUGIN_RELATIVE.as_posix()}/.codex-plugin/plugin.json")
+    declaration = codex.get("mcpServers")
+    if isinstance(declaration, str):
+        codex_payload = mcp
+    elif isinstance(declaration, dict):
+        codex_payload = declaration
+    else:
+        raise VerificationError("Codex mcpServers must be a relative companion path or an MCP server object.")
+    codex_servers = codex_payload.get("mcpServers", codex_payload)
+    if codex_servers != expected_servers:
+        raise VerificationError("Codex cannot resolve the shared Claude-wrapped MCP server configuration.")
 
     expected_opencode = {
         "$schema": "https://opencode.ai/config.json",
@@ -246,17 +365,93 @@ def check_adapter_configs() -> None:
         raise VerificationError("opencode.json does not match the portable V2 stdio configuration.")
 
 
+def marketplace_resources() -> dict[str, Path]:
+    """Return the exact 15-file marketplace payload used by every release artifact."""
+
+    resources = {relative_path: MARKETPLACE_ROOT / relative_path for relative_path in BUNDLE_FILES}
+    missing = [relative_path for relative_path, path in resources.items() if not path.is_file()]
+    actual = {
+        path.relative_to(MARKETPLACE_ROOT).as_posix()
+        for path in MARKETPLACE_ROOT.rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts and path.name != "__init__.py"
+    }
+    unexpected = sorted(actual - set(BUNDLE_FILES))
+    if missing or unexpected:
+        raise VerificationError(
+            f"Marketplace resource set mismatch; missing={missing}, unexpected={unexpected}."
+        )
+    return {relative_path: resources[relative_path] for relative_path in BUNDLE_FILES}
+
+
+def check_portability() -> None:
+    """Reject machine-local paths and high-confidence credential formats from shipped text."""
+
+    scan_roots = (
+        ROOT / "src" / "obsidian_vault_mcp",
+        ROOT / "adapters" / "pi",
+        ROOT / "scripts",
+        ROOT / ".github" / "workflows",
+        ROOT / "docs",
+    )
+    files = {
+        path
+        for root in scan_roots
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix.lower() in TEXT_SUFFIXES
+        and not {"__pycache__", "node_modules"}.intersection(path.parts)
+    }
+    files.update(
+        ROOT / relative_path
+        for relative_path in (
+            "AGENTS.md",
+            "CLAUDE.md",
+            "DEVELOPMENT.en.md",
+            "DEVELOPMENT.md",
+            "README.en.md",
+            "README.md",
+            "opencode.json",
+            "obsidian-vault-mcp.schema.json",
+            "pyproject.toml",
+        )
+    )
+    for path in sorted(files):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise VerificationError(f"Cannot inspect release text {path.relative_to(ROOT)}: {exc}") from exc
+        relative_path = path.relative_to(ROOT).as_posix()
+        for pattern in PERSONAL_PATH_PATTERNS:
+            match = pattern.search(text)
+            if match is not None:
+                raise VerificationError(f"Machine-local absolute path in release input {relative_path}: {match.group(0)!r}")
+        for pattern in CREDENTIAL_PATTERNS:
+            if pattern.search(text) is not None:
+                raise VerificationError(f"Possible credential embedded in release input: {relative_path}")
+
+
+def legacy_release_path_has_files(relative_path: str) -> bool:
+    path = ROOT / relative_path
+    if path.is_file():
+        return True
+    if not path.is_dir():
+        return False
+    return any(
+        candidate.is_file() and candidate.suffix.lower() not in {".pyc", ".pyo"} and "__pycache__" not in candidate.parts
+        for candidate in path.rglob("*")
+    )
+
+
 def check_repository() -> str:
     version = check_versions(None)
     check_dependency_bounds()
     check_adapter_configs()
+    marketplace_resources()
+    check_portability()
 
     for relative_path in REMOVED_PATHS:
-        if (ROOT / relative_path).exists():
-            raise VerificationError(f"Removed V1/Skills path still exists: {relative_path}")
-
-    for relative_path in BUNDLE_FILES:
-        git("ls-files", "--error-unmatch", "--", relative_path)
+        if legacy_release_path_has_files(relative_path):
+            raise VerificationError(f"Removed root manifest/Skill mirror still exists: {relative_path}")
 
     required_pi_files = ("package.json", "index.ts", "README.md", "tsconfig.json")
     for filename in required_pi_files:
@@ -297,9 +492,28 @@ def verify_wheel(wheel: Path, version: str) -> None:
             (ROOT / "adapters" / "pi" / "index.ts").read_bytes(),
         ):
             raise VerificationError("Wheel Pi Extension resource differs from adapters/pi/index.ts.")
-        forbidden = [name for name in names if "/skills/" in name.lower() or name.startswith("scripts/")]
+        resource_prefix = "obsidian_vault_mcp/resources/agent_marketplace/"
+        expected_resources = {
+            f"{resource_prefix}{relative_path}": path
+            for relative_path, path in marketplace_resources().items()
+        }
+        archived_resources = {
+            name
+            for name in names
+            if name.startswith(resource_prefix) and name != f"{resource_prefix}__init__.py"
+        }
+        if archived_resources != set(expected_resources):
+            raise VerificationError("Wheel marketplace resource set does not match the canonical 15-file source tree.")
+        for name, source in expected_resources.items():
+            if archive.read(name) != source.read_bytes():
+                raise VerificationError(f"Wheel marketplace resource differs from the canonical source tree: {name}")
+        forbidden = [
+            name
+            for name in names
+            if "/resources/agent_skills/" in name.lower() or name.startswith(("scripts/", "skills/", ".codex-plugin/", ".claude-plugin/"))
+        ]
         if forbidden:
-            raise VerificationError(f"Wheel contains removed Skills/legacy files: {forbidden[0]}")
+            raise VerificationError(f"Wheel contains a removed root manifest/Skill mirror: {forbidden[0]}")
 
 
 def verify_sdist(sdist: Path, version: str) -> None:
@@ -328,9 +542,36 @@ def verify_sdist(sdist: Path, version: str) -> None:
             (ROOT / "adapters" / "pi" / "index.ts").read_bytes(),
         ):
             raise VerificationError("Source distribution Pi Extension resource differs from adapters/pi/index.ts.")
-        forbidden = [name for name in names if "/skills/" in name.lower()]
+        resource_prefix = f"{expected_prefix}src/obsidian_vault_mcp/resources/agent_marketplace/"
+        expected_resources = {
+            f"{resource_prefix}{relative_path}": path
+            for relative_path, path in marketplace_resources().items()
+        }
+        archived_resources = {
+            name
+            for name in names
+            if name.startswith(resource_prefix) and name != f"{resource_prefix}__init__.py"
+        }
+        if archived_resources != set(expected_resources):
+            raise VerificationError("Source distribution marketplace resource set does not match the canonical 15-file source tree.")
+        for name, source in expected_resources.items():
+            resource_file = archive.extractfile(name)
+            if resource_file is None or resource_file.read() != source.read_bytes():
+                raise VerificationError(f"Source distribution marketplace resource differs from the canonical source tree: {name}")
+        forbidden = [
+            name
+            for name in names
+            if "/resources/agent_skills/" in name.lower()
+            or name.startswith(
+                (
+                    f"{expected_prefix}skills/",
+                    f"{expected_prefix}.codex-plugin/",
+                    f"{expected_prefix}.claude-plugin/",
+                )
+            )
+        ]
         if forbidden:
-            raise VerificationError(f"Source distribution contains removed Skills files: {forbidden[0]}")
+            raise VerificationError(f"Source distribution contains a removed root manifest/Skill mirror: {forbidden[0]}")
         if not any(name.startswith(expected_prefix) for name in names):
             raise VerificationError(f"Source distribution root/version does not match {version}: {sdist.name}")
 
@@ -395,7 +636,7 @@ def smoke_wheel(wheel: Path, version: str) -> None:
         protocol_smoke = (
             "from obsidian_vault_mcp.interfaces.agent_install.common import mcp_stdio_handshake; "
             "from obsidian_vault_mcp.interfaces.mcp.server import create_server; "
-            "assert len(create_server()._tool_manager.list_tools()) == 26; "
+            "assert len(create_server()._tool_manager.list_tools()) == 33; "
             f"assert mcp_stdio_handshake(command={str(executable)!r}, args=('serve','--transport','stdio'), timeout=15)"
         )
         subprocess.run([str(python), "-c", protocol_smoke], check=True, cwd=temporary_path, env=environment)
@@ -418,19 +659,28 @@ def check_artifacts(directory: Path, version: str, require_sdist: bool, run_smok
 
 
 def check_bundle(directory: Path, version: str) -> None:
-    bundle = directory / f"obsidian-vault-mcp-{version}.zip"
+    bundle = directory / f"obsidian-vault-mcp-{version}-plugins.zip"
     if not bundle.is_file():
-        raise VerificationError(f"Codex plugin bundle is missing: {bundle}")
+        raise VerificationError(f"Codex/Claude plugin marketplace bundle is missing: {bundle}")
 
-    expected_entries = {f"{BUNDLE_ROOT}/{relative_path}" for relative_path in BUNDLE_FILES}
+    expected_entries = sorted(BUNDLE_FILES)
+    resources = marketplace_resources()
     with zipfile.ZipFile(bundle) as archive:
-        entries = {name.replace("\\", "/") for name in archive.namelist() if not name.endswith("/")}
+        infos = archive.infolist()
+        entries = [info.filename.replace("\\", "/") for info in infos]
         if entries != expected_entries:
-            raise VerificationError(f"Codex plugin bundle must contain only {sorted(expected_entries)}, found {sorted(entries)}.")
+            raise VerificationError(f"Plugin marketplace bundle must contain the ordered 15-file allowlist; found {entries}.")
+        if archive.comment:
+            raise VerificationError("Plugin marketplace bundle must not contain a ZIP comment.")
+        for info in infos:
+            if info.date_time != ZIP_TIMESTAMP or info.compress_type != zipfile.ZIP_DEFLATED:
+                raise VerificationError(f"Plugin marketplace bundle metadata is not deterministic: {info.filename}")
+            if info.create_system != 3 or (info.external_attr >> 16) & 0o777 != 0o644:
+                raise VerificationError(f"Plugin marketplace bundle permissions are not deterministic: {info.filename}")
         for relative_path in BUNDLE_FILES:
-            archived = archive.read(f"{BUNDLE_ROOT}/{relative_path}")
-            if not text_resource_matches(archived, (ROOT / relative_path).read_bytes()):
-                raise VerificationError(f"Bundled file differs from the tracked working-tree file: {relative_path}")
+            archived = archive.read(relative_path)
+            if archived != resources[relative_path].read_bytes():
+                raise VerificationError(f"Bundled file differs byte-for-byte from the canonical marketplace source: {relative_path}")
 
 
 def check_checksums(directory: Path) -> None:

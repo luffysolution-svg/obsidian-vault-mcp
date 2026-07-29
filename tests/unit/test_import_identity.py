@@ -260,9 +260,11 @@ def test_collection_import_processes_all_500_items_but_bounds_the_response():
         def __init__(self, vault):
             super().__init__(vault, zotero_client=CollectionClient())
             self.seen = []
+            self.collection_keys = []
 
-        def import_item(self, zotero_key, **_kwargs):
+        def import_item(self, zotero_key, **kwargs):
             self.seen.append(zotero_key)
+            self.collection_keys.append(tuple(kwargs.get("collection_keys") or ()))
             return {
                 "ok": True,
                 "status": "committed",
@@ -276,8 +278,28 @@ def test_collection_import_processes_all_500_items_but_bounds_the_response():
     assert len(service.seen) == 500
     assert service.seen[0] == "ITEM0000"
     assert service.seen[-1] == "ITEM0499"
+    assert set(service.collection_keys) == {("COLLECTION",)}
     assert result["total"] == result["succeeded"] == 500
     assert result["failed"] == 0
     assert len(result["results"]) == 20
     assert result["truncated"] is True
     assert result["nextCursor"] == "20"
+
+
+def test_zotero_child_notes_and_annotations_are_marked_separately() -> None:
+    rendered = import_service_module._render_zotero_notes(
+        {
+            "notes": [{"note": "A child note."}],
+            "annotations": [
+                {
+                    "annotationText": "Highlighted result.",
+                    "annotationComment": "Check this value.",
+                    "annotationPageLabel": "7",
+                }
+            ],
+        }
+    )
+
+    assert "<!-- ovm:zotero-child-notes:start -->\nA child note." in rendered
+    assert "<!-- ovm:zotero-annotations:start -->\n- p. 7: Highlighted result." in rendered
+    assert "  - Check this value." in rendered

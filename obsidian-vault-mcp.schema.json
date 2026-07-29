@@ -305,7 +305,10 @@
         "imageFolder": "Literature/attachment/MinerU/image",
         "imageLinkStyle": "markdown-relative",
         "replacePreviousOutput": true,
-        "maxConcurrentJobs": 2
+        "maxConcurrentJobs": 2,
+        "preserveUnlinkedImageCandidates": true,
+        "imageManifestEnabled": true,
+        "candidateCacheFolder": ".obsidian-vault-mcp/cache/mineru-assets"
       },
       "properties": {
         "enabled": {
@@ -347,6 +350,84 @@
           "minimum": 1,
           "maximum": 64,
           "default": 2
+        },
+        "preserveUnlinkedImageCandidates": {
+          "type": "boolean",
+          "default": true
+        },
+        "imageManifestEnabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "candidateCacheFolder": {
+          "type": "string",
+          "minLength": 1,
+          "default": ".obsidian-vault-mcp/cache/mineru-assets"
+        }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "folder": "Literature/Analysis",
+        "index": "Literature/Analysis/index.md",
+        "topicFolder": "Literature/Topic",
+        "theoryFolder": "Literature/Theory"
+      },
+      "properties": {
+        "folder": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/Analysis"
+        },
+        "index": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/Analysis/index.md"
+        },
+        "topicFolder": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/Topic"
+        },
+        "theoryFolder": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/Theory"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {
+        "enabled": true,
+        "blockIdPrefix": "ev",
+        "maxChunkChars": 2500,
+        "overlapChars": 200
+      },
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "blockIdPrefix": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,31}$",
+          "default": "ev"
+        },
+        "maxChunkChars": {
+          "type": "integer",
+          "minimum": 256,
+          "maximum": 100000,
+          "default": 2500
+        },
+        "overlapChars": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 200
         }
       }
     },

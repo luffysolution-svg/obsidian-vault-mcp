@@ -143,6 +143,66 @@ class VaultPaths:
         key = validate_zotero_key(zotero_key)
         return f"{self.internal_root}/state/items/{key}.json"
 
+    def image_manifest(self, zotero_key: str) -> str:
+        key = validate_zotero_key(zotero_key)
+        root = normalize_vault_relative(
+            str(
+                _nested_value(
+                    self.config,
+                    "mineru",
+                    "candidateCacheFolder",
+                    default=f"{self.internal_root}/cache/mineru-assets",
+                )
+            )
+        )
+        return f"{root}/{key}/manifest.json"
+
+    def image_candidate_cache(
+        self,
+        zotero_key: str,
+        asset_id: str | None = None,
+        ext: str | None = None,
+    ) -> str:
+        key = validate_zotero_key(zotero_key)
+        root = PurePosixPath(self.image_manifest(key)).parent.as_posix()
+        folder = f"{root}/assets"
+        if asset_id is None and ext is None:
+            return folder
+        if not asset_id or not ext:
+            raise PathValidationError("candidate cache asset_id and ext must be supplied together")
+        expected_prefix = f"IMG-{key}-"
+        if not asset_id.startswith(expected_prefix) or not re.fullmatch(r"[0-9a-f]{12}", asset_id[len(expected_prefix) :]):
+            raise PathValidationError(f"invalid candidate image assetId: {asset_id}")
+        extension = ext.lower().lstrip(".")
+        if not re.fullmatch(r"[a-z0-9]+", extension):
+            raise PathValidationError(f"invalid candidate image extension: {ext}")
+        return normalize_vault_relative(f"{folder}/{asset_id}.{extension}")
+
+    def evidence_state(self, zotero_key: str) -> str:
+        key = validate_zotero_key(zotero_key)
+        return f"{self.internal_root}/state/evidence/{key}.json"
+
+    def uncertainty_state(self, zotero_key: str) -> str:
+        key = validate_zotero_key(zotero_key)
+        return f"{self.internal_root}/state/uncertainties/{key}.json"
+
+    def coverage_state(self, zotero_key: str) -> str:
+        key = validate_zotero_key(zotero_key)
+        return f"{self.internal_root}/state/coverage/{key}.json"
+
+    def analysis_note(self, zotero_key: str) -> str:
+        key = validate_zotero_key(zotero_key)
+        folder = normalize_vault_relative(
+            str(_nested_value(self.config, "analysis", "folder", default="Literature/Analysis"))
+        )
+        return f"{folder}/{key}.md"
+
+    @property
+    def analysis_index(self) -> str:
+        return normalize_vault_relative(
+            str(_nested_value(self.config, "analysis", "index", default="Literature/Analysis/index.md"))
+        )
+
     def item_lock(self, zotero_key: str) -> str:
         key = validate_zotero_key(zotero_key)
         return f"{self.internal_root}/locks/{key}.lock"

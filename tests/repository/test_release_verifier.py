@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import zipfile
 from pathlib import Path
 
 import pytest
 
-from scripts import verify_release
+from scripts import build_release, verify_release
 
 
 def _configure_version_checks(monkeypatch: pytest.MonkeyPatch, version: str, package_version: str | None = None) -> None:
@@ -17,19 +18,56 @@ def _configure_version_checks(monkeypatch: pytest.MonkeyPatch, version: str, pac
     )
     monkeypatch.setattr(verify_release, "check_installer_version_binding", lambda: None)
 
-    def read_json(relative_path: str) -> dict[str, str]:
-        if relative_path == ".codex-plugin/plugin.json":
+    def read_json(relative_path: str) -> dict[str, object]:
+        if relative_path == "adapters/pi/package.json":
+            return {"version": version}
+        if relative_path == "adapters/pi/package-lock.json":
+            return {"version": version, "lockfileVersion": 3, "packages": {"": {"version": version}}}
+        raise AssertionError(relative_path)
+
+    def read_marketplace_json(relative_path: str) -> dict[str, object]:
+        if relative_path == "plugins/obsidian-literature/.codex-plugin/plugin.json":
             return {
                 "name": "obsidian-literature",
                 "version": version,
-                "description": "Zotero, MinerU and Obsidian literature pipeline",
+                "description": "Precise literature workflows",
+                "skills": "./skills/",
                 "mcpServers": "./.mcp.json",
             }
-        if relative_path == "adapters/pi/package.json":
-            return {"version": version}
+        if relative_path == "plugins/obsidian-literature/.claude-plugin/plugin.json":
+            return {
+                "name": "obsidian-literature",
+                "version": version,
+                "description": "Precise literature workflows",
+            }
+        if relative_path == ".agents/plugins/marketplace.json":
+            return {
+                "name": "obsidian-vault-mcp",
+                "plugins": [
+                    {
+                        "name": "obsidian-literature",
+                        "source": {"source": "local", "path": "./plugins/obsidian-literature"},
+                        "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+                        "category": "Productivity",
+                    }
+                ],
+            }
+        if relative_path == ".claude-plugin/marketplace.json":
+            return {
+                "name": "obsidian-vault-mcp",
+                "metadata": {"version": version},
+                "plugins": [
+                    {
+                        "name": "obsidian-literature",
+                        "source": "./plugins/obsidian-literature",
+                        "version": version,
+                    }
+                ],
+            }
         raise AssertionError(relative_path)
 
     monkeypatch.setattr(verify_release, "read_json", read_json)
+    monkeypatch.setattr(verify_release, "read_marketplace_json", read_marketplace_json)
 
 
 @pytest.mark.parametrize("version", ["2.0.0", "2.17.42"])
@@ -71,3 +109,52 @@ def test_checksum_verifier_covers_every_release_artifact(tmp_path: Path) -> None
 def test_text_resource_comparison_ignores_checkout_line_endings() -> None:
     assert verify_release.text_resource_matches(b"first\r\nsecond\r\n", b"first\nsecond\n")
     assert not verify_release.text_resource_matches(b"first\r\nchanged\r\n", b"first\nsecond\n")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "http://127.0.0.1:23119/api/users/0/items?limit=1",
+        "https://example.test/home/alice",
+        "https://example.test/root/status",
+    ],
+)
+def test_personal_path_patterns_ignore_url_paths(text: str) -> None:
+    assert not any(pattern.search(text) for pattern in verify_release.PERSONAL_PATH_PATTERNS)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        r"C:\Users\alice\vault",
+        "/Users/alice/vault",
+        "/home/alice/vault",
+        "/root/vault",
+    ],
+)
+def test_personal_path_patterns_reject_machine_local_paths(text: str) -> None:
+    assert any(pattern.search(text) for pattern in verify_release.PERSONAL_PATH_PATTERNS)
+
+
+def test_marketplace_resource_set_is_the_exact_15_file_contract() -> None:
+    resources = verify_release.marketplace_resources()
+
+    assert tuple(resources) == verify_release.BUNDLE_FILES
+    assert len(resources) == 15
+    assert "__init__.py" not in resources
+    assert sum(relative_path.endswith("/SKILL.md") for relative_path in resources) == 9
+    assert all(path.is_file() for path in resources.values())
+
+
+def test_python_bundle_builder_is_deterministic_and_verifier_compatible(tmp_path: Path) -> None:
+    version = verify_release.project_metadata()[1]
+
+    bundle = build_release.build_bundle(tmp_path, version)
+    first_digest = hashlib.sha256(bundle.read_bytes()).hexdigest()
+    with zipfile.ZipFile(bundle) as archive:
+        assert archive.namelist() == sorted(verify_release.BUNDLE_FILES)
+    rebuilt = build_release.build_bundle(tmp_path, version)
+
+    assert rebuilt == bundle
+    assert hashlib.sha256(rebuilt.read_bytes()).hexdigest() == first_digest
+    verify_release.check_bundle(tmp_path, version)

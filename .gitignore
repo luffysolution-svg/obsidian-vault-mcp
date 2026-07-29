@@ -4,15 +4,22 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.tox/
+.nox/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 dist/
 build/
+pypi-dist/
 *.egg-info/
 .venv/
 venv/
 node_modules/
 .env
+.env.*
+!.env.example
 .DS_Store
 Thumbs.db
 

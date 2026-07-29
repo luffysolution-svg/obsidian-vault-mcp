@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+from collections.abc import Sequence
 from contextlib import ExitStack
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -23,6 +24,10 @@ from .index_service import IndexService
 from .transaction_service import TransactionService
 
 _CONFLICT_POLICIES = {"preserve-user", "overwrite-managed", "fail", "rename"}
+_ZOTERO_CHILD_NOTES_START = "<!-- ovm:zotero-child-notes:start -->"
+_ZOTERO_CHILD_NOTES_END = "<!-- ovm:zotero-child-notes:end -->"
+_ZOTERO_ANNOTATIONS_START = "<!-- ovm:zotero-annotations:start -->"
+_ZOTERO_ANNOTATIONS_END = "<!-- ovm:zotero-annotations:end -->"
 
 
 class ImportService:
@@ -48,12 +53,15 @@ class ImportService:
         self,
         zotero_key: str,
         *,
+        collection_keys: Sequence[str] = (),
         dry_run: bool = False,
         transaction_id: str | None = None,
         conflict_policy: str = "preserve-user",
         require_existing: bool = False,
     ) -> dict[str, Any]:
         key = validate_zotero_key(zotero_key)
+        if isinstance(collection_keys, (str, bytes)):
+            raise TypeError("collection_keys must be an array of strings")
         if conflict_policy not in _CONFLICT_POLICIES:
             raise ValueError(f"unsupported conflict policy: {conflict_policy}")
         tree = self.client.get_item_tree(key)
@@ -174,12 +182,23 @@ class ImportService:
         version = _integer_or_none(parent.get("version"))
         state_changed = not state or state.get("zoteroVersion") != version or core_changed
         imported_at = ItemState.utc_now() if state_changed else str(state.get("lastImportedAt") or "")
+        parent_collections = parent.get("collections")
+        if isinstance(parent_collections, Sequence) and not isinstance(parent_collections, (str, bytes)):
+            saved_collections = {str(value) for value in parent_collections if str(value)}
+            saved_collections.update(str(value) for value in collection_keys if str(value))
+        else:
+            saved_collections = {
+                *(str(value) for value in state.get("collectionKeys") or ()),
+                *(str(value) for value in collection_keys if str(value)),
+            }
         state_model = ItemState(
             zotero_key=key,
             zotero_version=version,
             note_path=note_path,
             pdf_path=pdf_path,
             mineru_path=mineru_path,
+            mineru_asset_root=str(state.get("mineruAssetRoot") or ""),
+            collection_keys=sorted(saved_collections),
             source_pdf_path=str(source_pdf) if source_pdf else str(state.get("sourcePdfPath") or ""),
             source_pdf_sha256=source_sha,
             copied_pdf_sha256=copied_pdf_sha,
@@ -246,6 +265,7 @@ class ImportService:
             try:
                 result = self.import_item(
                     key,
+                    collection_keys=(collection_key,),
                     dry_run=dry_run,
                     transaction_id=child_transaction,
                     conflict_policy=conflict_policy,
@@ -339,21 +359,34 @@ class ImportService:
 
 
 def _render_zotero_notes(children: dict[str, Any]) -> str:
-    lines: list[str] = []
+    notes: list[str] = []
     for note in children.get("notes", []):
         text = str(note.get("note") or "").strip()
         if text:
-            lines.append(text)
+            notes.append(text)
+    annotations: list[str] = []
     for annotation in children.get("annotations", []):
         text = str(annotation.get("annotationText") or "").strip()
         comment = str(annotation.get("annotationComment") or "").strip()
         page = str(annotation.get("annotationPageLabel") or "").strip()
         if text or comment:
             prefix = f"- p. {page}: " if page else "- "
-            lines.append(prefix + (text or comment))
+            annotations.append(prefix + (text or comment))
             if text and comment:
-                lines.append(f"  - {comment}")
-    return "\n\n".join(lines)
+                annotations.append(f"  - {comment}")
+    if not notes and not annotations:
+        return ""
+    return "\n".join(
+        (
+            _ZOTERO_CHILD_NOTES_START,
+            "\n\n".join(notes),
+            _ZOTERO_CHILD_NOTES_END,
+            "",
+            _ZOTERO_ANNOTATIONS_START,
+            "\n\n".join(annotations),
+            _ZOTERO_ANNOTATIONS_END,
+        )
+    )
 
 
 def _year(value: Any) -> int | None:

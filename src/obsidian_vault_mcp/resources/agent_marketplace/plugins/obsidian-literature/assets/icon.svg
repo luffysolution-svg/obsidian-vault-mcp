@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Obsidian Literature</title>
+  <desc id="description">An open book connected to evidence nodes and a crystalline knowledge spark.</desc>
+  <defs>
+    <linearGradient id="background" x1="64" y1="48" x2="448" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34256F"/>
+      <stop offset="0.55" stop-color="#5B45C8"/>
+      <stop offset="1" stop-color="#256D88"/>
+    </linearGradient>
+    <linearGradient id="leftPage" x1="104" y1="176" x2="248" y2="366" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#CFF7FF"/>
+    </linearGradient>
+    <linearGradient id="rightPage" x1="264" y1="184" x2="408" y2="356" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EAFBFF"/>
+      <stop offset="1" stop-color="#8DE7F0"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+  </defs>
+
+  <rect x="20" y="20" width="472" height="472" rx="116" fill="url(#background)"/>
+  <path d="M256 100 271 128 299 143 271 158 256 186 241 158 213 143 241 128Z" fill="#A7F3FF" opacity="0.24" filter="url(#softGlow)"/>
+  <path d="M256 96 269 130 304 143 269 156 256 190 243 156 208 143 243 130Z" fill="#E9FDFF"/>
+  <path d="M256 113 263 136 286 143 263 150 256 173 249 150 226 143 249 136Z" fill="#55DDE9"/>
+
+  <path d="M92 187C143 162 202 166 246 203V372C204 342 150 336 92 361V187Z" fill="url(#leftPage)"/>
+  <path d="M420 187C369 162 310 166 266 203V372C308 342 362 336 420 361V187Z" fill="url(#rightPage)"/>
+  <path d="M256 207V374" stroke="#EAFBFF" stroke-width="16" stroke-linecap="round"/>
+  <path d="M115 208C163 189 207 195 238 220M397 208C349 189 305 195 274 220" fill="none" stroke="#FFFFFF" stroke-opacity="0.4" stroke-width="7" stroke-linecap="round"/>
+
+  <path d="M154 284 256 244 358 284M154 284 256 324 358 284" fill="none" stroke="#4D8FAB" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="154" cy="284" r="20" fill="#29D6C7" stroke="#FFFFFF" stroke-width="8"/>
+  <circle cx="256" cy="244" r="22" fill="#6D5CE7" stroke="#FFFFFF" stroke-width="8"/>
+  <circle cx="358" cy="284" r="20" fill="#29D6C7" stroke="#FFFFFF" stroke-width="8"/>
+  <circle cx="256" cy="324" r="20" fill="#55DDE9" stroke="#FFFFFF" stroke-width="8"/>
+
+  <path d="M122 397C169 377 214 380 256 405 298 380 343 377 390 397" fill="none" stroke="#A7F3FF" stroke-width="12" stroke-linecap="round" opacity="0.72"/>
+</svg>

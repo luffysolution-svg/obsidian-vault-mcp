@@ -1,0 +1,32 @@
+{
+  "name": "obsidian-vault-mcp",
+  "owner": {
+    "name": "Obsidian Vault MCP Contributors",
+    "url": "https://github.com/luffysolution-svg/obsidian-vault-mcp"
+  },
+  "metadata": {
+    "description": "Production plugins for the Zotero, MinerU, and Obsidian literature pipeline",
+    "version": "2.1.0"
+  },
+  "plugins": [
+    {
+      "name": "obsidian-literature",
+      "source": "./plugins/obsidian-literature",
+      "description": "Precise Zotero, MinerU, and Obsidian literature workflows",
+      "version": "2.1.0",
+      "author": {
+        "name": "Obsidian Vault MCP Contributors"
+      },
+      "homepage": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+      "repository": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+      "license": "MIT",
+      "keywords": [
+        "obsidian",
+        "zotero",
+        "mineru",
+        "literature"
+      ],
+      "category": "productivity"
+    }
+  ]
+}

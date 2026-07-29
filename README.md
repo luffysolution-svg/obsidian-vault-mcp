@@ -22,7 +22,8 @@ Index 仪表盘 + Obsidian Base + 可追溯 Wiki
 - 可选调用 MinerU Open API CLI，将 PDF 规范化为可移植的 Markdown 与相对图片链接。
 - 自动维护 `Literature/index.md`、`Literature/Literature.base` 和来源可追溯的 Wiki 页面。
 - 所有正式写入经过 dry-run、staging、原子替换、备份、锁和事务；支持预览与回滚。
-- 同一套业务能力同时提供 CLI 和 26 个 MCP Tools；Codex、Claude Code、OpenCode、Hermes、WorkBuddy 与 Pi 均可接入。
+- 同一套业务能力同时提供 CLI 和 33 个 MCP Tools；Codex、Claude Code、OpenCode、Hermes、WorkBuddy 与 Pi 均可接入。
+- 为每篇 MinerU 全文建立图片 Manifest、可追溯 EvidenceChunk、读取覆盖账本、结构化 Analysis 笔记和待复核事项。
 
 Wiki 正文由连接的 AI 客户端综合撰写，本项目负责检索本地证据、校验 Zotero keys、补充来源链接并安全写回；项目本身不绑定任何大模型供应商。
 
@@ -33,11 +34,13 @@ Wiki 正文由连接的 AI 客户端综合撰写，本项目负责检索本地�
 以下示例使用 Windows PowerShell。macOS/Linux、软件官方下载、MinerU 精准模式和各 AI 客户端配置见[完整教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md)。
 
 ```powershell
-# 1. 安装 V2；Python distribution 名与 CLI 名不同
-python -m pip install "zotero-obsidian-mcp==2.0.1"
+# 1. 持久安装 V2，任选一种；以下包选择器在 2.1.0 发布到 PyPI 后使用
+pipx install "zotero-obsidian-mcp==2.1.0"
+# 或：uv tool install "zotero-obsidian-mcp==2.1.0"
+# 本地生产验收可把包选择器替换为 "<WHEEL_PATH>"
 
 # 2. 显式指定 Vault。auto 只会从进程当前目录向父目录查找 .obsidian
-$env:OBSIDIAN_VAULT_PATH = "D:\Notes\MyVault"
+$env:OBSIDIAN_VAULT_PATH = "<VAULT_DIR>"
 
 # 3. 先预览，再初始化唯一的 Vault 配置
 obsidian-vault-mcp config init --dry-run
@@ -71,6 +74,10 @@ obsidian-vault-mcp verify
 ├─ .obsidian-vault-mcp.json
 ├─ .obsidian-vault-mcp/
 │  ├─ state/items/ABCD1234.json
+│  ├─ state/evidence/ABCD1234.json
+│  ├─ state/uncertainties/ABCD1234.json
+│  ├─ state/coverage/ABCD1234.json
+│  ├─ cache/mineru-assets/ABCD1234/manifest.json
 │  ├─ staging/
 │  ├─ backups/
 │  └─ locks/
@@ -78,6 +85,10 @@ obsidian-vault-mcp verify
    ├─ index.md
    ├─ Literature.base
    ├─ ABCD1234.md
+   ├─ Analysis/ABCD1234.md
+   ├─ Analysis/index.md
+   ├─ Topic/
+   ├─ Theory/
    ├─ Wiki/
    └─ attachment/
       ├─ ABCD1234.pdf
@@ -113,14 +124,29 @@ obsidian-vault-mcp verify
 
 ## 接入 AI 客户端
 
-先确保对应客户端命令已经在 `PATH`，再从目标项目目录执行安装器。安装器会合并并备份原配置、验证生成文件，并完成一次 MCP 初始化握手。
+Codex Desktop/CLI 与 Claude Code 使用同一个 `obsidian-literature` 原生插件。插件同时提供 33 个 MCP Tools 和 9 个模型无关 Skills；插件包不包含 Python runtime，因此应先用 `pipx` 或 `uv tool` 持久安装上面的 Python 包，并确认 GUI/CLI 客户端启动时能在 `PATH` 中找到 `obsidian-vault-mcp`。
+
+取得并解压本地构建产物或 Release 附件 `obsidian-vault-mcp-2.1.0-plugins.zip` 后，把 `<MARKETPLACE_DIR>` 指向解压根目录（其中直接包含 `.agents/`、`.claude-plugin/` 和 `plugins/`），再使用客户端原生命令：
 
 ```powershell
-obsidian-vault-mcp agent install codex --project-dir "D:\MyProject" --dry-run
-obsidian-vault-mcp agent install codex --project-dir "D:\MyProject"
+codex plugin marketplace add "<MARKETPLACE_DIR>"
+codex plugin add obsidian-literature@obsidian-vault-mcp
+
+claude plugin marketplace add "<MARKETPLACE_DIR>" --scope user
+claude plugin install obsidian-literature@obsidian-vault-mcp --scope user
 ```
 
-可用客户端名称：`codex`、`claude`、`opencode`、`pi`、`hermes`、`workbuddy`。安装器生成的 `OBSIDIAN_VAULT_PATH=auto` 只适合项目位于 Vault 内的场景；普通项目应在本机配置中改为显式 Vault 路径，且不要提交该路径。
+也可以让便捷入口调用同一组原生 CLI 命令；它不会为 Codex/Claude 写项目 `.mcp.json` 或复制项目 Skills：
+
+```powershell
+obsidian-vault-mcp agent install codex --dry-run
+obsidian-vault-mcp agent install codex
+# Claude Code：把 codex 换成 claude
+```
+
+安装后请完全退出并重新打开 Codex Desktop/Claude Code，或新建 CLI 会话。OpenCode 继续使用项目 `opencode.json` 与 `.opencode/skills`；Pi 使用薄 TypeScript Extension；Hermes 和 WorkBuddy 只安装 MCP，并明确提示不提供未经验证的项目级 Skills。可用客户端名称仍为 `codex`、`claude`、`opencode`、`pi`、`hermes`、`workbuddy`。
+
+共享插件 `.mcp.json` 不写入 Vault 绝对路径，而是继承客户端进程环境。项目不在 Vault 内时，应在本机安全地设置 `OBSIDIAN_VAULT_PATH=<VAULT_DIR>` 后重启客户端；不要把真实路径提交到仓库。
 
 连接后可以直接告诉 Agent：
 
@@ -130,6 +156,20 @@ obsidian-vault-mcp agent install codex --project-dir "D:\MyProject"
 然后基于这些 zoteroKey 获取 Wiki context，生成带主笔记来源链接的主题页，
 最后运行 literature_verify 并报告 transactionId。
 ```
+
+## 结构化精读与证据检索
+
+V2.1 保留原 26 个工具并新增 7 个模型无关工具：`literature_paper_read`、`literature_analysis_context`、`literature_analysis_write`、`literature_uncertainty_list`、`literature_uncertainty_resolve`、`literature_rebuild_analysis_index` 和 `literature_retrieve`。
+
+```powershell
+obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"targeted","query":"charge transfer mechanism","record_coverage":true}'
+obsidian-vault-mcp call literature_analysis_context --json '{"zotero_key":"ABCD1234","include_figures":true}'
+obsidian-vault-mcp call literature_retrieve --json '{"query":"CdS nickel cocatalyst","scope":{"zotero_keys":["ABCD1234"]},"depth":"evidence","record_coverage":true}'
+```
+
+Server 只返回原文证据、资产状态、覆盖边界和安全写入能力，不自行生成论文结论。Evidence 重建会把确定性的 `^ev-*` block ID 物理写入派生 MinerU Markdown，因此 `sourceLink` 可由 `literature_verify` 核对真实锚点。`assetId` 只代表图片资产；论文事实仍应引用 `evidenceId`。MinerU 候选图在没有可靠 PDF crop 时不会被标记为视觉验证。
+
+读取工具默认不产生写操作；只有显式传入 `record_coverage=true` 才更新 Coverage Ledger。此时单篇读取返回 `coverageLedger`，跨文献检索为每篇返回对应记录及真实 `transactionId`；配合 `coverage_dry_run=true` 可只预览，并可用 `coverage_transaction_id` 指定可辨识的事务前缀。Coverage 只描述读到了什么，不是论文事实。
 
 ## 稳定身份与安全边界
 
@@ -155,10 +195,12 @@ obsidian-vault-mcp rollback <transaction-id>
 
 如果事务之后文件又被用户修改，回滚会拒绝覆盖。只有明确接受覆盖风险时才使用 `--conflict-policy overwrite-managed`。
 
+V2.1 会在旧 item state 上增量补充 `mineruAssetRoot` 和 `collectionKeys`：前者用于在 `candidateCacheFolder` 改动时事务化迁移该条目的 Manifest/候选缓存，后者让 `literature_retrieve.scope.collection_key` 可按已知 Zotero 集合成员过滤。旧 state 无需手工改写；后续导入、同步或 MinerU 解析会按实际信息更新，且可随事务回滚。
+
 ## 文档
 
 - [完整使用教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md)：软件下载、Zotero/MinerU API、可选插件、安装命令、Agent 接入、自定义配置、首次完整流程、截图与排错。
-- [开发者文档](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.md)：架构、数据契约、26 个工具、测试、构建、发布、安全边界和已知限制。
+- [开发者文档](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.md)：架构、数据契约、33 个工具、测试、构建、发布、安全边界和已知限制。
 - [English user guide](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/README.en.md) · [English tutorial](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.en.md) · [English developer guide](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.en.md)
 
 ## 贡献者
@@ -174,5 +216,7 @@ obsidian-vault-mcp rollback <transaction-id>
 | Python import | `obsidian_vault_mcp` |
 | CLI | `obsidian-vault-mcp` |
 | MCP server | `obsidian-literature` |
+| 插件 marketplace | `obsidian-vault-mcp` |
+| Codex/Claude plugin | `obsidian-literature` |
 
 问题请提交到 [GitHub Issues](https://github.com/luffysolution-svg/obsidian-vault-mcp/issues)。项目采用 [MIT License](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/LICENSE)。

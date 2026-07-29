@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "obsidian-literature": {
+      "command": "obsidian-vault-mcp",
+      "args": [
+        "serve",
+        "--transport",
+        "stdio"
+      ]
+    }
+  }
+}

@@ -50,11 +50,11 @@ Bases 是 Obsidian 官方核心插件，不需要额外安装 Dataview。V2 生�
 | Better BibTeX | 希望优先取得更完整的 BibTeX/citekey | [安装说明](https://retorque.re/zotero-better-bibtex/installation/) |
 | MinerU Open API CLI | 需要把 PDF 精准或快速解析为 Markdown | [MinerU Ecosystem](https://github.com/opendatalab/MinerU-Ecosystem) |
 | Node.js | 使用 npm 安装 OpenCode 等部分 AI 客户端 | [Node.js Download](https://nodejs.org/en/download) |
-| AI 编程客户端 | 希望通过自然语言调用 26 个 MCP 工具 | 见[接入 AI 客户端](#8-接入-ai-客户端) |
+| AI 编程客户端 | 希望通过自然语言调用 33 个 MCP 工具 | 见[接入 AI 客户端](#8-接入-ai-客户端) |
 
 ## 3. 安装 Obsidian Vault MCP V2
 
-项目有四个容易混淆的名字：
+项目有六个容易混淆的名字：
 
 | 对象 | 名称 |
 |---|---|
@@ -62,30 +62,37 @@ Bases 是 Obsidian 官方核心插件，不需要额外安装 Dataview。V2 生�
 | 安装后的 CLI | `obsidian-vault-mcp` |
 | Python import | `obsidian_vault_mcp` |
 | MCP server | `obsidian-literature` |
+| Plugin marketplace | `obsidian-vault-mcp` |
+| Codex/Claude plugin | `obsidian-literature` |
 
-### 3.1 PyPI 安装
+### 3.1 持久工具安装（Agent 推荐）
 
-普通用户建议固定 V2 版本，避免未来跨主版本升级：
-
-```powershell
-python -m pip install --upgrade "zotero-obsidian-mcp==2.0.1"
-```
-
-也可以把 CLI 安装进隔离工具环境：
+Codex Desktop/CLI、Claude Code 和其他从独立进程启动 MCP 的客户端必须能在自己的启动 `PATH` 中找到 `obsidian-vault-mcp`。推荐用 `pipx` 或 `uv tool` 安装到持久隔离环境，并固定 V2 版本以避免未来跨主版本升级。以下包选择器在 2.1.0 发布到 PyPI 后使用；当前本地生产验收应使用下一段的 wheel 路径：
 
 ```powershell
-pipx install "zotero-obsidian-mcp==2.0.1"
+pipx install "zotero-obsidian-mcp==2.1.0"
 # 或
-uv tool install "zotero-obsidian-mcp==2.0.1"
+uv tool install "zotero-obsidian-mcp==2.1.0"
 ```
 
-`pipx` 或 `uv` 需要先按各自官方说明安装。无论采用哪种方式，都应验证：
+如果使用本地生产 wheel，把包名替换为产物路径：
 
 ```powershell
-python -c "from importlib.metadata import version; print(version('zotero-obsidian-mcp'))"
+pipx install "<WHEEL_PATH>"
+# 或
+uv tool install "<WHEEL_PATH>"
+```
+
+`pipx` 或 `uv` 需要先按各自官方说明安装。必要时运行 `pipx ensurepath` 或 `uv tool update-shell`，然后完全退出并重新打开终端和 GUI 客户端。验证客户端继承的环境，而不只是当前虚拟环境：
+
+```powershell
 obsidian-vault-mcp --help
 Get-Command obsidian-vault-mcp
+pipx list   # 使用 pipx 时
+uv tool list # 使用 uv 时
 ```
+
+只在当前终端直接使用 CLI 时，也可以执行 `python -m pip install --upgrade "zotero-obsidian-mcp==2.1.0"`；不要依赖一个未被 Agent 激活的临时虚拟环境。
 
 ### 3.2 虚拟环境安装
 
@@ -93,7 +100,7 @@ Get-Command obsidian-vault-mcp
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install "zotero-obsidian-mcp==2.0.1"
+python -m pip install "zotero-obsidian-mcp==2.1.0"
 ```
 
 macOS/Linux 激活命令为：
@@ -102,7 +109,7 @@ macOS/Linux 激活命令为：
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install "zotero-obsidian-mcp==2.0.1"
+python -m pip install "zotero-obsidian-mcp==2.1.0"
 ```
 
 ### 3.3 源码安装
@@ -110,11 +117,11 @@ python -m pip install "zotero-obsidian-mcp==2.0.1"
 ```powershell
 git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git
 Set-Location obsidian-vault-mcp
-git checkout v2.0.1
+git checkout "<RELEASE_TAG>"
 python -m pip install .
 ```
 
-只有开发者才需要 editable 与测试依赖：
+只有开发者才需要 editable 与测试依赖。`<RELEASE_TAG>` 必须替换为已经存在并验证过的 tag；本文档不声称未创建的 tag、PyPI 版本或远程 Release 已经发布：
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -127,19 +134,19 @@ python -m pip install -e ".[dev]"
 Windows PowerShell 当前会话：
 
 ```powershell
-$env:OBSIDIAN_VAULT_PATH = "D:\Notes\MyVault"
+$env:OBSIDIAN_VAULT_PATH = "<VAULT_DIR>"
 ```
 
 macOS/Linux：
 
 ```bash
-export OBSIDIAN_VAULT_PATH="/Users/me/Notes/MyVault"
+export OBSIDIAN_VAULT_PATH="<VAULT_DIR>"
 ```
 
 也可以在每条 CLI 命令中使用 `--vault-path`，它的优先级最高：
 
 ```powershell
-obsidian-vault-mcp doctor --vault-path "D:\Notes\MyVault"
+obsidian-vault-mcp doctor --vault-path "<VAULT_DIR>"
 ```
 
 `OBSIDIAN_VAULT_PATH=auto` **不会读取 Obsidian 当前打开的 Vault**。它只从 MCP 进程的当前工作目录开始，逐级向父目录寻找 `.obsidian`。只有 Agent 项目位于 Vault 内时才建议使用 `auto`。
@@ -209,7 +216,7 @@ $env:ZOTERO_LOCAL_API = "http://127.0.0.1:23119/api"
 如果 Zotero 数据目录不是默认位置，可把变量指向其 `storage` 子目录：
 
 ```powershell
-$env:ZOTERO_STORAGE_DIR = "D:\ZoteroData\storage"
+$env:ZOTERO_STORAGE_DIR = "<ZOTERO_STORAGE_DIR>"
 ```
 
 该绝对路径只用于找到源 PDF，并写入隐藏 state；不会写到用户可见笔记。
@@ -219,7 +226,7 @@ $env:ZOTERO_STORAGE_DIR = "D:\ZoteroData\storage"
 ```json
 {
   "zotero": {
-    "linkedAttachmentBaseDir": "D:\\Reference PDFs"
+    "linkedAttachmentBaseDir": "<ZOTERO_LINKED_ATTACHMENT_BASE_DIR>"
   }
 }
 ```
@@ -227,16 +234,16 @@ $env:ZOTERO_STORAGE_DIR = "D:\ZoteroData\storage"
 也可以在启动 CLI/MCP server 前使用环境变量；非空配置值优先于环境变量：
 
 ```powershell
-$env:ZOTERO_LINKED_ATTACHMENT_BASE_DIR = "D:\Reference PDFs"
+$env:ZOTERO_LINKED_ATTACHMENT_BASE_DIR = "<ZOTERO_LINKED_ATTACHMENT_BASE_DIR>"
 ```
 
 macOS/Linux：
 
 ```bash
-export ZOTERO_LINKED_ATTACHMENT_BASE_DIR="/Users/me/Reference PDFs"
+export ZOTERO_LINKED_ATTACHMENT_BASE_DIR="<ZOTERO_LINKED_ATTACHMENT_BASE_DIR>"
 ```
 
-`ZOTERO_STORAGE_DIR` 只处理 Zotero 管理的 `storage:` 附件，`linkedAttachmentBaseDir`/`ZOTERO_LINKED_ATTACHMENT_BASE_DIR` 只处理 `attachments:` 链接附件。V2.0.1 会拒绝越出基础目录的 `..` 和盘符路径；缺少基础目录时，导入会返回明确错误，而不会猜测本机路径。
+`ZOTERO_STORAGE_DIR` 只处理 Zotero 管理的 `storage:` 附件，`linkedAttachmentBaseDir`/`ZOTERO_LINKED_ATTACHMENT_BASE_DIR` 只处理 `attachments:` 链接附件。V2.1.0 会拒绝越出基础目录的 `..` 和盘符路径；缺少基础目录时，导入会返回明确错误，而不会猜测本机路径。
 
 ### 5.1 安装 Better BibTeX（可选）
 
@@ -304,7 +311,7 @@ mineru-open-api auth --verify
 Windows 找不到可执行 shim 时可指定：
 
 ```powershell
-$env:MINERU_CLI_COMMAND = "C:\Tools\mineru-open-api.cmd"
+$env:MINERU_CLI_COMMAND = "<MINERU_CLI_COMMAND>"
 ```
 
 真实解析才会验证 token、上传与下载链路；`obsidian-vault-mcp mineru parse ... --dry-run` 只返回计划，不会启动 MinerU。代理/VPN 环境需保证 `mineru.net`、`cdn-mineru.openxlab.org.cn` 和相关 OpenXLab/OSS 域名可用。
@@ -388,6 +395,36 @@ obsidian-vault-mcp verify
 
 导入和同步默认已经重建 Index/Base；显式重建适合 Wiki 更新、手工修改或关闭自动重建后的维护。`verify` 扫描整个 Vault 的可见 Markdown/Base，warning 也会令 `ok=false`，请按 `issues[].path` 判断是否属于 Literature。
 
+### 7.5 结构化精读、复核和跨文献检索
+
+MinerU 成功后会维护图片 Manifest，并把确定性的 `^ev-*` block ID 物理写入派生 Markdown；`literature_paper_read` 可按 overview、targeted、sections、full 或 figures 模式返回可由 Verify 核对真实锚点的 EvidenceChunk。建议先用 overview 确认覆盖，再进行定向检索：
+
+```powershell
+obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"overview","max_chars":12000,"record_coverage":true}'
+obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"targeted","query":"charge transfer mechanism","query_variants":["interfacial electron transfer"],"record_coverage":true}'
+obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"figures","include_images":true,"record_coverage":true}'
+```
+
+外部 Agent 使用 `literature_analysis_context` 取得 13 段模板和原文证据，自行写作后先 dry-run：
+
+```powershell
+obsidian-vault-mcp call literature_analysis_context --json '{"zotero_key":"ABCD1234","include_figures":true}'
+obsidian-vault-mcp call literature_analysis_write --json '{"zotero_key":"ABCD1234","sections":{"findings":[{"claimType":"source_fact","content":"示例内容","evidenceIds":["ABCD1234-results-..."],"assetIds":[],"verificationStatus":"verified"}]},"dry_run":true}'
+```
+
+正式写入后，可列出和复核 uncertainty，再重建 Analysis 索引：
+
+```powershell
+obsidian-vault-mcp call literature_uncertainty_list --json '{"zotero_key":"ABCD1234","statuses":["pending"]}'
+obsidian-vault-mcp call literature_uncertainty_resolve --json '{"zotero_key":"ABCD1234","uncertainty_id":"U-ABCD1234-...","status":"unresolved","resolution_note":"当前原文仍不足","dry_run":true}'
+obsidian-vault-mcp call literature_rebuild_analysis_index --json '{"dry_run":true}'
+obsidian-vault-mcp call literature_retrieve --json '{"query":"CdS nickel cocatalyst","scope":{"zotero_keys":["ABCD1234"]},"intent":"summarize","depth":"evidence","record_coverage":true}'
+```
+
+读取默认不写 Coverage；只有显式 `record_coverage=true` 才更新账本，并在 `coverageLedger` 返回真实 `transactionId`。若要零写预览，另传 `coverage_dry_run=true`；跨文献结果会为每篇返回独立事务结果。Coverage 不是论文事实。
+
+状态位于 `.obsidian-vault-mcp/state/evidence/`、`uncertainties/`、`coverage/` 和 `cache/mineru-assets/`。旧 item state 无需手动迁移：后续操作会补充 `mineruAssetRoot`（用于 `candidateCacheFolder` 改动时事务化迁移旧缓存）和 `collectionKeys`（用于 collection scope）。新导入的 Zotero child notes/annotations 会分别返回；旧主笔记中的合并内容仍作为 `zoteroNotes` 返回并带 warning。Analysis 用户文件位于 `Literature/Analysis/`。`assetId` 不能替代正文 `evidenceId`；有 PDF crop 也只表示可供外部视觉检查，只有 `visualStatus=visual_verified` 才能支持视觉结论。
+
 ## 8. 接入 AI 客户端
 
 ### 8.1 安装一个客户端（可选）
@@ -399,41 +436,66 @@ obsidian-vault-mcp verify
 - **OpenCode**：[官方文档](https://opencode.ai/en/docs)。可使用 `npm install -g opencode-ai`。
 - **Pi**：[上游仓库](https://github.com/badlogic/pi-mono)。V2 为 Pi 安装薄 TypeScript Extension。
 - **Hermes Agent**：[上游安装说明](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/getting-started/installation.md)。
-- **WorkBuddy**：[官方文档](https://docs.work-buddy.ai/)。安装后确保 `workbuddy` 命令在 `PATH`。
+- **WorkBuddy**：[MCP 官方指南](https://www.workbuddy.ai/docs/zh/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/MCP-Guide) / [CLI 参考](https://www.workbuddy.ai/docs/cli/reference)。安装器优先探测 `codebuddy`，并兼容其 `cbc` 别名。
 
-### 8.2 一键安装 MCP/Extension
+### 8.2 Codex Desktop/CLI 与 Claude Code：原生插件
 
-安装器要求对应客户端命令已在 `PATH`。始终显式提供项目目录，并先 dry-run：
+这是 Codex 和 Claude Code 的生产安装主路径。先完成第 3 节的持久 Python 安装，并在**启动客户端的新终端或 GUI 进程**中确认 `obsidian-vault-mcp` 位于 `PATH`。然后取得并解压本地构建产物或 Release 附件 `obsidian-vault-mcp-2.1.0-plugins.zip`；`<MARKETPLACE_DIR>` 必须指向解压根目录，其中直接包含 `.agents/`、`.claude-plugin/` 与 `plugins/`。
 
-```powershell
-obsidian-vault-mcp agent install codex --project-dir "D:\MyProject" --dry-run
-obsidian-vault-mcp agent install codex --project-dir "D:\MyProject"
-```
-
-其他客户端：
+Codex Desktop/CLI：
 
 ```powershell
-obsidian-vault-mcp agent install claude --project-dir "D:\MyProject" --dry-run
-obsidian-vault-mcp agent install opencode --project-dir "D:\MyProject" --dry-run
-obsidian-vault-mcp agent install hermes --project-dir "D:\MyProject" --dry-run
-obsidian-vault-mcp agent install workbuddy --project-dir "D:\MyProject" --dry-run
-obsidian-vault-mcp agent install pi --project-dir "D:\MyProject" --dry-run
+codex plugin marketplace add "<MARKETPLACE_DIR>"
+codex plugin add obsidian-literature@obsidian-vault-mcp
 ```
 
-| 客户端 | 项目级目标 |
-|---|---|
-| Codex | `.mcp.json` |
-| Claude Code | `.mcp.json` |
-| OpenCode | `opencode.json` |
-| Hermes | `.hermes/config.yaml` |
-| WorkBuddy | `.workbuddy/mcp.json` |
-| Pi | `.pi/extensions/obsidian-vault-mcp.ts` |
+Claude Code：
 
-正式安装会：检测客户端、读取并合并原配置、创建同目录备份、验证 JSON/YAML、启动一次 MCP handshake；失败则恢复原配置。Handshake 只验证 server 能启动，不代表 Vault、Zotero 或 MinerU 都就绪。
+```powershell
+claude plugin marketplace add "<MARKETPLACE_DIR>" --scope user
+claude plugin install obsidian-literature@obsidian-vault-mcp --scope user
+```
 
-Codex/Claude/Hermes/WorkBuddy 模板中的 `OBSIDIAN_VAULT_PATH=auto` 会覆盖进程继承的同名环境变量。项目不在 Vault 内时，应在本机配置中把它改成显式路径，或删除该 `env` 项让客户端继承安全设置；含绝对路径的项目配置不要提交。
+也可使用便捷入口。它从已安装的 Python 包解析同一个 marketplace，并调用上述原生 CLI；`--project-dir` 仅为六客户端统一接口保留，Codex/Claude 不会写任何项目 MCP 配置或复制项目 Skills：
 
-### 8.3 手工 MCP 配置
+```powershell
+obsidian-vault-mcp agent install codex --dry-run
+obsidian-vault-mcp agent install codex
+obsidian-vault-mcp agent install claude --dry-run
+obsidian-vault-mcp agent install claude
+```
+
+重复执行会先通过客户端的 marketplace/plugin 列表做幂等检测。同名 marketplace 已指向另一个目录时，安装器会安全停止，不会静默改写来源。安装完成后应完全退出并重新打开 Codex Desktop/Claude Code，或启动新的 CLI 会话；已打开的会话不会自动加载新插件。Codex IDE 扩展不是这条插件安装路径。
+
+生产 ZIP 精确包含 15 个文件：两个 marketplace manifest、Codex/Claude 两个 plugin manifest、一个两端兼容的共享 `.mcp.json`、一个 Codex App 图标，以及以下 9 个 Skills：`analyze-figures`、`compare-papers`、`evidence-based-qa`、`literature-review`、`structured-paper-note`、`theory-note-synthesis`、`topic-note-synthesis`、`uncertainty-audit`、`verify-paper-claims`。插件通过共享 `.mcp.json` 暴露固定 33 个工具，不包含 Python runtime、Vault 数据、凭据或本机路径。
+
+### 8.3 OpenCode、Pi、Hermes 与 WorkBuddy
+
+这四个平台继续使用各自合适的适配方式。安装器要求对应平台命令与 `obsidian-vault-mcp` 都在 `PATH`；始终先 dry-run，再仅对选定客户端移除 `--dry-run`。Hermes 把 MCP 配置写入自身 profile，因此统一的 `--project-dir` 参数虽可传入，但会被忽略：
+
+```powershell
+obsidian-vault-mcp agent install opencode --project-dir "<PROJECT_DIR>" --dry-run
+obsidian-vault-mcp agent install pi --project-dir "<PROJECT_DIR>" --dry-run
+obsidian-vault-mcp agent install hermes --dry-run
+obsidian-vault-mcp agent install workbuddy --project-dir "<PROJECT_DIR>" --dry-run
+```
+
+| 客户端 | 生产机制 | MCP/Extension 目标 | Skill 目标 |
+|---|---|---|---|
+| Codex Desktop/CLI | 原生 marketplace plugin | 客户端管理 | 插件内 9 个 Skills |
+| Claude Code | 原生 marketplace plugin（user scope） | 客户端管理 | 插件内 9 个 Skills |
+| OpenCode | 项目配置安装器 | `opencode.json` | `.opencode/skills` 的 9 个受管 Skills |
+| Pi | 薄 TypeScript Extension | `.pi/extensions/obsidian-vault-mcp.ts` | 不安装；Extension-only |
+| Hermes | MCP-only profile 配置 | `$HERMES_HOME/config.yaml`（默认 `~/.hermes/config.yaml`） | 不安装；返回 warning |
+| WorkBuddy | MCP-only 项目配置 | `.workbuddy/mcp.json` | 不安装；返回 warning |
+
+OpenCode 的配置与 Skills 统一预检、备份、原子写入和回滚；受管 Skill 升级保留 `User Customizations`，发现受管区块被修改会在写前拒绝。Pi 始终只安装调用 JSON CLI 的薄 Extension。Hermes 与 WorkBuddy 适配器保持 MCP-only，不会写入任何 Skill 目录。Hermes profile 安装器和另外三个项目安装器都会完成一次 MCP 初始化握手；握手只证明 server 能启动，不代表 Vault、Zotero 或 MinerU 都已就绪。
+
+Codex/Claude 插件 `.mcp.json` 不硬编码 `OBSIDIAN_VAULT_PATH`，而是继承启动客户端的环境；OpenCode 与 Pi 同样继承。项目不在 Vault 内时，应在本机安全设置 `OBSIDIAN_VAULT_PATH=<VAULT_DIR>` 后重启客户端。Hermes profile 配置与 WorkBuddy 项目模板可使用 `auto`，但它只搜索进程 cwd 的父链。任何真实绝对路径都不得提交。
+
+`workbuddy` 是便捷安装器的客户端名称，不是平台可执行文件名；安装器优先探测官方 `codebuddy` 命令，并回退到 `cbc`。Hermes 的显式 `config_path` 覆盖仅供 Python 安装器 API 使用，不是 `agent install` CLI 选项。
+
+### 8.4 手工 MCP 配置
 
 原生 MCP 客户端最终都启动同一个本地进程：
 
@@ -445,22 +507,23 @@ Codex/Claude/Hermes/WorkBuddy 模板中的 `OBSIDIAN_VAULT_PATH=auto` 会覆盖�
       "command": "obsidian-vault-mcp",
       "args": ["serve", "--transport", "stdio"],
       "env": {
-        "OBSIDIAN_VAULT_PATH": "D:\\Notes\\MyVault"
+        "OBSIDIAN_VAULT_PATH": "<VAULT_DIR>"
       }
     }
   }
 }
 ```
 
-不同客户端的外层字段可能不同，安装器会生成正确格式。默认并推荐 `stdio`；SSE/streamable HTTP 没有内建认证，不要直接暴露到公共网络。
+不同客户端的外层字段可能不同。对 Codex/Claude，优先使用原生插件而不是手写项目配置；未覆盖的原生 MCP 客户端可按其文档转换外层字段。默认并推荐 `stdio`；SSE/streamable HTTP 没有内建认证，不要直接暴露到公共网络。
 
-### 8.4 可直接交给 AI 的安装提示词
+### 8.5 可直接交给 AI 的安装提示词
 
 ```text
 请安装并配置 Obsidian Vault MCP V2。任何写操作都先 dry-run。
 
-1. 检查 Python 版本至少为 3.10，并安装 zotero-obsidian-mcp==2.0.1；
-   用 importlib.metadata 验证实际安装版本，不要把旧版 1.x 当成 V2。
+1. 检查 Python 版本至少为 3.10，并用 pipx 或 uv tool 持久安装
+   zotero-obsidian-mcp==2.1.0；确认当前客户端启动环境能找到 obsidian-vault-mcp，
+   不要把旧版 1.x 当成 V2。
 2. 询问我的 Obsidian Vault 路径，确认其中存在 .obsidian；不要依赖 auto，
    不要把绝对路径提交到 Git。
 3. 依次运行 config init --dry-run、config init、config validate 和 doctor。
@@ -468,8 +531,10 @@ Codex/Claude/Hermes/WorkBuddy 模板中的 `OBSIDIAN_VAULT_PATH=auto` 会覆盖�
    不要索取 Zotero 云端 API key。
 5. 如果需要 MinerU 精准解析，让我在自己的终端运行 mineru-open-api auth；
    不要要求我在聊天中粘贴 token。
-6. 对当前 AI 客户端执行 agent install <client> --project-dir <project> --dry-run，
-   展示目标与合并结果，确认后再正式安装。
+6. Codex/Claude 使用原生 marketplace plugin；先预览 agent install <client> --dry-run，
+   再让便捷入口调用原生 CLI，禁止写项目 .mcp.json 或复制项目 Skills。
+   OpenCode/Pi/WorkBuddy 使用 --project-dir <PROJECT_DIR> 的项目适配器；Hermes 忽略
+   --project-dir，并写入 $HERMES_HOME/config.yaml（默认 ~/.hermes/config.yaml）。
 7. 安装后分别检查 doctor 的 config、zotero、mineru 子状态。
 8. 不删除现有配置、不覆盖用户笔记、不公开 Vault 内容；保存 transactionId，
    最后运行 literature_verify。
@@ -508,7 +573,7 @@ Codex/Claude/Hermes/WorkBuddy 模板中的 `OBSIDIAN_VAULT_PATH=auto` 会覆盖�
   },
   "zotero": {
     "apiBase": "http://127.0.0.1:23119/api",
-    "linkedAttachmentBaseDir": "D:\\Reference PDFs",
+    "linkedAttachmentBaseDir": "<ZOTERO_LINKED_ATTACHMENT_BASE_DIR>",
     "syncTags": true,
     "paginationSize": 100
   },
@@ -520,7 +585,22 @@ Codex/Claude/Hermes/WorkBuddy 模板中的 `OBSIDIAN_VAULT_PATH=auto` 会覆盖�
     "mode": "api",
     "markdownFolder": "Research/Literature/attachment/MinerU",
     "imageFolder": "Research/Literature/attachment/MinerU/image",
-    "maxConcurrentJobs": 2
+    "maxConcurrentJobs": 2,
+    "preserveUnlinkedImageCandidates": true,
+    "imageManifestEnabled": true,
+    "candidateCacheFolder": ".obsidian-vault-mcp/cache/mineru-assets"
+  },
+  "analysis": {
+    "folder": "Research/Literature/Analysis",
+    "index": "Research/Literature/Analysis/index.md",
+    "topicFolder": "Research/Literature/Topic",
+    "theoryFolder": "Research/Literature/Theory"
+  },
+  "evidence": {
+    "enabled": true,
+    "blockIdPrefix": "ev",
+    "maxChunkChars": 2500,
+    "overlapChars": 200
   },
   "index": {
     "autoRebuild": true,
@@ -542,8 +622,9 @@ Codex/Claude/Hermes/WorkBuddy 模板中的 `OBSIDIAN_VAULT_PATH=auto` 会覆盖�
 - `identity.strategy` 固定为 `zoteroKey`。
 - `frontmatter.fieldOrder` 是固定数据契约，不是自由排序选项。
 - `mineru.imageLinkStyle` 当前固定为 `markdown-relative`。
+- `analysis.*`、`evidence.*` 和 MinerU candidate/Manifest 字段均为已接线的 V2.1 配置；`overlapChars` 必须小于 `maxChunkChars`。
 
-以下字段保留在 schema 中，但 V2.0 的行为目前是固定的；请保持默认值，不把它们当成功能开关：`note.preserveUserSections`、`zotero.syncNotes`、`zotero.syncAnnotations`、`mineru.enabled`、`mineru.replacePreviousOutput`、`index.groupBy` 和全部 `safety.*`。例如安全事务始终启用，`safety.retainBackups` 暂不执行自动清理。
+以下字段保留在 schema 中，但 V2.1 的行为目前是固定的；请保持默认值，不把它们当成功能开关：`note.preserveUserSections`、`zotero.syncNotes`、`zotero.syncAnnotations`、`mineru.enabled`、`mineru.replacePreviousOutput`、`index.groupBy` 和全部 `safety.*`。例如安全事务始终启用，`safety.retainBackups` 暂不执行自动清理。
 
 编辑后运行：
 
@@ -648,8 +729,11 @@ obsidian-vault-mcp verify
 
 | 现象 | 检查与处理 |
 |---|---|
-| 显示旧版 CLI 或只有 17 个工具 | 用 `importlib.metadata` 检查版本；安装 `zotero-obsidian-mcp==2.0.1` |
+| 显示旧版 CLI 或缺少结构化精读工具 | 用 `pipx list` 或 `uv tool list` 检查 Agent 实际使用的持久版本；发布后安装 `zotero-obsidian-mcp==2.1.0`，本地验收安装 `<WHEEL_PATH>` |
 | 找不到 `obsidian-vault-mcp` | 用 `Get-Command`/`which` 检查 PATH；重新打开终端，或激活正确虚拟环境 |
+| Codex/Claude 已安装插件但看不到 Skills/Tools | 运行 `codex plugin list` 或 `claude plugin list` 确认插件已安装；完全关闭旧客户端并新建会话；再确认客户端启动环境能找到 `obsidian-vault-mcp` |
+| marketplace 同名但指向另一个目录 | 不要覆盖来源；先卸载 `obsidian-literature@obsidian-vault-mcp`，移除旧 marketplace，再用稳定的 `<MARKETPLACE_DIR>` 重新添加 |
+| 插件能列出但 MCP 启动失败 | 插件只携带 manifest/Skills，不携带 Python runtime；用 `pipx list`/`uv tool list` 和 `Get-Command`/`which` 检查持久安装与 GUI 进程 PATH，修复后重启客户端 |
 | `auto` 找不到 Vault | 设置显式 `OBSIDIAN_VAULT_PATH`，或从 Vault 内启动 Agent |
 | `config init` 提示已存在 | 保留原文件，编辑后运行 `config validate` |
 | Zotero 返回 403 | 启用“允许本机其他应用程序与 Zotero 通信” |
@@ -667,19 +751,41 @@ obsidian-vault-mcp verify
 
 ## 14. 更新与卸载
 
-更新同一主版本：
+先更新持久 Python 工具环境，再更新客户端插件。任选与原安装方式对应的命令：
 
 ```powershell
-python -m pip install --upgrade "zotero-obsidian-mcp>=2.0,<3"
+pipx upgrade zotero-obsidian-mcp
+# 或
+uv tool upgrade zotero-obsidian-mcp
 ```
 
-卸载 Python 包：
+本地 wheel 候选应使用 `pipx install --force "<WHEEL_PATH>"` 或 `uv tool install --force "<WHEEL_PATH>"` 替换工具环境，然后重新验证 `obsidian-vault-mcp --help`。
+
+Codex 当前没有 plugin update 子命令；更新 marketplace 内容后移除旧插件，再重新运行便捷安装。Claude Code 可更新 marketplace 与插件：
 
 ```powershell
-python -m pip uninstall zotero-obsidian-mcp
+codex plugin remove obsidian-literature@obsidian-vault-mcp --json
+obsidian-vault-mcp agent install codex
+
+claude plugin marketplace update obsidian-vault-mcp
+claude plugin update obsidian-literature@obsidian-vault-mcp --scope user
 ```
 
-Agent 安装器会在结果中的 `uninstall_instructions` 给出精确移除位置。卸载包不会删除 Vault 中的文献、PDF、Wiki 或备份；确认不再需要后再自行处理这些数据。
+安装或更新后必须完全重启 GUI 客户端或新建 CLI 会话。若新版 bundle 解压到了另一个目录，应先按下面的卸载命令移除旧 marketplace，再添加新的 `<MARKETPLACE_DIR>`，不要让同名来源静默漂移。
+
+卸载 Codex/Claude 插件；确认没有其他插件依赖此 marketplace 后，才移除 marketplace：
+
+```powershell
+codex plugin remove obsidian-literature@obsidian-vault-mcp --json
+codex plugin marketplace remove obsidian-vault-mcp --json
+
+claude plugin uninstall obsidian-literature@obsidian-vault-mcp --scope user
+claude plugin marketplace remove obsidian-vault-mcp --scope user
+```
+
+OpenCode、Pi、Hermes、WorkBuddy 的 `agent install` 结果会在 `uninstall_instructions` 中给出精确位置；只移除其中报告的项目条目、Extension 或 Hermes profile 条目，不要删除其他服务器或用户 Skills。最后可用 `pipx uninstall zotero-obsidian-mcp`、`uv tool uninstall zotero-obsidian-mcp`，或与原安装方式对应的 `python -m pip uninstall zotero-obsidian-mcp` 卸载 Python 包。
+
+卸载插件或 Python 包不会删除 Vault 中的文献、PDF、Wiki、事务或备份；确认不再需要后再单独处理这些数据。
 
 ## 15. 隐私与安全检查清单
 

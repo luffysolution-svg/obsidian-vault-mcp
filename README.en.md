@@ -22,7 +22,8 @@ Index dashboard + Obsidian Base + traceable Wiki
 - Optionally normalize a PDF through the MinerU Open API CLI into portable Markdown and relative image links.
 - Rebuild `Literature/index.md`, `Literature/Literature.base`, and source-linked Wiki pages.
 - Preview writes, lock per item, stage and back up changes, replace files atomically, and roll back a committed transaction.
-- Use the same application behavior through the CLI or the fixed 26-tool MCP surface. Codex, Claude Code, OpenCode, Pi, Hermes, and WorkBuddy installers are included.
+- Use the same application behavior through the CLI or the fixed 33-tool MCP surface. Codex, Claude Code, OpenCode, Pi, Hermes, and WorkBuddy installers are included.
+- Build an image manifest, traceable EvidenceChunks, a coverage ledger, structured Analysis notes, and reviewable uncertainties for each MinerU paper.
 
 Wiki prose is authored by the connected AI client. This project retrieves local evidence, validates the cited Zotero keys, adds source links, and writes the result safely; it does not bundle or require a particular model provider.
 
@@ -30,10 +31,11 @@ Wiki prose is authored by the connected AI client. This project retrieves local 
 
 Prerequisites: Python 3.10+, an Obsidian vault that has been opened at least once, and a running Zotero Desktop instance with its local API enabled. MinerU is optional until you need full-text parsing.
 
-Install the exact V2 release:
+Install the exact V2 release into a persistent tool environment so desktop and CLI Agents can find it on `PATH`. Use the package selector below once 2.1.0 is published to PyPI; for local production acceptance, replace it with `"<WHEEL_PATH>"`:
 
 ```bash
-python -m pip install "zotero-obsidian-mcp==2.0.1"
+pipx install "zotero-obsidian-mcp==2.1.0"
+# or: uv tool install "zotero-obsidian-mcp==2.1.0"
 ```
 
 Point the process at the actual vault. `auto` searches only the current working directory and its parents for `.obsidian`; it does not scan all vaults on the machine.
@@ -41,13 +43,13 @@ Point the process at the actual vault. `auto` searches only the current working 
 Windows PowerShell:
 
 ```powershell
-$env:OBSIDIAN_VAULT_PATH = "D:\Notes\MyVault"
+$env:OBSIDIAN_VAULT_PATH = "<VAULT_DIR>"
 ```
 
 macOS/Linux:
 
 ```bash
-export OBSIDIAN_VAULT_PATH="/home/me/Notes/MyVault"
+export OBSIDIAN_VAULT_PATH="<VAULT_DIR>"
 ```
 
 Initialize and test the pipeline:
@@ -86,6 +88,10 @@ In MinerU `auto` mode, a stored or environment token selects precision `extract`
 ├─ .obsidian-vault-mcp.json
 ├─ .obsidian-vault-mcp/
 │  ├─ state/items/ABCD1234.json
+│  ├─ state/evidence/ABCD1234.json
+│  ├─ state/uncertainties/ABCD1234.json
+│  ├─ state/coverage/ABCD1234.json
+│  ├─ cache/mineru-assets/ABCD1234/manifest.json
 │  ├─ staging/
 │  ├─ backups/
 │  └─ locks/
@@ -93,6 +99,10 @@ In MinerU `auto` mode, a stored or environment token selects precision `extract`
    ├─ index.md
    ├─ Literature.base
    ├─ ABCD1234.md
+   ├─ Analysis/ABCD1234.md
+   ├─ Analysis/index.md
+   ├─ Topic/
+   ├─ Theory/
    ├─ Wiki/
    └─ attachment/
       ├─ ABCD1234.pdf
@@ -128,18 +138,33 @@ The corrected V2 Base limits the view to canonical top-level literature notes, s
 
 </details>
 
-The [full tutorial](./docs/index.en.md#19-effect-gallery) includes all five original screenshots, including a complete main note with embedded PDF, MinerU output, and BibTeX.
+The [full tutorial](./docs/index.en.md#20-effect-gallery) includes all five original screenshots, including a complete main note with embedded PDF, MinerU output, and BibTeX.
 
 ## Connect an AI client
 
-Make sure the chosen client executable is already on `PATH`. From the project that should receive the MCP configuration, preview and then apply the merge-safe installer:
+Codex Desktop/CLI and Claude Code use the same native `obsidian-literature` plugin. It provides all 33 MCP tools and nine model-independent Skills. The plugin does not bundle the Python runtime, so first install the Python package persistently with `pipx` or `uv tool` and verify that the desktop/CLI client can resolve `obsidian-vault-mcp` on its startup `PATH`.
+
+Obtain and extract the locally built artifact or Release attachment `obsidian-vault-mcp-2.1.0-plugins.zip`. Point `<MARKETPLACE_DIR>` at the extracted root containing `.agents/`, `.claude-plugin/`, and `plugins/`, then use the native client commands:
 
 ```bash
-obsidian-vault-mcp agent install codex --project-dir "/path/to/project" --dry-run
-obsidian-vault-mcp agent install codex --project-dir "/path/to/project"
+codex plugin marketplace add "<MARKETPLACE_DIR>"
+codex plugin add obsidian-literature@obsidian-vault-mcp
+
+claude plugin marketplace add "<MARKETPLACE_DIR>" --scope user
+claude plugin install obsidian-literature@obsidian-vault-mcp --scope user
 ```
 
-Supported names are `codex`, `claude`, `opencode`, `pi`, `hermes`, and `workbuddy`. The installer backs up and merges existing configuration and then performs an MCP initialization handshake. The Codex, Claude, Hermes, and WorkBuddy templates set `OBSIDIAN_VAULT_PATH=auto`; that value is appropriate only when the client starts inside the vault tree. Otherwise replace it locally with an explicit vault path and do not commit that machine-specific value. OpenCode and Pi inherit the launching process environment.
+The convenience entry point invokes those same native CLIs and does not write a project `.mcp.json` or copy project Skills for Codex/Claude:
+
+```bash
+obsidian-vault-mcp agent install codex --dry-run
+obsidian-vault-mcp agent install codex
+# Use claude instead of codex for Claude Code.
+```
+
+Fully restart Codex Desktop/Claude Code or start a new CLI session after installation. OpenCode keeps its project `opencode.json` plus `.opencode/skills`; Pi uses the thin TypeScript Extension; Hermes and WorkBuddy remain MCP-only and explicitly warn that no unverified project Skill path is installed. Supported convenience names remain `codex`, `claude`, `opencode`, `pi`, `hermes`, and `workbuddy`.
+
+The shared plugin `.mcp.json` contains no absolute vault path and inherits the client process environment. If the project is outside the vault tree, set `OBSIDIAN_VAULT_PATH=<VAULT_DIR>` securely on the machine and restart the client; never commit the real path.
 
 After connecting, an Agent can receive a request such as:
 
@@ -157,9 +182,23 @@ Native MCP clients should use local `stdio`:
 {
   "command": "obsidian-vault-mcp",
   "args": ["serve", "--transport", "stdio"],
-  "env": {"OBSIDIAN_VAULT_PATH": "D:\\Notes\\MyVault"}
+  "env": {"OBSIDIAN_VAULT_PATH": "<VAULT_DIR>"}
 }
 ```
+
+## Structured reading and evidence retrieval
+
+V2.1 keeps all original 26 tools and adds seven model-independent tools: `literature_paper_read`, `literature_analysis_context`, `literature_analysis_write`, `literature_uncertainty_list`, `literature_uncertainty_resolve`, `literature_rebuild_analysis_index`, and `literature_retrieve`.
+
+```bash
+obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"targeted","query":"charge transfer mechanism","record_coverage":true}'
+obsidian-vault-mcp call literature_analysis_context --json '{"zotero_key":"ABCD1234","include_figures":true}'
+obsidian-vault-mcp call literature_retrieve --json '{"query":"CdS nickel cocatalyst","scope":{"zotero_keys":["ABCD1234"]},"depth":"evidence","record_coverage":true}'
+```
+
+The server returns original evidence, asset status, coverage boundaries, and safe writeback. It does not generate paper conclusions. Evidence rebuilds physically write deterministic `^ev-*` block IDs into derived MinerU Markdown, so `literature_verify` can validate that every `sourceLink` has a real anchor. An `assetId` identifies an image asset; paper facts still need an `evidenceId`. A MinerU candidate is never labelled visually verified without reliable PDF evidence.
+
+Read tools are non-writing by default. Pass `record_coverage=true` explicitly to update the Coverage Ledger. A single-paper read then returns `coverageLedger`; cross-paper retrieval returns a ledger result and real `transactionId` for each paper. Use `coverage_dry_run=true` for previews and `coverage_transaction_id` for a recognizable transaction prefix. Coverage describes what was read and is never paper evidence.
 
 ## Safety boundaries
 
@@ -185,10 +224,12 @@ obsidian-vault-mcp rollback <transaction-id>
 
 Rollback refuses to overwrite a file changed after the transaction. Use `--conflict-policy overwrite-managed` only after consciously accepting that overwrite.
 
+V2.1 incrementally adds `mineruAssetRoot` and `collectionKeys` to legacy item state. The first field lets a `candidateCacheFolder` change migrate that paper's Manifest/candidate cache transactionally; the second enables `literature_retrieve.scope.collection_key` filtering from known Zotero membership. No manual rewrite is required: later import, sync, or MinerU parsing updates these fields from actual state, and the changes remain rollback-capable.
+
 ## Documentation and names
 
 - [Full English tutorial](./docs/index.en.md): software downloads, local API setup, optional components, source/PyPI installation, all six Agent clients, configuration, end-to-end use, screenshots, migration, and troubleshooting.
-- [English developer guide](./DEVELOPMENT.en.md): architecture, contracts, 26 tools, tests, packaging, release procedure, security, and current limitations.
+- [English developer guide](./DEVELOPMENT.en.md): architecture, contracts, 33 tools, tests, packaging, release procedure, security, and current limitations.
 - [中文用户文档](./README.md) · [中文完整教程](./docs/index.md) · [中文开发者文档](./DEVELOPMENT.md)
 
 ## Contributors
@@ -202,5 +243,7 @@ Thanks to [方珸 / Lym Fang (@LimFang)](https://github.com/LimFang) for identif
 | Python import | `obsidian_vault_mcp` |
 | CLI | `obsidian-vault-mcp` |
 | MCP server | `obsidian-literature` |
+| Plugin marketplace | `obsidian-vault-mcp` |
+| Codex/Claude plugin | `obsidian-literature` |
 
 Report problems through [GitHub Issues](https://github.com/luffysolution-svg/obsidian-vault-mcp/issues). Licensed under the [MIT License](./LICENSE).

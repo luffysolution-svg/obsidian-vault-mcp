@@ -1,0 +1,39 @@
+{
+  "name": "obsidian-literature",
+  "version": "2.1.0",
+  "description": "Precise Zotero, MinerU, and Obsidian literature workflows",
+  "author": {
+    "name": "Obsidian Vault MCP Contributors",
+    "url": "https://github.com/luffysolution-svg/obsidian-vault-mcp"
+  },
+  "homepage": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+  "repository": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+  "license": "MIT",
+  "keywords": [
+    "obsidian",
+    "zotero",
+    "mineru",
+    "literature"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Obsidian Literature",
+    "shortDescription": "Precise Zotero-to-Obsidian literature workflows",
+    "longDescription": "Import, analyze, compare, verify, and synthesize Zotero papers in an Obsidian vault with MinerU-backed evidence and image checks.",
+    "developerName": "Obsidian Vault MCP Contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "brandColor": "#6D5CE7",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/icon.svg",
+    "defaultPrompt": [
+      "Import and analyze one Zotero paper precisely.",
+      "Compare selected Zotero papers with traceable evidence.",
+      "Verify paper claims and extracted figures in my vault."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}
