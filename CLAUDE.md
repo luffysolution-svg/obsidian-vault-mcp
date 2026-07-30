@@ -10,7 +10,7 @@ This repository implements a local Zotero → MinerU → Obsidian literature wor
 - MinerU output uses `Literature/attachment/MinerU/{zoteroKey}.md` and `image/{zoteroKey}/{zoteroKey}-figNN.ext`.
 - Analysis supports only `full_read`, `literature_review`, `passage_qa`, `figure_qa`, and `concept`.
 - `Literature/Analysis/Analysis.base` is the only Analysis database.
-- The public MCP surface contains exactly 30 tools.
+- The public MCP surface contains exactly 31 tools, including the read-only `literature_version` contract tool.
 - The plugin distributes exactly 7 Skills: `paper-qa`, `full-read`, `passage-qa`, `figure-qa`, `compare-papers`, `literature-review`, and `concept-learning`.
 - Read operations must not perform hidden writes.
 - Writes must support dry-run, path checks, locks, backups, transactions, atomic replacement, and rollback where applicable.
