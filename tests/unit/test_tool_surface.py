@@ -6,6 +6,7 @@ from obsidian_vault_mcp.interfaces.mcp.server import create_server
 from obsidian_vault_mcp.interfaces.mcp.tools import TOOL_FUNCTIONS
 
 PRODUCTION_TOOLS = {
+    "literature_version",
     "literature_doctor",
     "literature_config_get",
     "literature_config_validate",
@@ -43,13 +44,24 @@ def test_exact_production_tool_surface() -> None:
     actual = {function.__name__ for function in TOOL_FUNCTIONS}
 
     assert actual == PRODUCTION_TOOLS
-    assert len(TOOL_FUNCTIONS) == 30
+    assert len(TOOL_FUNCTIONS) == 31
     assert all(function.__doc__ for function in TOOL_FUNCTIONS)
     assert not {name for name in actual if "migrat" in name}
 
 
+def test_version_tool_reports_public_contract() -> None:
+    by_name = {function.__name__: function for function in TOOL_FUNCTIONS}
+    payload = by_name["literature_version"]()
+
+    assert payload["version"] == "3.0.0"
+    assert payload["mcpToolCount"] == 31
+    assert payload["skillCount"] == 7
+    assert payload["analysisTypes"] == ["full_read", "literature_review", "passage_qa", "figure_qa", "concept"]
+
+
 def test_all_production_tools_have_precise_behavior_annotations() -> None:
     read_only = {
+        "literature_version",
         "literature_doctor",
         "literature_config_get",
         "literature_config_validate",
@@ -75,7 +87,7 @@ def test_all_production_tools_have_precise_behavior_annotations() -> None:
     tools = asyncio.run(create_server().list_tools())
     annotations = {tool.name: tool.annotations for tool in tools}
 
-    assert len(annotations) == 30
+    assert len(annotations) == 31
     assert set(annotations) == PRODUCTION_TOOLS
     assert {name for name, value in annotations.items() if value and value.readOnlyHint} == read_only
     assert {name for name, value in annotations.items() if value and value.destructiveHint} == destructive
