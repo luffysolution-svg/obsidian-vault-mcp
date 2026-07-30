@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ....application.analysis_index_service import AnalysisIndexService
+from ....application.analysis_base_service import AnalysisBaseService
 from ....application.analysis_service import AnalysisService
 from ....application.base_service import BaseService
 from ....application.config_service import ConfigService
@@ -14,23 +14,22 @@ from ....application.paper_read_service import PaperReadService
 from ....application.retrieval_service import RetrievalService
 from ....application.sync_service import SyncService
 from ....application.transaction_service import TransactionService
-from ....application.uncertainty_service import UncertaintyService
 from ....application.zotero_service import ZoteroQueryService
 from ...common import resolve_vault
 
 
 def literature_doctor(vault_path: str = "") -> dict[str, Any]:
-    """Check Vault, V2 configuration, Zotero, MinerU, and transaction directories."""
+    """Check Vault configuration, Zotero status, MinerU availability, and the exposed tool list."""
     return DoctorService(resolve_vault(vault_path)).run(tool_names=[function.__name__ for function in TOOL_FUNCTIONS])
 
 
 def literature_config_get(vault_path: str = "") -> dict[str, Any]:
-    """Return the validated effective V2 Vault configuration."""
+    """Return the validated effective Vault configuration."""
     return ConfigService(resolve_vault(vault_path)).get()
 
 
 def literature_config_validate(config_json: str = "", vault_path: str = "") -> dict[str, Any]:
-    """Validate supplied JSON or the Vault's single V2 configuration file."""
+    """Validate supplied JSON or the Vault's single configuration file."""
     return ConfigService(resolve_vault(vault_path)).validate(config_json or None)
 
 
@@ -40,7 +39,7 @@ def literature_config_initialize(
     transaction_id: str = "",
     conflict_policy: str = "preserve-user",
 ) -> dict[str, Any]:
-    """Create the one V2 Vault config through the transaction engine."""
+    """Create the one Vault configuration through the transaction engine."""
     return ConfigService(resolve_vault(vault_path)).initialize(
         dry_run=dry_run,
         transaction_id=transaction_id or None,
@@ -207,19 +206,16 @@ def literature_verify(vault_path: str = "") -> dict[str, Any]:
 
 def literature_paper_read(
     zotero_key: str,
+    vault_path: str = "",
     mode: str = "overview",
     query: str = "",
     query_variants: list[str] | None = None,
     sections: list[str] | None = None,
-    max_chars: int = 12000,
+    max_chars: int = 12_000,
     top_k: int = 8,
     include_images: bool = False,
-    record_coverage: bool = False,
-    coverage_dry_run: bool = False,
-    coverage_transaction_id: str = "",
-    vault_path: str = "",
 ) -> dict[str, Any]:
-    """Read one paper as bounded overview, targeted, section, full, or figure evidence."""
+    """Read bounded, source-linked text or figures from one paper without persisting derived state."""
     return PaperReadService(resolve_vault(vault_path)).read(
         zotero_key,
         mode=mode,
@@ -229,120 +225,12 @@ def literature_paper_read(
         max_chars=max_chars,
         top_k=top_k,
         include_images=include_images,
-        record_coverage=record_coverage,
-        coverage_dry_run=coverage_dry_run,
-        coverage_transaction_id=coverage_transaction_id or None,
-    )
-
-
-def literature_analysis_context(
-    zotero_key: str,
-    template: str = "structured-reading",
-    focus: str = "",
-    max_chars: int = 30000,
-    include_existing_analysis: bool = True,
-    include_zotero_notes: bool = True,
-    include_uncertainties: bool = True,
-    include_figures: bool = True,
-    vault_path: str = "",
-) -> dict[str, Any]:
-    """Organize original evidence for a 13-section Agent-authored paper analysis."""
-    return AnalysisService(resolve_vault(vault_path)).context(
-        zotero_key,
-        template=template,
-        focus=focus,
-        max_chars=max_chars,
-        include_existing_analysis=include_existing_analysis,
-        include_zotero_notes=include_zotero_notes,
-        include_uncertainties=include_uncertainties,
-        include_figures=include_figures,
-    )
-
-
-def literature_analysis_write(
-    zotero_key: str,
-    sections: dict[str, Any] | list[dict[str, Any]] | None = None,
-    uncertainties: list[dict[str, Any]] | None = None,
-    embed_asset_ids: list[str] | None = None,
-    updated_at: str = "",
-    vault_path: str = "",
-    dry_run: bool = False,
-    transaction_id: str = "",
-    conflict_policy: str = "preserve-user",
-) -> dict[str, Any]:
-    """Validate evidence anchors and transactionally write one structured Analysis note."""
-    return AnalysisService(resolve_vault(vault_path)).write(
-        zotero_key,
-        sections,
-        uncertainties=uncertainties,
-        embed_asset_ids=embed_asset_ids or (),
-        updated_at=updated_at or None,
-        dry_run=dry_run,
-        transaction_id=transaction_id or None,
-        conflict_policy=conflict_policy,
-    )
-
-
-def literature_uncertainty_list(
-    zotero_key: str,
-    statuses: list[str] | None = None,
-    include_history: bool = True,
-    vault_path: str = "",
-) -> dict[str, Any]:
-    """List pending or resolved uncertainty items and their audit history."""
-    return UncertaintyService(resolve_vault(vault_path)).list(
-        zotero_key,
-        statuses=statuses or (),
-        include_history=include_history,
-    )
-
-
-def literature_uncertainty_resolve(
-    zotero_key: str,
-    uncertainty_id: str,
-    status: str,
-    evidence_ids: list[str] | None = None,
-    asset_ids: list[str] | None = None,
-    revised_claim: str = "",
-    resolution_note: str = "",
-    resolved_at: str = "",
-    vault_path: str = "",
-    dry_run: bool = False,
-    transaction_id: str = "",
-    conflict_policy: str = "preserve-user",
-) -> dict[str, Any]:
-    """Resolve one uncertainty with validated evidence and an append-only audit event."""
-    return UncertaintyService(resolve_vault(vault_path)).resolve(
-        zotero_key,
-        uncertainty_id,
-        status,
-        evidence_ids=evidence_ids or (),
-        asset_ids=asset_ids or (),
-        revised_claim=revised_claim,
-        resolution_note=resolution_note,
-        resolved_at=resolved_at or None,
-        dry_run=dry_run,
-        transaction_id=transaction_id or None,
-        conflict_policy=conflict_policy,
-    )
-
-
-def literature_rebuild_analysis_index(
-    vault_path: str = "",
-    dry_run: bool = False,
-    transaction_id: str = "",
-    conflict_policy: str = "preserve-user",
-) -> dict[str, Any]:
-    """Deterministically rebuild Literature/Analysis/index.md from Analysis notes."""
-    return AnalysisIndexService(resolve_vault(vault_path)).rebuild(
-        dry_run=dry_run,
-        transaction_id=transaction_id or None,
-        conflict_policy=conflict_policy,
     )
 
 
 def literature_retrieve(
     query: str = "",
+    vault_path: str = "",
     query_variants: list[str] | None = None,
     scope: dict[str, Any] | None = None,
     intent: str = "summarize",
@@ -352,16 +240,12 @@ def literature_retrieve(
     max_snippet_papers: int = 15,
     per_paper_top_k: int = 3,
     max_total_snippets: int = 40,
-    record_coverage: bool = False,
-    coverage_dry_run: bool = False,
-    coverage_transaction_id: str = "",
-    vault_path: str = "",
 ) -> dict[str, Any]:
-    """Retrieve bounded cross-paper metadata and original evidence with an honest frontier."""
+    """Retrieve bounded paper matches and source passages with request-local coverage only."""
     return RetrievalService(resolve_vault(vault_path)).retrieve(
         query,
-        query_variants=query_variants or (),
-        scope=scope or {},
+        query_variants=query_variants,
+        scope=scope,
         intent=intent,
         depth=depth,
         methods=methods,
@@ -369,9 +253,56 @@ def literature_retrieve(
         max_snippet_papers=max_snippet_papers,
         per_paper_top_k=per_paper_top_k,
         max_total_snippets=max_total_snippets,
-        record_coverage=record_coverage,
-        coverage_dry_run=coverage_dry_run,
-        coverage_transaction_id=coverage_transaction_id or None,
+    )
+
+
+def literature_analysis_get(
+    vault_path: str = "",
+    analysis_id: str = "",
+    analysis_type: str = "",
+    source_key: str = "",
+    question: str = "",
+) -> dict[str, Any]:
+    """Get Analysis notes by stable ID, type, source key, or duplicate-question lookup."""
+    return AnalysisService(resolve_vault(vault_path)).get(
+        analysis_id=analysis_id or None,
+        analysis_type=analysis_type or None,
+        source_key=source_key or None,
+        question=question or None,
+    )
+
+
+def literature_analysis_write(
+    fields: dict[str, Any],
+    managed_content: str,
+    vault_path: str = "",
+    dry_run: bool = False,
+    transaction_id: str = "",
+    conflict_policy: str = "preserve-user",
+    reviewed_by_user: bool = False,
+) -> dict[str, Any]:
+    """Validate and transactionally write one Analysis note while preserving user-owned content."""
+    return AnalysisService(resolve_vault(vault_path)).write(
+        fields,
+        managed_content,
+        dry_run=dry_run,
+        transaction_id=transaction_id or None,
+        conflict_policy=conflict_policy,
+        reviewed_by_user=reviewed_by_user,
+    )
+
+
+def literature_rebuild_analysis_base(
+    vault_path: str = "",
+    dry_run: bool = False,
+    transaction_id: str = "",
+    conflict_policy: str = "preserve-user",
+) -> dict[str, Any]:
+    """Create or upgrade the single nine-view Literature/Analysis/Analysis.base file."""
+    return AnalysisBaseService(resolve_vault(vault_path)).rebuild(
+        dry_run=dry_run,
+        transaction_id=transaction_id or None,
+        conflict_policy=conflict_policy,
     )
 
 
@@ -469,12 +400,10 @@ TOOL_FUNCTIONS = (
     literature_rebuild_base,
     literature_verify,
     literature_paper_read,
-    literature_analysis_context,
-    literature_analysis_write,
-    literature_uncertainty_list,
-    literature_uncertainty_resolve,
-    literature_rebuild_analysis_index,
     literature_retrieve,
+    literature_analysis_get,
+    literature_analysis_write,
+    literature_rebuild_analysis_base,
     literature_wiki_context,
     literature_wiki_write,
     literature_wiki_list,

@@ -26,7 +26,6 @@ _ALLOWED_KEYS: dict[str, set[str]] = {
         "bibtex",
         "mineru",
         "analysis",
-        "evidence",
         "index",
         "base",
         "safety",
@@ -60,12 +59,16 @@ _ALLOWED_KEYS: dict[str, set[str]] = {
         "imageLinkStyle",
         "replacePreviousOutput",
         "maxConcurrentJobs",
-        "preserveUnlinkedImageCandidates",
-        "imageManifestEnabled",
-        "candidateCacheFolder",
     },
-    "analysis": {"folder", "index", "topicFolder", "theoryFolder"},
-    "evidence": {"enabled", "blockIdPrefix", "maxChunkChars", "overlapChars"},
+    "analysis": {
+        "folder",
+        "base",
+        "fullReadsFolder",
+        "reviewsFolder",
+        "passageQaFolder",
+        "figureQaFolder",
+        "conceptsFolder",
+    },
     "index": {"autoRebuild", "recentLimit", "groupBy"},
     "base": {"autoRebuild", "name"},
     "safety": {
@@ -224,13 +227,6 @@ CONFIG_SCHEMA: dict[str, Any] = {
                 },
                 "replacePreviousOutput": {"type": "boolean", "default": True},
                 "maxConcurrentJobs": {"type": "integer", "minimum": 1, "maximum": 64, "default": 2},
-                "preserveUnlinkedImageCandidates": {"type": "boolean", "default": True},
-                "imageManifestEnabled": {"type": "boolean", "default": True},
-                "candidateCacheFolder": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": ".obsidian-vault-mcp/cache/mineru-assets",
-                },
             },
         },
         "analysis": {
@@ -238,21 +234,41 @@ CONFIG_SCHEMA: dict[str, Any] = {
             "additionalProperties": False,
             "default": DEFAULT_CONFIG["analysis"],
             "properties": {
-                "folder": {"type": "string", "minLength": 1, "default": "Literature/Analysis"},
-                "index": {"type": "string", "minLength": 1, "default": "Literature/Analysis/index.md"},
-                "topicFolder": {"type": "string", "minLength": 1, "default": "Literature/Topic"},
-                "theoryFolder": {"type": "string", "minLength": 1, "default": "Literature/Theory"},
-            },
-        },
-        "evidence": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["evidence"],
-            "properties": {
-                "enabled": {"type": "boolean", "default": True},
-                "blockIdPrefix": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,31}$", "default": "ev"},
-                "maxChunkChars": {"type": "integer", "minimum": 256, "maximum": 100000, "default": 2500},
-                "overlapChars": {"type": "integer", "minimum": 0, "maximum": 10000, "default": 200},
+                "folder": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "Literature/Analysis",
+                },
+                "base": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "Literature/Analysis/Analysis.base",
+                },
+                "fullReadsFolder": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "Literature/Analysis/full-reads",
+                },
+                "reviewsFolder": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "Literature/Analysis/reviews",
+                },
+                "passageQaFolder": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "Literature/Analysis/qa/passages",
+                },
+                "figureQaFolder": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "Literature/Analysis/qa/figures",
+                },
+                "conceptsFolder": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "Literature/Analysis/concepts",
+                },
             },
         },
         "index": {
@@ -339,11 +355,13 @@ def _validate_paths(config: dict[str, Any]) -> None:
         ("attachments", "pdfFolder"),
         ("mineru", "markdownFolder"),
         ("mineru", "imageFolder"),
-        ("mineru", "candidateCacheFolder"),
         ("analysis", "folder"),
-        ("analysis", "index"),
-        ("analysis", "topicFolder"),
-        ("analysis", "theoryFolder"),
+        ("analysis", "base"),
+        ("analysis", "fullReadsFolder"),
+        ("analysis", "reviewsFolder"),
+        ("analysis", "passageQaFolder"),
+        ("analysis", "figureQaFolder"),
+        ("analysis", "conceptsFolder"),
     )
     for section, name in path_fields:
         value = _expect_string(config[section][name], f"{section}.{name}", non_empty=True)
@@ -353,10 +371,28 @@ def _validate_paths(config: dict[str, Any]) -> None:
             raise ConfigurationError(f"invalid {section}.{name}: {exc}") from exc
     if config["literature"]["index"] == config["literature"]["base"]:
         raise ConfigurationError("literature.index and literature.base must be different files")
-    if config["analysis"]["folder"] == config["literature"]["root"]:
-        raise ConfigurationError("analysis.folder must not equal literature.root")
-    if config["analysis"]["index"] in {config["literature"]["index"], config["literature"]["base"]}:
-        raise ConfigurationError("analysis.index must not replace the literature index or Base file")
+    analysis = config["analysis"]
+    if not analysis["base"].lower().endswith(".base"):
+        raise ConfigurationError("analysis.base must be a .base file")
+    for name in (
+        "base",
+        "fullReadsFolder",
+        "reviewsFolder",
+        "passageQaFolder",
+        "figureQaFolder",
+        "conceptsFolder",
+    ):
+        if not _is_inside(analysis[name], analysis["folder"]):
+            raise ConfigurationError(f"analysis.{name} must stay inside analysis.folder")
+    folders = [
+        analysis["fullReadsFolder"],
+        analysis["reviewsFolder"],
+        analysis["passageQaFolder"],
+        analysis["figureQaFolder"],
+        analysis["conceptsFolder"],
+    ]
+    if len({value.casefold() for value in folders}) != len(folders):
+        raise ConfigurationError("analysis subfolders must be distinct")
 
 
 def _validate_identity_and_naming(config: dict[str, Any]) -> None:
@@ -434,25 +470,9 @@ def _validate_scalar_sections(config: dict[str, Any]) -> None:
     mineru = config["mineru"]
     _expect_bool(mineru["enabled"], "mineru.enabled")
     _expect_bool(mineru["replacePreviousOutput"], "mineru.replacePreviousOutput")
-    _expect_bool(mineru["preserveUnlinkedImageCandidates"], "mineru.preserveUnlinkedImageCandidates")
-    _expect_bool(mineru["imageManifestEnabled"], "mineru.imageManifestEnabled")
     _expect_enum(mineru["mode"], "mineru.mode", {"auto", "local", "api"})
     _expect_enum(mineru["imageLinkStyle"], "mineru.imageLinkStyle", {"markdown-relative"})
     _expect_int(mineru["maxConcurrentJobs"], "mineru.maxConcurrentJobs", minimum=1, maximum=64)
-
-    analysis = config["analysis"]
-    if analysis["folder"] == analysis["index"]:
-        raise ConfigurationError("analysis.folder and analysis.index must be different paths")
-
-    evidence = config["evidence"]
-    _expect_bool(evidence["enabled"], "evidence.enabled")
-    prefix = _expect_string(evidence["blockIdPrefix"], "evidence.blockIdPrefix", non_empty=True)
-    if not prefix[0].isalpha() or any(not (character.isascii() and (character.isalnum() or character in "_-")) for character in prefix) or len(prefix) > 32:
-        raise ConfigurationError("evidence.blockIdPrefix must start with a letter and contain at most 32 ASCII letters, numbers, underscores, or hyphens")
-    max_chunk_chars = _expect_int(evidence["maxChunkChars"], "evidence.maxChunkChars", minimum=256, maximum=100_000)
-    overlap_chars = _expect_int(evidence["overlapChars"], "evidence.overlapChars", minimum=0, maximum=10_000)
-    if overlap_chars >= max_chunk_chars:
-        raise ConfigurationError("evidence.overlapChars must be smaller than evidence.maxChunkChars")
 
     index = config["index"]
     _expect_bool(index["autoRebuild"], "index.autoRebuild")
@@ -476,6 +496,10 @@ def _validate_scalar_sections(config: dict[str, Any]) -> None:
     ):
         _expect_bool(safety[name], f"safety.{name}")
     _expect_int(safety["retainBackups"], "safety.retainBackups", minimum=0, maximum=10_000)
+
+
+def _is_inside(path: str, folder: str) -> bool:
+    return path == folder or path.startswith(f"{folder}/")
 
 
 def _reject_unknown(mapping: Mapping[str, Any], section: str) -> None:

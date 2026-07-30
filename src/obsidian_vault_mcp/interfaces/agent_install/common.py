@@ -23,6 +23,7 @@ from ... import __version__
 SERVER_NAME = "obsidian-literature"
 SERVER_COMMAND = "obsidian-vault-mcp"
 SERVER_ARGS = ("serve", "--transport", "stdio")
+SERVER_TOOL_COUNT = 31
 
 ConfigFormat = Literal["json", "yaml"]
 Which = Callable[[str], str | None]
@@ -202,6 +203,7 @@ def install_native_plugin(
     plugin_records_key: str | None,
     plugin_id_keys: Sequence[str],
     uninstall_instructions: str,
+    upgrade_instructions: str,
     plugin_required_fields: Mapping[str, Any] | None = None,
     dry_run: bool = False,
     which: Which | None = None,
@@ -266,9 +268,16 @@ def install_native_plugin(
     }
     if installed_versions and installed_versions != {version}:
         found = ", ".join(sorted(installed_versions))
+        if len(installed_versions) == 1:
+            installed_version = next(iter(installed_versions))
+            if _stable_version_tuple(installed_version) > _stable_version_tuple(version):
+                raise AgentInstallError(
+                    f"{client} plugin {PLUGIN_SELECTOR} is installed at newer version "
+                    f"{installed_version}; refusing to downgrade it to bundle version {version}."
+                )
         raise AgentInstallError(
             f"{client} plugin {PLUGIN_SELECTOR} is installed at version {found}, but this bundle is {version}. "
-            "Use the documented native update or remove-and-reinstall flow before rerunning the installer."
+            f"Upgrade it explicitly, then rerun the installer: {upgrade_instructions}"
         )
     plugin_preexisting = bool(matching_plugins)
 
@@ -389,6 +398,15 @@ def detect_client(executable: str, *, which: Which | None = None) -> str | None:
     detector = shutil.which if which is None else which
     detected = detector(executable)
     return os.fspath(detected) if detected else None
+
+
+def _stable_version_tuple(value: str) -> tuple[int, int, int]:
+    """Return a comparable stable version tuple or a neutral value for foreign formats."""
+
+    parts = value.split(".")
+    if len(parts) == 3 and all(part.isascii() and part.isdigit() for part in parts):
+        return int(parts[0]), int(parts[1]), int(parts[2])
+    return (0, 0, 0)
 
 
 def require_client(executable: str, *, which: Which | None = None) -> str:
@@ -514,9 +532,10 @@ def mcp_stdio_handshake(
     command: str = SERVER_COMMAND,
     args: Sequence[str] = SERVER_ARGS,
     timeout: float = 10.0,
+    expected_tool_count: int = SERVER_TOOL_COUNT,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> bool:
-    """Start the configured server and perform one bounded MCP initialize request."""
+    """Initialize the configured server and require the production tool surface."""
 
     initialize = {
         "jsonrpc": "2.0",
@@ -528,25 +547,73 @@ def mcp_stdio_handshake(
             "clientInfo": {"name": "obsidian-vault-mcp-installer", "version": __version__},
         },
     }
-    try:
-        completed = runner(
-            [command, *args],
-            input=json.dumps(initialize, separators=(",", ":")) + "\n",
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return False
-
-    for line in completed.stdout.splitlines():
+    initialized = {
+        "jsonrpc": "2.0",
+        "method": "notifications/initialized",
+        "params": {},
+    }
+    tools_list = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list",
+        "params": {},
+    }
+    request_stream = "".join(
+        json.dumps(message, separators=(",", ":")) + "\n"
+        for message in (initialize, initialized, tools_list)
+    )
+    for _attempt in range(2):
         try:
-            response = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(response, dict) and response.get("id") == 1:
-            return "result" in response and "error" not in response
+            completed = runner(
+                [command, *args],
+                input=request_stream,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+        if completed.returncode != 0:
+            return False
+        initialize_seen = False
+        tools_seen = False
+        initialize_ok = False
+        tools_ok = False
+        for line in completed.stdout.splitlines():
+            try:
+                response = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(response, dict):
+                continue
+            response_id = response.get("id")
+            if response_id == 1:
+                initialize_seen = True
+                initialize_ok = (
+                    "error" not in response
+                    and isinstance(response.get("result"), dict)
+                )
+            elif response_id == 2:
+                tools_seen = True
+                if "error" in response:
+                    continue
+                result = response.get("result")
+                tools = result.get("tools") if isinstance(result, dict) else None
+                names = [
+                    tool.get("name")
+                    for tool in tools
+                    if isinstance(tool, dict) and isinstance(tool.get("name"), str)
+                ] if isinstance(tools, list) else []
+                tools_ok = (
+                    len(names) == expected_tool_count
+                    and len(set(names)) == expected_tool_count
+                )
+        if initialize_ok and tools_ok:
+            return True
+        if (initialize_seen and not initialize_ok) or (tools_seen and not tools_ok):
+            return False
     return False
 
 

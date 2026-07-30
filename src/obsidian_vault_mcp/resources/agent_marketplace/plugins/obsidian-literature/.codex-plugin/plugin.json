@@ -1,7 +1,7 @@
 {
   "name": "obsidian-literature",
-  "version": "2.1.0",
-  "description": "Precise Zotero, MinerU, and Obsidian literature workflows",
+  "version": "3.0.0",
+  "description": "Focused paper reading and structured literature analysis",
   "author": {
     "name": "Obsidian Vault MCP Contributors",
     "url": "https://github.com/luffysolution-svg/obsidian-vault-mcp"
@@ -18,8 +18,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Obsidian Literature",
-    "shortDescription": "Precise Zotero-to-Obsidian literature workflows",
-    "longDescription": "Import, analyze, compare, verify, and synthesize Zotero papers in an Obsidian vault with MinerU-backed evidence and image checks.",
+    "shortDescription": "Read papers and build structured Obsidian analyses",
+    "longDescription": "Read, locate, compare, review, and learn from Zotero papers, then safely write typed analyses and one Analysis Base in an Obsidian vault.",
     "developerName": "Obsidian Vault MCP Contributors",
     "category": "Productivity",
     "capabilities": [
@@ -30,9 +30,9 @@
     "composerIcon": "./assets/icon.svg",
     "logo": "./assets/icon.svg",
     "defaultPrompt": [
-      "Import and analyze one Zotero paper precisely.",
-      "Compare selected Zotero papers with traceable evidence.",
-      "Verify paper claims and extracted figures in my vault."
+      "Explain one Zotero paper at the depth I request.",
+      "Compare selected papers on my stated dimensions.",
+      "Build a structured literature review or concept note."
     ]
   },
   "mcpServers": "./.mcp.json"

@@ -183,9 +183,16 @@ class ImportService:
         state_changed = not state or state.get("zoteroVersion") != version or core_changed
         imported_at = ItemState.utc_now() if state_changed else str(state.get("lastImportedAt") or "")
         parent_collections = parent.get("collections")
-        if isinstance(parent_collections, Sequence) and not isinstance(parent_collections, (str, bytes)):
-            saved_collections = {str(value) for value in parent_collections if str(value)}
-            saved_collections.update(str(value) for value in collection_keys if str(value))
+        if isinstance(parent_collections, Sequence) and not isinstance(
+            parent_collections,
+            (str, bytes),
+        ):
+            saved_collections = {
+                str(value) for value in parent_collections if str(value)
+            }
+            saved_collections.update(
+                str(value) for value in collection_keys if str(value)
+            )
         else:
             saved_collections = {
                 *(str(value) for value in state.get("collectionKeys") or ()),
@@ -197,7 +204,6 @@ class ImportService:
             note_path=note_path,
             pdf_path=pdf_path,
             mineru_path=mineru_path,
-            mineru_asset_root=str(state.get("mineruAssetRoot") or ""),
             collection_keys=sorted(saved_collections),
             source_pdf_path=str(source_pdf) if source_pdf else str(state.get("sourcePdfPath") or ""),
             source_pdf_sha256=source_sha,

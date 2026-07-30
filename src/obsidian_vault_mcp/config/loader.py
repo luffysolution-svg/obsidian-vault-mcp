@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from ..adapters.vault.atomic_writer import atomic_write_text
+from ..adapters.vault.filesystem import VaultFilesystem, VaultPathSafetyError
 from ..domain.errors import ConfigurationError
 from .defaults import CONFIG_FILENAME, default_config
 from .schema import validate_config
@@ -25,17 +25,23 @@ def load_config(
 ) -> dict[str, Any]:
     """Read, strictly parse, validate, and normalize the one V2 config file."""
 
-    path = config_path(vault_path)
-    if not path.exists():
+    root = Path(vault_path).expanduser().resolve()
+    path = root / CONFIG_FILENAME
+    filesystem = VaultFilesystem(root)
+    try:
+        content = filesystem.read_bytes_owned(CONFIG_FILENAME)
+    except FileNotFoundError:
         if require_exists:
             raise ConfigurationError(f"configuration file does not exist: {path}")
         return default_config()
+    except (OSError, VaultPathSafetyError) as exc:
+        raise ConfigurationError(f"could not read {CONFIG_FILENAME}: {exc}") from exc
     try:
-        text = path.read_text(encoding="utf-8-sig")
+        text = content.decode("utf-8-sig")
         raw = json.loads(text, object_pairs_hook=_unique_object)
     except ConfigurationError:
         raise
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+    except (UnicodeError, json.JSONDecodeError) as exc:
         raise ConfigurationError(f"could not read {CONFIG_FILENAME}: {exc}") from exc
     return validate_config(raw)
 
@@ -44,9 +50,15 @@ def save_config(vault_path: str | os.PathLike[str], config: Mapping[str, Any]) -
     """Validate then atomically save canonical UTF-8 JSON."""
 
     normalized = validate_config(config)
-    path = config_path(vault_path)
-    atomic_write_text(path, json.dumps(normalized, ensure_ascii=False, indent=2) + "\n")
-    return path
+    root = Path(vault_path).expanduser().resolve()
+    filesystem = VaultFilesystem(root)
+    payload = (json.dumps(normalized, ensure_ascii=False, indent=2) + "\n").encode(
+        "utf-8"
+    )
+    try:
+        return filesystem.atomic_write_bytes_owned(CONFIG_FILENAME, payload)
+    except (OSError, VaultPathSafetyError) as exc:
+        raise ConfigurationError(f"could not write {CONFIG_FILENAME}: {exc}") from exc
 
 
 def initialize_config(
@@ -60,7 +72,12 @@ def initialize_config(
     if not root.is_dir():
         raise ConfigurationError(f"Vault path is not a directory: {root}")
     path = root / CONFIG_FILENAME
-    if path.exists() and not overwrite:
+    filesystem = VaultFilesystem(root)
+    try:
+        exists = filesystem.is_file_owned(CONFIG_FILENAME)
+    except (OSError, VaultPathSafetyError) as exc:
+        raise ConfigurationError(f"unsafe configuration path: {path}") from exc
+    if exists and not overwrite:
         raise ConfigurationError(f"configuration file already exists: {path}")
     return save_config(root, default_config())
 

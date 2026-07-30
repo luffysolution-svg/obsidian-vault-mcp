@@ -116,7 +116,6 @@ class ItemState:
     note_path: str = ""
     pdf_path: str = ""
     mineru_path: str = ""
-    mineru_asset_root: str = ""
     collection_keys: list[str] = field(default_factory=list)
     source_pdf_path: str = ""
     source_pdf_sha256: str = ""
@@ -130,11 +129,13 @@ class ItemState:
 
     def __post_init__(self) -> None:
         self.zotero_key = validate_zotero_key(self.zotero_key)
-        for name in ("note_path", "pdf_path", "mineru_path", "mineru_asset_root"):
+        for name in ("note_path", "pdf_path", "mineru_path"):
             value = getattr(self, name)
             if value:
                 setattr(self, name, normalize_vault_relative(value))
-        self.collection_keys = sorted(set(str(value) for value in self.collection_keys if str(value)))
+        self.collection_keys = sorted(
+            set(str(value) for value in self.collection_keys if str(value))
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -144,7 +145,6 @@ class ItemState:
             "notePath": self.note_path or None,
             "pdfPath": self.pdf_path or None,
             "mineruPath": self.mineru_path or None,
-            "mineruAssetRoot": self.mineru_asset_root or None,
             "collectionKeys": self.collection_keys,
             "sourcePdfPath": self.source_pdf_path or None,
             "sourcePdfSha256": self.source_pdf_sha256 or None,

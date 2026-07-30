@@ -5,15 +5,15 @@
     "url": "https://github.com/luffysolution-svg/obsidian-vault-mcp"
   },
   "metadata": {
-    "description": "Production plugins for the Zotero, MinerU, and Obsidian literature pipeline",
-    "version": "2.1.0"
+    "description": "Paper reading, retrieval, structured analysis, and safe Obsidian writing",
+    "version": "3.0.0"
   },
   "plugins": [
     {
       "name": "obsidian-literature",
       "source": "./plugins/obsidian-literature",
-      "description": "Precise Zotero, MinerU, and Obsidian literature workflows",
-      "version": "2.1.0",
+      "description": "Focused paper reading and structured literature analysis",
+      "version": "3.0.0",
       "author": {
         "name": "Obsidian Vault MCP Contributors"
       },

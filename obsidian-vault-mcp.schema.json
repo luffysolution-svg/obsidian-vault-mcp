@@ -305,10 +305,7 @@
         "imageFolder": "Literature/attachment/MinerU/image",
         "imageLinkStyle": "markdown-relative",
         "replacePreviousOutput": true,
-        "maxConcurrentJobs": 2,
-        "preserveUnlinkedImageCandidates": true,
-        "imageManifestEnabled": true,
-        "candidateCacheFolder": ".obsidian-vault-mcp/cache/mineru-assets"
+        "maxConcurrentJobs": 2
       },
       "properties": {
         "enabled": {
@@ -350,19 +347,6 @@
           "minimum": 1,
           "maximum": 64,
           "default": 2
-        },
-        "preserveUnlinkedImageCandidates": {
-          "type": "boolean",
-          "default": true
-        },
-        "imageManifestEnabled": {
-          "type": "boolean",
-          "default": true
-        },
-        "candidateCacheFolder": {
-          "type": "string",
-          "minLength": 1,
-          "default": ".obsidian-vault-mcp/cache/mineru-assets"
         }
       }
     },
@@ -371,9 +355,12 @@
       "additionalProperties": false,
       "default": {
         "folder": "Literature/Analysis",
-        "index": "Literature/Analysis/index.md",
-        "topicFolder": "Literature/Topic",
-        "theoryFolder": "Literature/Theory"
+        "base": "Literature/Analysis/Analysis.base",
+        "fullReadsFolder": "Literature/Analysis/full-reads",
+        "reviewsFolder": "Literature/Analysis/reviews",
+        "passageQaFolder": "Literature/Analysis/qa/passages",
+        "figureQaFolder": "Literature/Analysis/qa/figures",
+        "conceptsFolder": "Literature/Analysis/concepts"
       },
       "properties": {
         "folder": {
@@ -381,53 +368,35 @@
           "minLength": 1,
           "default": "Literature/Analysis"
         },
-        "index": {
+        "base": {
           "type": "string",
           "minLength": 1,
-          "default": "Literature/Analysis/index.md"
+          "default": "Literature/Analysis/Analysis.base"
         },
-        "topicFolder": {
+        "fullReadsFolder": {
           "type": "string",
           "minLength": 1,
-          "default": "Literature/Topic"
+          "default": "Literature/Analysis/full-reads"
         },
-        "theoryFolder": {
+        "reviewsFolder": {
           "type": "string",
           "minLength": 1,
-          "default": "Literature/Theory"
-        }
-      }
-    },
-    "evidence": {
-      "type": "object",
-      "additionalProperties": false,
-      "default": {
-        "enabled": true,
-        "blockIdPrefix": "ev",
-        "maxChunkChars": 2500,
-        "overlapChars": 200
-      },
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": true
+          "default": "Literature/Analysis/reviews"
         },
-        "blockIdPrefix": {
+        "passageQaFolder": {
           "type": "string",
-          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,31}$",
-          "default": "ev"
+          "minLength": 1,
+          "default": "Literature/Analysis/qa/passages"
         },
-        "maxChunkChars": {
-          "type": "integer",
-          "minimum": 256,
-          "maximum": 100000,
-          "default": 2500
+        "figureQaFolder": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/Analysis/qa/figures"
         },
-        "overlapChars": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 10000,
-          "default": 200
+        "conceptsFolder": {
+          "type": "string",
+          "minLength": 1,
+          "default": "Literature/Analysis/concepts"
         }
       }
     },

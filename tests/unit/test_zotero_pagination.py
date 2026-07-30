@@ -66,6 +66,23 @@ def test_collection_items_returns_all_500_without_gaps_or_duplicates():
     assert {int(query["limit"][0]) for _path, query in transport.calls} == {100}
 
 
+def test_explicit_limit_bounds_total_results_across_pages():
+    records = [_item(index) for index in range(7)]
+    transport = FakeTransport(
+        lambda path, query: _slice(records, query)
+        if path == "/api/users/0/items/top"
+        else []
+    )
+    client = ZoteroClient(transport=transport, page_size=2)
+
+    items = client.search_items(limit=3)
+
+    assert len(items) == 3
+    assert [item["key"] for item in items] == ["ITEM0000", "ITEM0001", "ITEM0002"]
+    assert [int(query["start"][0]) for _path, query in transport.calls] == [0, 2]
+    assert {int(query["limit"][0]) for _path, query in transport.calls} == {2}
+
+
 def test_search_collections_children_annotations_and_attachments_share_pagination():
     search = [_item(index) for index in range(205)]
     collections = [

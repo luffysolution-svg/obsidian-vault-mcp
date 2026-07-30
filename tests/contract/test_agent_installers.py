@@ -38,7 +38,10 @@ from obsidian_vault_mcp.interfaces.agent_install.common import (
     mcp_stdio_handshake,
     packaged_marketplace_path,
 )
-from obsidian_vault_mcp.interfaces.agent_install.skill_distribution import SKILL_MANIFEST_NAME
+from obsidian_vault_mcp.interfaces.agent_install.skill_distribution import (
+    SKILL_MANIFEST_NAME,
+    SKILL_MANIFEST_SCHEMA_VERSION,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -48,22 +51,84 @@ def found(executable: str) -> str:
 
 
 def test_stdio_handshake_reports_the_package_version() -> None:
-    requests: list[dict[str, object]] = []
+    requests: list[list[dict[str, object]]] = []
 
     def runner(command: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
-        requests.append(json.loads(kwargs["input"]))
+        requests.append(
+            [
+                json.loads(line)
+                for line in kwargs["input"].splitlines()
+                if line
+            ]
+        )
+        tools = [{"name": f"tool-{index}"} for index in range(31)]
         return subprocess.CompletedProcess(
             command,
             0,
-            stdout='{"jsonrpc":"2.0","id":1,"result":{}}\n',
+            stdout=(
+                '{"jsonrpc":"2.0","id":1,"result":{}}\n'
+                + json.dumps({"jsonrpc": "2.0", "id": 2, "result": {"tools": tools}})
+                + "\n"
+            ),
             stderr="",
         )
 
     assert mcp_stdio_handshake(runner=runner)
-    assert requests[0]["params"]["clientInfo"] == {
+    assert requests[0][0]["params"]["clientInfo"] == {
         "name": "obsidian-vault-mcp-installer",
         "version": __version__,
     }
+    assert [message["method"] for message in requests[0]] == [
+        "initialize",
+        "notifications/initialized",
+        "tools/list",
+    ]
+
+
+def test_stdio_handshake_rejects_an_old_tool_surface() -> None:
+    calls = 0
+
+    def runner(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        nonlocal calls
+        calls += 1
+        tools = [{"name": f"tool-{index}"} for index in range(26)]
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                '{"jsonrpc":"2.0","id":1,"result":{}}\n'
+                + json.dumps({"jsonrpc": "2.0", "id": 2, "result": {"tools": tools}})
+                + "\n"
+            ),
+            stderr="",
+        )
+
+    assert not mcp_stdio_handshake(runner=runner)
+    assert calls == 1
+
+
+def test_stdio_handshake_retries_one_incomplete_successful_response() -> None:
+    calls = 0
+
+    def runner(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        nonlocal calls
+        calls += 1
+        tools = [{"name": f"tool-{index}"} for index in range(31)]
+        tools_response = (
+            json.dumps({"jsonrpc": "2.0", "id": 2, "result": {"tools": tools}})
+            + "\n"
+            if calls == 2
+            else ""
+        )
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout='{"jsonrpc":"2.0","id":1,"result":{}}\n' + tools_response,
+            stderr="",
+        )
+
+    assert mcp_stdio_handshake(runner=runner)
+    assert calls == 2
 
 
 @pytest.mark.parametrize(
@@ -173,21 +238,35 @@ def test_native_plugin_install_is_idempotent_after_list_detection(installer, mar
 
 
 @pytest.mark.parametrize(
-    ("installer", "marketplaces", "plugins"),
+    ("installer", "marketplaces", "plugins", "upgrade_commands", "forbidden_command"),
     [
         (
             codex.install,
             {"marketplaces": [{"name": MARKETPLACE_NAME, "root": "{root}"}]},
             {"installed": [{"pluginId": PLUGIN_SELECTOR, "version": "2.0.1"}], "available": []},
+            (f"codex plugin add {PLUGIN_SELECTOR}",),
+            f"codex plugin remove {PLUGIN_SELECTOR}",
         ),
         (
             claude.install,
             [{"name": MARKETPLACE_NAME, "source": "directory", "path": "{root}"}],
             [{"id": PLUGIN_SELECTOR, "scope": "user", "version": "2.0.1"}],
+            (
+                f"claude plugin marketplace update {MARKETPLACE_NAME}",
+                f"claude plugin update {PLUGIN_SELECTOR}",
+                "restart Claude Code",
+            ),
+            "claude plugin uninstall",
         ),
     ],
 )
-def test_native_plugin_install_refuses_to_silently_keep_an_old_version(installer, marketplaces, plugins) -> None:
+def test_native_plugin_install_refuses_to_silently_keep_an_old_version(
+    installer,
+    marketplaces,
+    plugins,
+    upgrade_commands,
+    forbidden_command,
+) -> None:
     root = packaged_marketplace_path()
     marketplaces = json.loads(json.dumps(marketplaces).replace("{root}", str(root).replace("\\", "\\\\")))
     payloads = iter((marketplaces, plugins))
@@ -195,8 +274,39 @@ def test_native_plugin_install_refuses_to_silently_keep_an_old_version(installer
     def runner(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(command, 0, stdout=json.dumps(next(payloads)), stderr="")
 
-    with pytest.raises(AgentInstallError, match="installed at version 2.0.1"):
+    with pytest.raises(AgentInstallError, match="installed at version 2.0.1") as error:
         installer(which=found, runner=runner, handshake=lambda: pytest.fail("version mismatch handshook"))
+    message = str(error.value)
+    assert all(command in message for command in upgrade_commands)
+    assert forbidden_command not in message
+
+
+def test_native_plugin_install_refuses_to_downgrade_a_newer_plugin() -> None:
+    root = packaged_marketplace_path()
+    payloads = iter(
+        (
+            {"marketplaces": [{"name": MARKETPLACE_NAME, "root": str(root)}]},
+            {
+                "installed": [
+                    {
+                        "pluginId": PLUGIN_SELECTOR,
+                        "version": "99.0.0",
+                    }
+                ],
+                "available": [],
+            },
+        )
+    )
+
+    def runner(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(command, 0, stdout=json.dumps(next(payloads)), stderr="")
+
+    with pytest.raises(AgentInstallError, match="refusing to downgrade"):
+        codex.install(
+            which=found,
+            runner=runner,
+            handshake=lambda: pytest.fail("downgrade handshook"),
+        )
 
 
 @pytest.mark.parametrize(
@@ -314,12 +424,16 @@ def test_opencode_distributes_all_canonical_project_skills(tmp_path: Path) -> No
     assert [skill.name for skill in result.skills] == list(SKILL_NAMES)
     assert all(skill.action == "install" and skill.changed for skill in result.skills)
     for name in SKILL_NAMES:
-        assert (expected_directory / name / "SKILL.md").read_text(encoding="utf-8") == canonical.read(name)
+        for relative_path, content in canonical.files(name).items():
+            assert (expected_directory / name / relative_path).read_text(encoding="utf-8") == content
 
     manifest = json.loads((expected_directory / SKILL_MANIFEST_NAME).read_text(encoding="utf-8"))
+    assert manifest["schemaVersion"] == SKILL_MANIFEST_SCHEMA_VERSION
     assert manifest["client"] == result.client
     assert set(manifest["skills"]) == set(SKILL_NAMES)
+    assert all("files" in entry for entry in manifest["skills"].values())
     assert json.loads(json.dumps(result.as_dict()))["skills"][0]["path"].endswith("SKILL.md")
+    assert "seven managed Skill folders" in result.uninstall_instructions
 
 
 @pytest.mark.parametrize(
@@ -375,7 +489,7 @@ def test_tracked_skill_upgrade_preserves_user_text_and_reports_backups(tmp_path:
 
 def test_modified_managed_skill_block_aborts_before_any_write(tmp_path: Path) -> None:
     first = opencode.install(tmp_path, which=found, handshake=lambda: True)
-    skill_path = first.skill_directory / "evidence-based-qa" / "SKILL.md"
+    skill_path = first.skill_directory / "full-read" / "SKILL.md"
     current = extract_managed_block(skill_path.read_text(encoding="utf-8"))
     tampered = f"{current.before}{MANAGED_START}\nuser changed managed content\n{MANAGED_END}{current.after}"
     skill_path.write_text(tampered, encoding="utf-8")
@@ -390,12 +504,107 @@ def test_modified_managed_skill_block_aborts_before_any_write(tmp_path: Path) ->
     assert skill_path.read_text(encoding="utf-8") == tampered
 
 
+def test_modified_tracked_reference_aborts_before_any_write(tmp_path: Path) -> None:
+    first = opencode.install(tmp_path, which=found, handshake=lambda: True)
+    reference = first.skill_directory / "full-read" / "references" / "output-contract.md"
+    before_config = first.config_path.read_bytes()
+    before_manifest = first.skill_manifest_path.read_bytes()
+    reference.write_text("user replacement\n", encoding="utf-8")
+
+    with pytest.raises(ConfigurationValidationError, match="tracked reference"):
+        opencode.install(tmp_path, which=found, handshake=lambda: pytest.fail("validation failure handshook"))
+
+    assert first.config_path.read_bytes() == before_config
+    assert first.skill_manifest_path.read_bytes() == before_manifest
+    assert reference.read_text(encoding="utf-8") == "user replacement\n"
+
+
+def test_upgrade_removes_only_manifest_tracked_legacy_skill_files(tmp_path: Path) -> None:
+    skill_directory = tmp_path / ".opencode" / "skills"
+    legacy = skill_directory / "structured-paper-note" / "SKILL.md"
+    legacy.parent.mkdir(parents=True)
+    legacy_text = (
+        "---\nname: structured-paper-note\ndescription: old\n---\n\n"
+        f"{MANAGED_START}\nold managed body\n{MANAGED_END}\n\n"
+        "## User Customizations\n\nPreserve this in the backup.\n"
+    )
+    legacy.write_text(legacy_text, encoding="utf-8")
+    private = skill_directory / "my-private-skill" / "SKILL.md"
+    private.parent.mkdir(parents=True)
+    private.write_text("private\n", encoding="utf-8")
+    manifest_path = skill_directory / SKILL_MANIFEST_NAME
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "client": "opencode",
+                "skills": {
+                    "structured-paper-note": {
+                        "version": "1.0.0",
+                        "managedHash": extract_managed_block(legacy_text).sha256,
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = opencode.install(tmp_path, which=found, handshake=lambda: True)
+
+    assert not legacy.exists()
+    backups = list(legacy.parent.glob("SKILL.md.bak.*"))
+    assert len(backups) == 1
+    assert backups[0].read_text(encoding="utf-8") == legacy_text
+    assert private.read_text(encoding="utf-8") == "private\n"
+    updated_manifest = json.loads(result.skill_manifest_path.read_text(encoding="utf-8"))
+    assert set(updated_manifest["skills"]) == set(SKILL_NAMES)
+    removal = next(skill for skill in result.skills if skill.name == "structured-paper-note")
+    assert removal.action == "remove"
+    assert removal.backup_path == backups[0]
+
+
+def test_upgrade_never_removes_unknown_manifest_tracked_skill(tmp_path: Path) -> None:
+    skill_directory = tmp_path / ".opencode" / "skills"
+    custom = skill_directory / "team-private-skill" / "SKILL.md"
+    custom.parent.mkdir(parents=True)
+    custom_text = (
+        "---\nname: team-private-skill\ndescription: private\n---\n\n"
+        f"{MANAGED_START}\nprivate managed body\n{MANAGED_END}\n"
+    )
+    custom.write_text(custom_text, encoding="utf-8")
+    manifest_path = skill_directory / SKILL_MANIFEST_NAME
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "client": "opencode",
+                "skills": {
+                    "team-private-skill": {
+                        "version": "1.0.0",
+                        "managedHash": extract_managed_block(custom_text).sha256,
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = opencode.install(tmp_path, which=found, handshake=lambda: True)
+
+    assert custom.read_text(encoding="utf-8") == custom_text
+    assert not list(custom.parent.glob("SKILL.md.bak.*"))
+    assert "team-private-skill" not in {skill.name for skill in result.skills}
+
+
 def test_failed_handshake_rolls_back_new_config_and_all_skills(tmp_path: Path) -> None:
     with pytest.raises(HandshakeError, match="configuration and Skills were restored"):
         opencode.install(tmp_path, which=found, handshake=lambda: False)
 
     assert not (tmp_path / "opencode.json").exists()
     assert not list(tmp_path.glob(".opencode/skills/*/SKILL.md"))
+    assert not list(tmp_path.glob(".opencode/skills/*/references/**/*.md"))
     assert not (tmp_path / ".opencode" / "skills" / SKILL_MANIFEST_NAME).exists()
 
 
@@ -417,6 +626,7 @@ def test_skill_write_failure_rolls_back_config_and_every_partial_skill(tmp_path:
 
     assert not (tmp_path / "opencode.json").exists()
     assert not list(tmp_path.glob(".opencode/skills/*/SKILL.md"))
+    assert not list(tmp_path.glob(".opencode/skills/*/references/**/*.md"))
     assert not (tmp_path / ".opencode" / "skills" / SKILL_MANIFEST_NAME).exists()
 
 

@@ -1,2 +1,6 @@
 # Keep canonical marketplace payload bytes reproducible across checkout platforms.
 src/obsidian_vault_mcp/resources/agent_marketplace/** text eol=lf
+
+# The packaged Pi extension must stay byte-identical to its canonical source.
+adapters/pi/index.ts text eol=lf
+src/obsidian_vault_mcp/interfaces/agent_install/pi_extension.ts text eol=lf

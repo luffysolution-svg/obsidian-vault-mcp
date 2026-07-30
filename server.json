@@ -1,0 +1,46 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.luffysolution-svg/obsidian-vault-mcp",
+  "title": "Obsidian Vault MCP",
+  "description": "Local Zotero, MinerU, Obsidian literature workflow with transactional Analysis notes.",
+  "repository": {
+    "url": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+  "version": "3.0.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "zotero-obsidian-mcp",
+      "version": "3.0.0",
+      "runtimeHint": "uvx",
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "serve",
+          "isRequired": true
+        },
+        {
+          "type": "named",
+          "name": "--transport",
+          "value": "stdio",
+          "isRequired": true
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "OBSIDIAN_VAULT_PATH",
+          "description": "Absolute path to the Obsidian vault, or auto when the client project is inside it.",
+          "isRequired": true,
+          "isSecret": false,
+          "format": "filepath"
+        }
+      ],
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

@@ -1,3 +1,3 @@
-"""Obsidian Vault MCP V2."""
+"""Obsidian Vault MCP."""
 
-__version__ = "2.1.0"
+__version__ = "3.0.0"

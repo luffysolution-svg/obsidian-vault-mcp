@@ -33,9 +33,18 @@ def atomic_copy(source: str | os.PathLike[str], destination: str | os.PathLike[s
     if not source_path.is_file():
         raise AtomicWriteError(f"copy source is not a file: {source_path}")
 
+    with source_path.open("rb") as source_stream:
+        return atomic_copy_stream(source_stream, destination)
+
+
+def atomic_copy_stream(
+    source: BinaryIO,
+    destination: str | os.PathLike[str],
+) -> Path:
+    """Atomically copy an already-open source stream to one destination."""
+
     def copy(stream: BinaryIO) -> int:
-        with source_path.open("rb") as source_stream:
-            shutil.copyfileobj(source_stream, stream, length=1024 * 1024)
+        shutil.copyfileobj(source, stream, length=1024 * 1024)
         return 0
 
     return _atomic_write(Path(destination), copy)

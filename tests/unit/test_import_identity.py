@@ -51,7 +51,10 @@ class FakeZotero:
         return [{"key": "ABCD1234", "itemType": "journalArticle"}]
 
 
-def test_import_service_passes_linked_attachment_base_to_zotero_client(tmp_path, monkeypatch):
+def test_import_service_passes_linked_attachment_base_to_zotero_client(
+    tmp_path,
+    monkeypatch,
+):
     captured: dict[str, object] = {}
 
     class CapturingClient:
@@ -91,7 +94,9 @@ def test_import_copies_zotero_linked_attachment_from_configured_base(tmp_path):
                         "key": "ITEM1",
                         "itemType": "journalArticle",
                         "title": "Linked Zotero Article",
-                        "creators": [{"firstName": "Ada", "lastName": "Lovelace"}],
+                        "creators": [
+                            {"firstName": "Ada", "lastName": "Lovelace"}
+                        ],
                         "date": "2024",
                     },
                 }
@@ -105,14 +110,20 @@ def test_import_copies_zotero_linked_attachment_from_configured_base(tmp_path):
                                 "key": "PDF1",
                                 "itemType": "attachment",
                                 "contentType": "application/pdf",
-                                "path": "attachments:LLM_Agent/tech debit/linked article.pdf",
+                                "path": (
+                                    "attachments:LLM_Agent/tech debit/"
+                                    "linked article.pdf"
+                                ),
                             },
                         }
                     ]
                     if query.get("start") == ["0"]
                     else []
                 )
-            elif parsed.path == "/api/users/0/items" and query.get("itemType") == ["annotation"]:
+            elif (
+                parsed.path == "/api/users/0/items"
+                and query.get("itemType") == ["annotation"]
+            ):
                 payload = []
             else:
                 raise AssertionError(f"unexpected route: {parsed.path} {query}")
@@ -122,12 +133,18 @@ def test_import_copies_zotero_linked_attachment_from_configured_base(tmp_path):
         transport=LinkedTransport(),
         linked_attachment_base_dir=config["zotero"]["linkedAttachmentBaseDir"],
     )
-    result = ImportService(vault, zotero_client=client, config=config).import_item("ITEM1")
+    result = ImportService(
+        vault,
+        zotero_client=client,
+        config=config,
+    ).import_item("ITEM1")
 
     copied = vault / "Literature" / "attachment" / "ITEM1.pdf"
     assert result["pdfPath"] == "Literature/attachment/ITEM1.pdf"
     assert copied.read_bytes() == linked_pdf.read_bytes()
-    assert str(linked_pdf) not in (vault / "Literature" / "ITEM1.md").read_text(encoding="utf-8")
+    assert str(linked_pdf) not in (
+        vault / "Literature" / "ITEM1.md"
+    ).read_text(encoding="utf-8")
 
 
 def _tree_hash(root: Path) -> str:
@@ -300,6 +317,11 @@ def test_zotero_child_notes_and_annotations_are_marked_separately() -> None:
         }
     )
 
-    assert "<!-- ovm:zotero-child-notes:start -->\nA child note." in rendered
-    assert "<!-- ovm:zotero-annotations:start -->\n- p. 7: Highlighted result." in rendered
+    assert (
+        "<!-- ovm:zotero-child-notes:start -->\nA child note." in rendered
+    )
+    assert (
+        "<!-- ovm:zotero-annotations:start -->\n"
+        "- p. 7: Highlighted result." in rendered
+    )
     assert "  - Check this value." in rendered

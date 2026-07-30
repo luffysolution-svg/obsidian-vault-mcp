@@ -7,28 +7,36 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag, for example v2.0.1"
+        description: "Existing release tag, for example v3.0.0"
         required: true
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      ref: ${{ steps.tag.outputs.ref }}
+      commit_sha: ${{ steps.tag_identity.outputs.commit_sha }}
+      tag_object_sha: ${{ steps.tag_identity.outputs.tag_object_sha }}
 
     steps:
-      - name: Resolve release tag
+      - name: Resolve strict release tag ref
         id: tag
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_TAG: ${{ inputs.tag }}
+          GITHUB_FULL_REF: ${{ github.ref }}
           REF_NAME: ${{ github.ref_name }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
@@ -40,13 +48,43 @@ jobs:
             echo "Release tag must use vMAJOR.MINOR.PATCH: $tag" >&2
             exit 1
           fi
+          ref="refs/tags/$tag"
+          if [[ "$EVENT_NAME" != "workflow_dispatch" && "$GITHUB_FULL_REF" != "$ref" ]]; then
+            echo "Push release must originate from the exact tag ref $ref, found $GITHUB_FULL_REF." >&2
+            exit 1
+          fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
 
-      - name: Check out release tag
-        uses: actions/checkout@v6
+      - name: Check out exact release tag ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ steps.tag.outputs.tag }}
+          ref: ${{ steps.tag.outputs.ref }}
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact local and remote tag objects
+        id: tag_identity
+        shell: bash
+        env:
+          RELEASE_REF: ${{ steps.tag.outputs.ref }}
+        run: |
+          git show-ref --verify --quiet "$RELEASE_REF"
+          local_tag_object="$(git rev-parse "$RELEASE_REF")"
+          tag_commit="$(git rev-parse "$RELEASE_REF^{commit}")"
+          head_commit="$(git rev-parse HEAD)"
+          remote_line="$(git ls-remote --exit-code --refs origin "$RELEASE_REF")"
+          if [[ "$(printf '%s\n' "$remote_line" | wc -l)" -ne 1 ]]; then
+            echo "Remote must contain exactly one exact tag ref: $RELEASE_REF" >&2
+            exit 1
+          fi
+          remote_tag_object="${remote_line%%[[:space:]]*}"
+          if [[ "$remote_tag_object" != "$local_tag_object" || "$tag_commit" != "$head_commit" ]]; then
+            echo "Local tag object, remote tag object, tag commit, and HEAD are inconsistent." >&2
+            exit 1
+          fi
+          echo "commit_sha=$head_commit" >> "$GITHUB_OUTPUT"
+          echo "tag_object_sha=$local_tag_object" >> "$GITHUB_OUTPUT"
 
       - name: Verify release commit is on main
         shell: bash
@@ -57,20 +95,28 @@ jobs:
             exit 1
           fi
 
+      - name: Fix reproducible build timestamp
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.30"
+          enable-cache: false
+
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
 
       - name: Install project and release tooling
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install ".[dev]"
+        run: uv sync --locked --all-extras
 
       - name: Type-check Pi adapter
         working-directory: adapters/pi
@@ -79,25 +125,40 @@ jobs:
           npm run check
 
       - name: Verify tag and repository versions
-        run: python scripts/verify_release.py --tag "${{ steps.tag.outputs.tag }}"
+        run: uv run python scripts/verify_release.py --tag "${{ steps.tag.outputs.tag }}"
 
       - name: Lint Python sources
-        run: python -m ruff check src tests scripts/build_release.py scripts/verify_release.py
+        run: uv run python -m ruff check src tests scripts/build_release.py scripts/release_guard.py scripts/verify_release.py
 
       - name: Run tests
-        run: python -m pytest
+        run: uv run python -m pytest
+
+      - name: Require pristine verified sources before build
+        shell: bash
+        run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+          untracked="$(git ls-files --others --exclude-standard)"
+          if [[ -n "$untracked" ]]; then
+            echo "Untracked release inputs appeared before build:" >&2
+            printf '%s\n' "$untracked" >&2
+            exit 1
+          fi
 
       - name: Build wheel and source distribution
-        run: python -m build --wheel --sdist --outdir dist
+        run: uv run python -m build --wheel --sdist --outdir dist
+
+      - name: Normalize source distribution metadata
+        run: uv run python scripts/release_guard.py normalize-sdist --artifacts-dir dist --epoch "$SOURCE_DATE_EPOCH"
 
       - name: Smoke-test and verify Python artifacts
-        run: python scripts/verify_release.py --artifacts-dir dist --require-sdist --smoke-wheel
+        run: uv run python scripts/verify_release.py --artifacts-dir dist --require-sdist --smoke-wheel
 
       - name: Build Codex/Claude plugin marketplace bundle
-        run: python scripts/build_release.py --output-dir dist
+        run: uv run python scripts/build_release.py --output-dir dist
 
       - name: Verify Codex/Claude plugin marketplace bundle
-        run: python scripts/verify_release.py --bundle-dir dist
+        run: uv run python scripts/verify_release.py --bundle-dir dist
 
       - name: Generate SHA256 checksums
         shell: bash
@@ -106,27 +167,385 @@ jobs:
           sha256sum -- *.whl *.tar.gz *.zip > SHA256SUMS
 
       - name: Verify SHA256 checksums
-        run: python scripts/verify_release.py --checksums-dir dist
+        run: uv run python scripts/verify_release.py --checksums-dir dist
 
-      - name: Create or update GitHub release assets
+      - name: Require build left verified sources pristine
+        shell: bash
+        run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+          untracked="$(git ls-files --others --exclude-standard)"
+          if [[ -n "$untracked" ]]; then
+            echo "Untracked release inputs appeared during build:" >&2
+            printf '%s\n' "$untracked" >&2
+            exit 1
+          fi
+
+      - name: Upload verified release candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-candidate
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Check out exact release tag ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.build.outputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Download verified release candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-candidate
+          path: dist
+
+      - name: Reverify build-bound local and remote tag objects
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          RELEASE_REF: ${{ needs.build.outputs.ref }}
+          EXPECTED_COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.build.outputs.tag_object_sha }}
         run: |
-          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --verify-tag --generate-notes --title "$RELEASE_TAG"
+          git show-ref --verify --quiet "$RELEASE_REF"
+          local_tag_object="$(git rev-parse "$RELEASE_REF")"
+          tag_commit="$(git rev-parse "$RELEASE_REF^{commit}")"
+          head_commit="$(git rev-parse HEAD)"
+          remote_line="$(git ls-remote --exit-code --refs origin "$RELEASE_REF")"
+          remote_tag_object="${remote_line%%[[:space:]]*}"
+          if [[ "$(printf '%s\n' "$remote_line" | wc -l)" -ne 1 ]] \
+            || [[ "$remote_tag_object" != "$EXPECTED_TAG_OBJECT_SHA" ]] \
+            || [[ "$local_tag_object" != "$EXPECTED_TAG_OBJECT_SHA" ]] \
+            || [[ "$tag_commit" != "$EXPECTED_COMMIT_SHA" ]] \
+            || [[ "$head_commit" != "$EXPECTED_COMMIT_SHA" ]]; then
+            echo "Exact remote tag, local tag, HEAD, or verified build identity changed." >&2
+            exit 1
           fi
-          gh release upload "$RELEASE_TAG" dist/*.whl dist/*.tar.gz dist/*.zip dist/SHA256SUMS --clobber
 
-      - name: Prepare Python artifacts for PyPI
+      - name: Reverify downloaded candidate and exact tag
+        run: |
+          python scripts/verify_release.py --tag "${{ needs.build.outputs.tag }}"
+          python scripts/verify_release.py \
+            --artifacts-dir dist \
+            --require-sdist \
+            --bundle-dir dist \
+            --checksums-dir dist
+
+      - name: Prepare complete Python artifact set
         shell: bash
         run: |
           mkdir -p pypi-dist
-          cp dist/*.whl dist/*.tar.gz pypi-dist/
+          cp -- dist/*.whl dist/*.tar.gz pypi-dist/
 
-      - name: Publish wheel and source distribution to PyPI
+      - name: Preflight immutable GitHub Release destination
+        id: github_release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMMUTABLE_RELEASES_TOKEN: ${{ secrets.IMMUTABLE_RELEASES_TOKEN }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          EXPECTED_COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.build.outputs.tag_object_sha }}
+        run: |
+          state="$(python scripts/release_guard.py github \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" \
+            --expected-commit-sha "$EXPECTED_COMMIT_SHA" \
+            --expected-tag-object-sha "$EXPECTED_TAG_OBJECT_SHA" \
+            --artifacts-dir dist)"
+          case "$state" in
+            publish|resume|ready|existing)
+              echo "state=$state" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unexpected GitHub Release guard state: $state" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Preflight immutable PyPI destination
+        id: pypi
+        shell: bash
+        run: |
+          missing_artifacts="$RUNNER_TEMP/pypi-missing-artifacts.txt"
+          state="$(python scripts/release_guard.py pypi \
+            --artifacts-dir pypi-dist \
+            --missing-artifacts-file "$missing_artifacts")"
+          case "$state" in
+            publish|resume)
+              mkdir -p pypi-upload
+              while IFS= read -r artifact; do
+                [[ -n "$artifact" ]] || continue
+                cp -- "pypi-dist/$artifact" pypi-upload/
+              done < "$missing_artifacts"
+              echo "publish=true" >> "$GITHUB_OUTPUT"
+              ;;
+            existing)
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unexpected PyPI guard state: $state" >&2
+              exit 1
+              ;;
+          esac
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+
+      - name: Preflight immutable MCP Registry destination
+        id: mcp_registry
+        shell: bash
+        run: |
+          state="$(python scripts/release_guard.py mcp)"
+          if [[ "$state" == "publish" ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$state" == "existing" ]]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unexpected MCP Registry guard state: $state" >&2
+            exit 1
+          fi
+
+      - name: Install and validate verified MCP Registry publisher
+        if: steps.mcp_registry.outputs.publish == 'true'
+        shell: bash
+        run: |
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            --output mcp-publisher.tar.gz \
+            https://github.com/modelcontextprotocol/registry/releases/download/v1.8.0/mcp-publisher_linux_amd64.tar.gz
+          echo "1370446bbe74d562608e8005a6ccce02d146a661fbd78674e11cc70b9618d6cf  mcp-publisher.tar.gz" | sha256sum --check
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+          ./mcp-publisher --help
+          ./mcp-publisher validate server.json
+          ./mcp-publisher login github-oidc
+
+      - name: Reverify exact tag immediately before external publication
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMMUTABLE_RELEASES_TOKEN: ${{ secrets.IMMUTABLE_RELEASES_TOKEN }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          EXPECTED_COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.build.outputs.tag_object_sha }}
+        run: |
+          state="$(python scripts/release_guard.py github \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" \
+            --expected-commit-sha "$EXPECTED_COMMIT_SHA" \
+            --expected-tag-object-sha "$EXPECTED_TAG_OBJECT_SHA" \
+            --artifacts-dir dist)"
+          case "$state" in
+            publish|resume|ready|existing)
+              ;;
+            *)
+              echo "Release tag or GitHub destination changed before publication: $state" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Publish only missing Python artifacts to PyPI
+        if: steps.pypi.outputs.publish == 'true'
         uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-          packages-dir: pypi-dist/
+          packages-dir: pypi-upload/
+
+      - name: Wait for exact immutable PyPI artifacts
+        shell: bash
+        run: |
+          for attempt in {1..30}; do
+            state="$(python scripts/release_guard.py pypi --artifacts-dir pypi-dist)"
+            if [[ "$state" == "existing" ]]; then
+              echo "Exact PyPI artifacts are visible."
+              exit 0
+            fi
+            if [[ "$state" != "resume" && "$state" != "publish" ]] || [[ "$attempt" == "30" ]]; then
+              echo "Exact PyPI artifacts did not become visible: $state" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Recheck MCP destination immediately before publication
+        if: steps.mcp_registry.outputs.publish == 'true'
+        shell: bash
+        run: |
+          state="$(python scripts/release_guard.py mcp)"
+          if [[ "$state" != "publish" ]]; then
+            echo "MCP Registry destination changed after preflight: $state" >&2
+            exit 1
+          fi
+
+      - name: Publish metadata to the MCP Registry
+        if: steps.mcp_registry.outputs.publish == 'true'
+        shell: bash
+        run: ./mcp-publisher publish server.json
+
+      - name: Wait for exact immutable MCP Registry metadata
+        shell: bash
+        run: |
+          for attempt in {1..30}; do
+            state="$(python scripts/release_guard.py mcp)"
+            if [[ "$state" == "existing" ]]; then
+              echo "Exact MCP Registry metadata is visible."
+              exit 0
+            fi
+            if [[ "$state" != "publish" || "$attempt" == "30" ]]; then
+              echo "Exact MCP Registry metadata did not become visible: $state" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Create owned empty GitHub Release draft
+        if: steps.github_release.outputs.state == 'publish'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMMUTABLE_RELEASES_TOKEN: ${{ secrets.IMMUTABLE_RELEASES_TOKEN }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_NOTES: |
+            <!-- obsidian-vault-mcp-release-workflow:draft-v1 -->
+
+            ## Obsidian Vault MCP V3
+
+            - Five Analysis types with deterministic Base views.
+            - 31 MCP tools across the stable V2 surface and V3 Analysis.
+            - Transactional V2-to-V3 migrations with preview and rollback.
+            - Seven recursively packaged Agent Skills.
+            - Dual CLI entry points: `obsidian-vault-mcp` and `zotero-obsidian-mcp`.
+          EXPECTED_COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.build.outputs.tag_object_sha }}
+        run: |
+          state="$(python scripts/release_guard.py github \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" \
+            --expected-commit-sha "$EXPECTED_COMMIT_SHA" \
+            --expected-tag-object-sha "$EXPECTED_TAG_OBJECT_SHA" \
+            --artifacts-dir dist)"
+          if [[ "$state" != "publish" ]]; then
+            echo "GitHub Release destination changed before draft creation: $state" >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            --draft \
+            --verify-tag \
+            --title "$RELEASE_TAG" \
+            --notes "$RELEASE_NOTES"
+
+      - name: Upload only missing draft assets
+        if: steps.github_release.outputs.state == 'publish' || steps.github_release.outputs.state == 'resume'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMMUTABLE_RELEASES_TOKEN: ${{ secrets.IMMUTABLE_RELEASES_TOKEN }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          EXPECTED_COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.build.outputs.tag_object_sha }}
+        run: |
+          missing_assets="$RUNNER_TEMP/github-release-missing-assets.txt"
+          state="$(python scripts/release_guard.py github \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" \
+            --expected-commit-sha "$EXPECTED_COMMIT_SHA" \
+            --expected-tag-object-sha "$EXPECTED_TAG_OBJECT_SHA" \
+            --artifacts-dir dist \
+            --missing-assets-file "$missing_assets")"
+          if [[ "$state" != "resume" ]]; then
+            echo "Expected an owned resumable draft, found: $state" >&2
+            exit 1
+          fi
+          while IFS= read -r asset; do
+            [[ -n "$asset" ]] || continue
+            gh release upload "$RELEASE_TAG" "dist/$asset"
+          done < "$missing_assets"
+
+      - name: Verify owned GitHub Release draft is ready
+        if: steps.github_release.outputs.state != 'existing'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMMUTABLE_RELEASES_TOKEN: ${{ secrets.IMMUTABLE_RELEASES_TOKEN }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          EXPECTED_COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.build.outputs.tag_object_sha }}
+        run: |
+          for attempt in {1..30}; do
+            state="$(python scripts/release_guard.py github \
+              --repository "$GITHUB_REPOSITORY" \
+              --tag "$RELEASE_TAG" \
+              --expected-commit-sha "$EXPECTED_COMMIT_SHA" \
+              --expected-tag-object-sha "$EXPECTED_TAG_OBJECT_SHA" \
+              --artifacts-dir dist)"
+            if [[ "$state" == "ready" ]]; then
+              echo "Owned GitHub Release draft contains every exact artifact."
+              exit 0
+            fi
+            if [[ "$state" != "resume" || "$attempt" == "30" ]]; then
+              echo "GitHub Release draft did not become ready: $state" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Publish verified GitHub Release draft
+        if: steps.github_release.outputs.state != 'existing'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMMUTABLE_RELEASES_TOKEN: ${{ secrets.IMMUTABLE_RELEASES_TOKEN }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          EXPECTED_COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.build.outputs.tag_object_sha }}
+        run: |
+          state="$(python scripts/release_guard.py github \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" \
+            --expected-commit-sha "$EXPECTED_COMMIT_SHA" \
+            --expected-tag-object-sha "$EXPECTED_TAG_OBJECT_SHA" \
+            --artifacts-dir dist)"
+          if [[ "$state" != "ready" ]]; then
+            echo "GitHub Release draft or immutable setting changed before publication: $state" >&2
+            exit 1
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false --verify-tag
+
+      - name: Verify final immutable GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMMUTABLE_RELEASES_TOKEN: ${{ secrets.IMMUTABLE_RELEASES_TOKEN }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          EXPECTED_COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ needs.build.outputs.tag_object_sha }}
+        run: |
+          for attempt in {1..30}; do
+            state="$(python scripts/release_guard.py github \
+              --repository "$GITHUB_REPOSITORY" \
+              --tag "$RELEASE_TAG" \
+              --expected-commit-sha "$EXPECTED_COMMIT_SHA" \
+              --expected-tag-object-sha "$EXPECTED_TAG_OBJECT_SHA" \
+              --artifacts-dir dist)"
+            if [[ "$state" == "existing" ]]; then
+              echo "Exact immutable GitHub Release is published."
+              exit 0
+            fi
+            if [[ "$state" != "ready" && "$state" != "publish" ]] || [[ "$attempt" == "30" ]]; then
+              echo "Final GitHub Release verification failed: $state" >&2
+              exit 1
+            fi
+            sleep 2
+          done

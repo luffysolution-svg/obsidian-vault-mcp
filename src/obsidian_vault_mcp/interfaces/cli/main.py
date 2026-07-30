@@ -7,7 +7,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from ...application.analysis_migration_service import AnalysisMigrationService
+from ...application.mineru_image_migration_service import MinerUImageMigrationService
 from ..agent_install import SUPPORTED_CLIENTS, install_agent
+from ..common import resolve_vault
 from ..mcp.server import run_server
 from ..mcp.tools import TOOL_BY_NAME
 
@@ -32,6 +35,17 @@ def _add_write_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--transaction-id", default="")
     parser.add_argument("--conflict-policy", choices=_CONFLICT_POLICIES, default="preserve-user")
+
+
+def _add_migration_options(parser: argparse.ArgumentParser) -> None:
+    _add_vault(parser)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--transaction-id", default="")
+    parser.add_argument(
+        "--conflict-policy",
+        choices=("preserve-user",),
+        default="preserve-user",
+    )
 
 
 def _tool(parser: argparse.ArgumentParser, name: str) -> None:
@@ -119,11 +133,29 @@ def build_parser() -> argparse.ArgumentParser:
     _add_vault(wiki_list)
     _tool(wiki_list, "literature_wiki_list")
 
-    migrate = commands.add_parser("migrate").add_subparsers(dest="migrate_command", required=True).add_parser("v1-to-v2")
-    _add_write_options(migrate)
-    mode = migrate.add_mutually_exclusive_group()
-    mode.add_argument("--apply", action="store_true")
-    _tool(migrate, "literature_migrate_v1_to_v2")
+    migrate = commands.add_parser("migrate").add_subparsers(dest="migrate_command", required=True)
+    migrate_v2 = migrate.add_parser("v1-to-v2")
+    _add_write_options(migrate_v2)
+    migrate_v2.add_mutually_exclusive_group().add_argument("--apply", action="store_true")
+    _tool(migrate_v2, "literature_migrate_v1_to_v2")
+    migrate_analysis = migrate.add_parser("analysis-v2-to-v3")
+    _add_migration_options(migrate_analysis)
+    migrate_analysis.add_mutually_exclusive_group().add_argument("--apply", action="store_true")
+    migrate_analysis.set_defaults(_handler="analysis-migrate")
+    migrate_mineru_images = migrate.add_parser("mineru-images-v2-to-v3")
+    _add_migration_options(migrate_mineru_images)
+    migrate_mineru_images.add_mutually_exclusive_group().add_argument("--apply", action="store_true")
+    migrate_mineru_images.add_argument(
+        "--cleanup-legacy",
+        action="store_true",
+        help="delete legacy flat images in the same transaction",
+    )
+    migrate_mineru_images.add_argument(
+        "--confirm-vault-offline",
+        action="store_true",
+        help="confirm every process capable of writing the Vault is stopped",
+    )
+    migrate_mineru_images.set_defaults(_handler="mineru-images-migrate")
 
     preview = commands.add_parser("preview")
     preview.add_argument("transaction_id")
@@ -193,6 +225,26 @@ def _dispatch(namespace: argparse.Namespace) -> Any:
         return TOOL_BY_NAME[namespace.tool_name](**_parse_call_arguments(namespace.arguments_json))
     if namespace._handler == "agent-install":
         return install_agent(namespace.client, namespace.project_dir, dry_run=namespace.dry_run).as_dict()
+    if namespace._handler == "analysis-migrate":
+        if namespace.apply and namespace.dry_run:
+            raise ValueError("--apply and --dry-run cannot be used together")
+        return AnalysisMigrationService(resolve_vault(namespace.vault_path)).migrate(
+            dry_run=not namespace.apply,
+            apply=namespace.apply,
+            transaction_id=namespace.transaction_id or None,
+            conflict_policy=namespace.conflict_policy,
+        )
+    if namespace._handler == "mineru-images-migrate":
+        if namespace.apply and namespace.dry_run:
+            raise ValueError("--apply and --dry-run cannot be used together")
+        return MinerUImageMigrationService(resolve_vault(namespace.vault_path)).migrate(
+            dry_run=not namespace.apply,
+            apply=namespace.apply,
+            transaction_id=namespace.transaction_id or None,
+            conflict_policy=namespace.conflict_policy,
+            cleanup_legacy=namespace.cleanup_legacy,
+            confirm_vault_offline=namespace.confirm_vault_offline,
+        )
     if namespace._handler == "tool":
         return TOOL_BY_NAME[namespace._tool_name](**_tool_arguments(namespace))
     raise RuntimeError("no command handler selected")
@@ -210,7 +262,7 @@ def _emit(value: Any, *, stream: Any = None) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the V2 CLI and emit one machine-readable JSON value."""
+    """Run the V3 CLI and emit one machine-readable JSON value."""
 
     try:
         namespace = build_parser().parse_args(argv)

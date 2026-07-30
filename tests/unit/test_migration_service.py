@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 
-from obsidian_vault_mcp.adapters.vault import atomic_writer
+import obsidian_vault_mcp.application.transaction_service as transaction_module
 from obsidian_vault_mcp.application.migration_service import MigrationService
 from obsidian_vault_mcp.domain.errors import AtomicWriteError, TransactionError
 from obsidian_vault_mcp.domain.frontmatter import parse_frontmatter
@@ -123,7 +123,15 @@ def test_apply_normalizes_assets_frontmatter_state_and_links_then_rolls_back(tmp
     note_path = tmp_path / "Literature" / "ABCD1234.md"
     pdf_path = tmp_path / "Literature" / "attachment" / "ABCD1234.pdf"
     mineru_path = tmp_path / "Literature" / "attachment" / "MinerU" / "ABCD1234.md"
-    image_path = tmp_path / "Literature" / "attachment" / "MinerU" / "image" / "ABCD1234-fig01.png"
+    image_path = (
+        tmp_path
+        / "Literature"
+        / "attachment"
+        / "MinerU"
+        / "image"
+        / "ABCD1234"
+        / "ABCD1234-fig01.png"
+    )
     assert pdf_path.read_bytes() == b"%PDF-1.4\noriginal-pdf\n"
     assert image_path.read_bytes() == b"PNG-original"
 
@@ -159,7 +167,7 @@ def test_apply_normalizes_assets_frontmatter_state_and_links_then_rolls_back(tmp
     assert mineru.fields["customMineruField"] == "keep-me"
     assert "mineruStatus" not in mineru.fields
     assert "C:/Users/private" not in mineru_text
-    assert "![Performance](image/ABCD1234-fig01.png)" in mineru.body
+    assert "![Performance](image/ABCD1234/ABCD1234-fig01.png)" in mineru.body
 
     related = (tmp_path / "notes" / "Related.md").read_text(encoding="utf-8")
     assert "[[Literature/ABCD1234|the migrated paper]]" in related
@@ -216,17 +224,25 @@ def test_duplicate_zotero_key_is_structured_and_apply_is_refused(tmp_path: Path)
 def test_apply_failure_automatically_restores_the_entire_v1_tree(tmp_path: Path) -> None:
     _write_v1_fixture(tmp_path)
     before = _tree(tmp_path)
-    original_replace = atomic_writer.atomic_replace
+    original_replace = transaction_module._replace_owned
     calls = 0
 
-    def fail_during_commit(source: Path, destination: Path) -> Path:
+    def fail_during_commit(
+        filesystem: object,
+        source: str,
+        destination: str,
+    ) -> Path:
         nonlocal calls
         calls += 1
         if calls == 3:
             raise AtomicWriteError("injected migration failure")
-        return original_replace(source, destination)
+        return original_replace(filesystem, source, destination)
 
-    with mock.patch.object(atomic_writer, "atomic_replace", side_effect=fail_during_commit):
+    with mock.patch.object(
+        transaction_module,
+        "_replace_owned",
+        side_effect=fail_during_commit,
+    ):
         with pytest.raises(TransactionError) as caught:
             MigrationService(tmp_path).migrate(dry_run=False, apply=True, transaction_id="migration-failure")
 
