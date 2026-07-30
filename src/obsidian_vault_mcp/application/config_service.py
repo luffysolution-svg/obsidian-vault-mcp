@@ -13,7 +13,7 @@ from .transaction_service import TransactionService
 
 
 class ConfigService:
-    """Application boundary for the Vault's single V2 configuration."""
+    """Application boundary for the Vault's single configuration file."""
 
     def __init__(self, vault_path: str | os.PathLike[str]) -> None:
         self.vault_path = Path(vault_path).expanduser().resolve()
