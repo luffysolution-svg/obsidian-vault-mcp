@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/luffysolution-svg/obsidian-vault-mcp/main/obsidian-vault-mcp.schema.json",
-  "title": "Obsidian Vault MCP V2 configuration",
+  "title": "Obsidian Vault MCP configuration",
   "description": "Configuration for the local Zotero, MinerU, and Obsidian literature pipeline.",
   "type": "object",
   "required": [
@@ -15,8 +15,8 @@
       "default": "https://raw.githubusercontent.com/luffysolution-svg/obsidian-vault-mcp/main/obsidian-vault-mcp.schema.json"
     },
     "schemaVersion": {
-      "const": 2,
-      "default": 2
+      "const": 3,
+      "default": 3
     },
     "literature": {
       "type": "object",
@@ -468,7 +468,6 @@
         "atomicWrites": true,
         "backupBeforeReplace": true,
         "retainBackups": 10,
-        "defaultDryRunForMigration": true,
         "lockPerItem": true
       },
       "properties": {
@@ -485,10 +484,6 @@
           "minimum": 0,
           "maximum": 10000,
           "default": 10
-        },
-        "defaultDryRunForMigration": {
-          "type": "boolean",
-          "default": true
         },
         "lockPerItem": {
           "type": "boolean",
