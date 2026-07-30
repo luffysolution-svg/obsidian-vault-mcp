@@ -15,6 +15,7 @@ def test_published_schema_matches_runtime_configuration_surface() -> None:
 
     assert published == CONFIG_SCHEMA
     assert published["$id"] == defaults["$schema"] == SCHEMA_URL
+    assert published["title"] == "Obsidian Vault MCP configuration"
     assert "example.invalid" not in json.dumps(published)
     assert published["additionalProperties"] is False
     assert set(published["properties"]) == set(defaults)
@@ -72,7 +73,7 @@ def test_published_schema_exposes_runtime_enums_and_numeric_bounds() -> None:
     assert properties["zotero"]["properties"]["linkedAttachmentBaseDir"]["default"] == ""
 
 
-def test_configuration_does_not_expose_removed_v21_state_or_template_fields() -> None:
+def test_configuration_does_not_expose_removed_or_migration_only_fields() -> None:
     serialized = json.dumps(CONFIG_SCHEMA, ensure_ascii=False)
 
     for removed in (
@@ -85,5 +86,6 @@ def test_configuration_does_not_expose_removed_v21_state_or_template_fields() ->
         '"customTemplate"',
         '"dimensions"',
         '"analysis.index"',
+        '"defaultDryRunForMigration"',
     ):
         assert removed not in serialized
