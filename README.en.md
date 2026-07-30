@@ -54,7 +54,7 @@ The project is model-provider independent. MCP tools implement deterministic loc
 
 ## Install
 
-Production version: `3.0.0`. Python 3.10+ is required.
+Version `3.0.0` is release-ready. Python 3.10+ is required. The public installation commands below become available after the official GitHub Release is published.
 
 ### uv
 

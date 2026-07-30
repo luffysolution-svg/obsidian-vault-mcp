@@ -1,5 +1,15 @@
-title: Obsidian Vault MCP V3 完整教程
-description: Zotero、MinerU 与 Obsidian 本地科研文献工作流的双语安装、配置和使用文档。
+title: Obsidian Vault MCP
+description: 连接 Zotero、MinerU、Obsidian 与 AI Agent 的本地优先文献研究工作流。
+url: https://luffysolution-svg.github.io
+baseurl: /obsidian-vault-mcp
+repository: luffysolution-svg/obsidian-vault-mcp
 lang: zh-CN
-theme: jekyll-theme-minimal
-plugins: []
+theme: null
+release_status: release-candidate
+release_version: 3.0.0
+markdown: kramdown
+kramdown:
+  input: GFM
+exclude:
+  - Gemfile
+  - Gemfile.lock

@@ -122,7 +122,8 @@ def test_pypi_readmes_use_web_resolvable_document_links() -> None:
 def test_documentation_site_metadata_names_v3() -> None:
     config = (ROOT / "docs/_config.yml").read_text(encoding="utf-8")
 
-    assert "title: Obsidian Vault MCP V3 完整教程" in config
+    assert "title: Obsidian Vault MCP" in config
+    assert "release_status: release-candidate" in config
 
 
 def test_ci_matrix_and_release_tag_checkout_cover_v3_requirements() -> None:

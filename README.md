@@ -59,7 +59,7 @@ Zotero Desktop ── PDF ── MinerU ── Obsidian Vault
 
 ## 安装
 
-正式版本：`3.0.0`。要求 Python 3.10+。
+`3.0.0` 已完成发布准备，要求 Python 3.10+。正式 GitHub Release 发布后，以下公开安装命令才会生效。
 
 ### uv（推荐）
 
