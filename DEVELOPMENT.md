@@ -132,6 +132,8 @@ npm run check
 - GitHub Release
 - PyPI
 
+配置文件中的 `schemaVersion` 是独立的数据格式版本，不与软件版本号绑定。
+
 ## 9. 发布流程
 
 1. 在 `main` 完成代码、文档和版本更新。
@@ -160,7 +162,16 @@ SHA256SUMS
 
 已发布版本不可覆盖；修复必须发布新的语义化版本。
 
-## 10. 发布前清单
+## 10. 发布恢复规则
+
+发布工作流使用 workflow marker 记录每个外部发布阶段。重新运行时，只允许恢复同一 Tag 对应的 draft GitHub Release，并在上传前重新核对全部 `SHA256`。
+
+- PyPI 和 MCP Registry 已存在相同版本时，只验证内容与状态，不重复上传。
+- GitHub draft 可以继续补齐产物，但必须复用同一 Tag 和同一校验和。
+- 已公开或已启用 immutable releases 的版本，禁止删除或覆盖。
+- 任何产物、Tag 或校验和不一致都必须中止，并改用新的语义化版本。
+
+## 11. 发布前清单
 
 - [ ] 31 个 MCP Tools 精确匹配契约。
 - [ ] 7 个 Skills 和 references 完整。
@@ -171,7 +182,7 @@ SHA256SUMS
 - [ ] wheel、sdist、插件 ZIP 和校验和通过验证。
 - [ ] 无凭据或本机绝对路径。
 
-## 11. 安全要求
+## 12. 安全要求
 
 - 默认使用 `stdio`。
 - 网络传输必须位于可信认证和访问控制之后。
