@@ -86,7 +86,11 @@ def test_stdio_handshake_reports_the_package_version() -> None:
 
 
 def test_stdio_handshake_rejects_an_old_tool_surface() -> None:
+    calls = 0
+
     def runner(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        nonlocal calls
+        calls += 1
         tools = [{"name": f"tool-{index}"} for index in range(26)]
         return subprocess.CompletedProcess(
             command,
@@ -100,6 +104,31 @@ def test_stdio_handshake_rejects_an_old_tool_surface() -> None:
         )
 
     assert not mcp_stdio_handshake(runner=runner)
+    assert calls == 1
+
+
+def test_stdio_handshake_retries_one_incomplete_successful_response() -> None:
+    calls = 0
+
+    def runner(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        nonlocal calls
+        calls += 1
+        tools = [{"name": f"tool-{index}"} for index in range(31)]
+        tools_response = (
+            json.dumps({"jsonrpc": "2.0", "id": 2, "result": {"tools": tools}})
+            + "\n"
+            if calls == 2
+            else ""
+        )
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout='{"jsonrpc":"2.0","id":1,"result":{}}\n' + tools_response,
+            stderr="",
+        )
+
+    assert mcp_stdio_handshake(runner=runner)
+    assert calls == 2
 
 
 @pytest.mark.parametrize(

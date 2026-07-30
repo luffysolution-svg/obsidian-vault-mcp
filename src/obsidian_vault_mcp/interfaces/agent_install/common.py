@@ -562,44 +562,59 @@ def mcp_stdio_handshake(
         json.dumps(message, separators=(",", ":")) + "\n"
         for message in (initialize, initialized, tools_list)
     )
-    try:
-        completed = runner(
-            [command, *args],
-            input=request_stream,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return False
-
-    if completed.returncode != 0:
-        return False
-    initialize_ok = False
-    tools_ok = False
-    for line in completed.stdout.splitlines():
+    for _attempt in range(2):
         try:
-            response = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(response, dict) or "error" in response:
-            continue
-        if response.get("id") == 1:
-            initialize_ok = isinstance(response.get("result"), dict)
-        elif response.get("id") == 2:
-            result = response.get("result")
-            tools = result.get("tools") if isinstance(result, dict) else None
-            names = [
-                tool.get("name")
-                for tool in tools
-                if isinstance(tool, dict) and isinstance(tool.get("name"), str)
-            ] if isinstance(tools, list) else []
-            tools_ok = (
-                len(names) == expected_tool_count
-                and len(set(names)) == expected_tool_count
+            completed = runner(
+                [command, *args],
+                input=request_stream,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
             )
-    return initialize_ok and tools_ok
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+        if completed.returncode != 0:
+            return False
+        initialize_seen = False
+        tools_seen = False
+        initialize_ok = False
+        tools_ok = False
+        for line in completed.stdout.splitlines():
+            try:
+                response = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(response, dict):
+                continue
+            response_id = response.get("id")
+            if response_id == 1:
+                initialize_seen = True
+                initialize_ok = (
+                    "error" not in response
+                    and isinstance(response.get("result"), dict)
+                )
+            elif response_id == 2:
+                tools_seen = True
+                if "error" in response:
+                    continue
+                result = response.get("result")
+                tools = result.get("tools") if isinstance(result, dict) else None
+                names = [
+                    tool.get("name")
+                    for tool in tools
+                    if isinstance(tool, dict) and isinstance(tool.get("name"), str)
+                ] if isinstance(tools, list) else []
+                tools_ok = (
+                    len(names) == expected_tool_count
+                    and len(set(names)) == expected_tool_count
+                )
+        if initialize_ok and tools_ok:
+            return True
+        if (initialize_seen and not initialize_ok) or (tools_seen and not tools_ok):
+            return False
+    return False
 
 
 def install_configuration(
