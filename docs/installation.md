@@ -45,6 +45,20 @@ obsidian-vault-mcp agent install codex --dry-run
 
 Analysis 通过 MCP Tools 与 Skills 协作；见 [Analysis 与 Skills](https://luffysolution-svg.github.io/obsidian-vault-mcp/analysis/) 和 [Agent](https://luffysolution-svg.github.io/obsidian-vault-mcp/agents/)。
 
+## Codex 与 Claude Code 插件
+
+安装好上面的 Python 包后，可分别运行以下命令安装原生插件、MCP Server 和 7 个 Skills：
+
+```bash
+obsidian-vault-mcp agent install codex --dry-run
+obsidian-vault-mcp agent install codex
+
+obsidian-vault-mcp agent install claude --dry-run
+obsidian-vault-mcp agent install claude
+```
+
+完整的验证、升级与卸载命令见 [Agent 客户端安装](https://luffysolution-svg.github.io/obsidian-vault-mcp/agents/)。
+
 ## 安全、升级与卸载
 
 每次写入先预览；保存返回的 `transactionId`，并可用 `preview`、`rollback` 检查或恢复事务。升级包不会删除 Vault 文献、PDF、MinerU、Wiki、Analysis 或备份。按原安装器卸载 Python 包；再按 Agent installer 返回的 `uninstall_instructions` 移除其管理的客户端配置。不要将 token、绝对 Vault 路径或 `linkedAttachmentBaseDir` 提交进仓库。

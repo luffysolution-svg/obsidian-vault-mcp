@@ -45,6 +45,20 @@ obsidian-vault-mcp agent install codex --dry-run
 
 Analysis uses MCP Tools and Skills together; see [Analysis and Skills](https://luffysolution-svg.github.io/obsidian-vault-mcp/en/analysis/) and [Agents](https://luffysolution-svg.github.io/obsidian-vault-mcp/en/agents/).
 
+## Codex and Claude Code plugins
+
+After installing the Python package above, run the following commands to install the native plugin, MCP server, and seven Skills for each client:
+
+```bash
+obsidian-vault-mcp agent install codex --dry-run
+obsidian-vault-mcp agent install codex
+
+obsidian-vault-mcp agent install claude --dry-run
+obsidian-vault-mcp agent install claude
+```
+
+For verification, upgrade, and uninstall commands, see [Agent client installation](https://luffysolution-svg.github.io/obsidian-vault-mcp/en/agents/).
+
 ## Safety, upgrade, and uninstall
 
 Preview every write. Retain the returned `transactionId`, then use `preview` and `rollback` to inspect or restore a transaction. Package upgrades do not delete Vault literature, PDFs, MinerU output, Wiki, Analysis, or backups. Uninstall with the original package manager, then follow the Agent installer's returned `uninstall_instructions`. Never commit tokens, absolute Vault paths, or `linkedAttachmentBaseDir`.
