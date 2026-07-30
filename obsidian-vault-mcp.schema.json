@@ -15,8 +15,8 @@
       "default": "https://raw.githubusercontent.com/luffysolution-svg/obsidian-vault-mcp/main/obsidian-vault-mcp.schema.json"
     },
     "schemaVersion": {
-      "const": 3,
-      "default": 3
+      "const": 2,
+      "default": 2
     },
     "literature": {
       "type": "object",
