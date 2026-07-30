@@ -7,6 +7,7 @@ from .tools import TOOL_FUNCTIONS
 
 _READ_ONLY_TOOLS = frozenset(
     {
+        "literature_version",
         "literature_doctor",
         "literature_config_get",
         "literature_config_validate",
