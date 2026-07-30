@@ -11,12 +11,13 @@ All notable changes to Obsidian Vault MCP are recorded in this file.
 - Seven research Skills: `paper-qa`, `full-read`, `passage-qa`, `figure-qa`, `compare-papers`, `literature-review`, and `concept-learning`.
 - Discipline profiles for general research, medicine, chemistry, materials, catalysis, physics, and mathematics.
 - Per-paper MinerU image directories with portable relative links.
+- A read-only `literature_version` capability reporting the package version and public contract.
 - Version-consistency checks across Python, MCP Registry metadata, Codex/Claude plugins, Pi, Git tags, release artifacts, and PyPI.
 
 ### Changed
 
 - Established the V3 data model as the production architecture.
-- Standardized the public MCP surface at 30 tools.
+- Standardized the public MCP surface at 31 tools.
 - Rewrote user and developer documentation around the current architecture, installation paths, screenshots, Skills, and release process.
 
 ### Removed
