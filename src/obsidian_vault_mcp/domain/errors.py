@@ -1,4 +1,4 @@
-"""Domain-specific exceptions for the V2 literature pipeline."""
+"""Domain-specific exceptions for the literature pipeline."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any
 
 
 class ObsidianVaultMcpError(Exception):
-    """Base class for all expected V2 errors."""
+    """Base class for all expected application errors."""
 
 
 class IdentityError(ObsidianVaultMcpError, ValueError):
@@ -22,7 +22,7 @@ class FrontmatterError(ObsidianVaultMcpError, ValueError):
 
 
 class ConfigurationError(ObsidianVaultMcpError, ValueError):
-    """Raised when the single V2 configuration file is invalid."""
+    """Raised when the Vault configuration file is invalid."""
 
 
 class AtomicWriteError(ObsidianVaultMcpError, OSError):
