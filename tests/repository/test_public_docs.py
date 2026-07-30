@@ -68,6 +68,16 @@ def test_pages_uses_pretty_urls_without_breaking_the_legacy_english_entry() -> N
     assert "permalink: /index.en.html" in legacy_entry
 
 
+def test_github_markdown_preview_has_no_unrendered_jekyll_syntax_or_relative_page_links() -> None:
+    pages_url = "https://luffysolution-svg.github.io/obsidian-vault-mcp/"
+    for page in DOCS.rglob("*.md"):
+        text = page.read_text(encoding="utf-8")
+        assert "{{" not in text, page
+        assert "{%" not in text, page
+    for page in (DOCS / "index.md", DOCS / "en" / "index.md", DOCS / "quickstart.md", DOCS / "en" / "quickstart.md"):
+        assert pages_url in page.read_text(encoding="utf-8"), page
+
+
 def test_public_docs_do_not_advertise_removed_migration_commands_or_old_cli_flags() -> None:
     public_docs = "\n".join(path.read_text(encoding="utf-8") for path in DOCS.rglob("*.md"))
     for forbidden in (
