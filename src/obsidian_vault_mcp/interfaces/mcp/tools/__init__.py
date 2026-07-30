@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .... import __version__
 from ....application.analysis_base_service import AnalysisBaseService
 from ....application.analysis_service import AnalysisService
 from ....application.base_service import BaseService
@@ -16,6 +17,17 @@ from ....application.sync_service import SyncService
 from ....application.transaction_service import TransactionService
 from ....application.zotero_service import ZoteroQueryService
 from ...common import resolve_vault
+
+
+def literature_version() -> dict[str, Any]:
+    """Return the production package version and public capability counts."""
+    return {
+        "ok": True,
+        "version": __version__,
+        "mcpToolCount": len(TOOL_FUNCTIONS),
+        "skillCount": 7,
+        "analysisTypes": ["full_read", "literature_review", "passage_qa", "figure_qa", "concept"],
+    }
 
 
 def literature_doctor(vault_path: str = "") -> dict[str, Any]:
@@ -177,6 +189,7 @@ def literature_rollback_transaction(transaction_id: str, vault_path: str = "", d
 
 
 TOOL_FUNCTIONS = (
+    literature_version,
     literature_doctor,
     literature_config_get,
     literature_config_validate,
