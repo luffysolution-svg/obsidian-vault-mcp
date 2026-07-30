@@ -59,7 +59,7 @@ Zotero Desktop ── PDF ── MinerU ── Obsidian Vault
 
 ## 安装
 
-`3.0.1` 已完成发布准备，要求 Python 3.10+。正式 GitHub Release 发布后，以下公开安装命令才会生效。
+`3.0.1` 已正式发布，要求 Python 3.10+。以下公开安装命令现已可用。
 
 ### uv（推荐）
 
