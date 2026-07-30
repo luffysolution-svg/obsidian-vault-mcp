@@ -9,11 +9,9 @@ description: 连接 Zotero、MinerU、Obsidian 与 AI Agent 的本地优先文�
 
 <p class="lead">连接 Zotero、MinerU、Obsidian 与 AI Agent 的本地优先文献研究工作流。</p>
 
-<span class="badge">Version {{ site.release_version }}</span>
+<span class="badge">Version 3.0.1</span>
 
-[快速开始](quickstart/){:.button} [完整安装](installation/){:.button} [GitHub](https://github.com/luffysolution-svg/obsidian-vault-mcp){:.button} [更新日志](changelog/){:.button}
-
-{% include release-notice.html %}
+<a class="button" href="https://luffysolution-svg.github.io/obsidian-vault-mcp/quickstart/">快速开始</a> <a class="button" href="https://luffysolution-svg.github.io/obsidian-vault-mcp/installation/">完整安装</a> <a class="button" href="https://github.com/luffysolution-svg/obsidian-vault-mcp">GitHub</a> <a class="button" href="https://luffysolution-svg.github.io/obsidian-vault-mcp/changelog/">更新日志</a>
 
 ## 从文献到知识库
 
@@ -43,10 +41,10 @@ uvx --from "zotero-obsidian-mcp==3.0.1" obsidian-vault-mcp --help
 
 ## 文档
 
-<div class="grid"><div class="card"><h3><a href="installation/">完整安装</a></h3>环境、包管理器、Vault、Zotero、MinerU、验证与隐私。</div><div class="card"><h3><a href="configuration/">用户配置</a></h3>唯一 Vault 配置文件、Schema 与 Skill 自定义区域。</div><div class="card"><h3><a href="zotero/">Zotero 导入与同步</a></h3>父条目、附件和同步策略。</div><div class="card"><h3><a href="mineru/">MinerU 解析</a></h3>全文章节、图片、公式与事务输出。</div><div class="card"><h3><a href="analysis/">Analysis 与 Skills</a></h3>五类输出、Analysis.base 和七个工作流。</div><div class="card"><h3><a href="agents/">Agent 客户端</a></h3>实际安装器支持的客户端与方式。</div><div class="card"><h3><a href="tools/">MCP Tools</a></h3>由运行时注册表生成的 31 工具参考。</div><div class="card"><h3><a href="troubleshooting/">故障排查</a></h3>doctor、verify、路径和客户端问题。</div><div class="card"><h3><a href="development/">开发与贡献</a></h3>Pages 来源、测试和贡献方式。</div></div>
+<div class="grid"><div class="card"><h3><a href="https://luffysolution-svg.github.io/obsidian-vault-mcp/installation/">完整安装</a></h3>环境、包管理器、Vault、Zotero、MinerU、验证与隐私。</div><div class="card"><h3><a href="https://luffysolution-svg.github.io/obsidian-vault-mcp/configuration/">用户配置</a></h3>唯一 Vault 配置文件、Schema 与 Skill 自定义区域。</div><div class="card"><h3><a href="https://luffysolution-svg.github.io/obsidian-vault-mcp/zotero/">Zotero 导入与同步</a></h3>父条目、附件和同步策略。</div><div class="card"><h3><a href="https://luffysolution-svg.github.io/obsidian-vault-mcp/mineru/">MinerU 解析</a></h3>全文章节、图片、公式与事务输出。</div><div class="card"><h3><a href="https://luffysolution-svg.github.io/obsidian-vault-mcp/analysis/">Analysis 与 Skills</a></h3>五类输出、Analysis.base 和七个工作流。</div><div class="card"><h3><a href="https://luffysolution-svg.github.io/obsidian-vault-mcp/agents/">Agent 客户端</a></h3>实际安装器支持的客户端与方式。</div><div class="card"><h3><a href="https://luffysolution-svg.github.io/obsidian-vault-mcp/tools/">MCP Tools</a></h3>由运行时注册表生成的 31 工具参考。</div><div class="card"><h3><a href="https://luffysolution-svg.github.io/obsidian-vault-mcp/troubleshooting/">故障排查</a></h3>doctor、verify、路径和客户端问题。</div><div class="card"><h3><a href="https://luffysolution-svg.github.io/obsidian-vault-mcp/development/">开发与贡献</a></h3>Pages 来源、测试和贡献方式。</div></div>
 
 ## 实际界面
 
 ![Obsidian 中的 Literature Base](assets/screenshots/v2/literature-base.png)
 
-[English documentation](en/)
+[English documentation](https://luffysolution-svg.github.io/obsidian-vault-mcp/en/)

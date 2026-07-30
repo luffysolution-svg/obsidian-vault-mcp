@@ -9,8 +9,6 @@ lang: en
 
 Use Python 3.10+. Open the target Vault in Obsidian at least once. Run Zotero Desktop with its local API enabled. MinerU is optional external parsing software.
 
-{% include release-notice.html %}
-
 ```bash
 python -m pip install --upgrade "zotero-obsidian-mcp==3.0.1"
 pipx install "zotero-obsidian-mcp==3.0.1"
@@ -33,7 +31,7 @@ obsidian-vault-mcp sync item ABCD1234 --vault-path "<VAULT_PATH>" --dry-run
 obsidian-vault-mcp sync collection COLLECTION_KEY --vault-path "<VAULT_PATH>" --dry-run
 ```
 
-Always provide a Zotero **parent item** `zoteroKey`, never an attachment key. See [Zotero]({{ '/en/zotero/' | relative_url }}).
+Always provide a Zotero **parent item** `zoteroKey`, never an attachment key. See [Zotero](https://luffysolution-svg.github.io/obsidian-vault-mcp/en/zotero/).
 
 ## MinerU, indexes, and Analysis
 
@@ -45,7 +43,7 @@ obsidian-vault-mcp verify --vault-path "<VAULT_PATH>"
 obsidian-vault-mcp agent install codex --dry-run
 ```
 
-Analysis uses MCP Tools and Skills together; see [Analysis and Skills]({{ '/en/analysis/' | relative_url }}) and [Agents]({{ '/en/agents/' | relative_url }}).
+Analysis uses MCP Tools and Skills together; see [Analysis and Skills](https://luffysolution-svg.github.io/obsidian-vault-mcp/en/analysis/) and [Agents](https://luffysolution-svg.github.io/obsidian-vault-mcp/en/agents/).
 
 ## Safety, upgrade, and uninstall
 

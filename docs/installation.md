@@ -9,8 +9,6 @@ lang: zh-CN
 
 需要 Python 3.10+；Obsidian 应至少打开过一次目标 Vault；Zotero Desktop 需运行并开启本地 API。MinerU 是可选的外部解析服务。
 
-{% include release-notice.html %}
-
 ```bash
 python -m pip install --upgrade "zotero-obsidian-mcp==3.0.1"
 pipx install "zotero-obsidian-mcp==3.0.1"
@@ -33,7 +31,7 @@ obsidian-vault-mcp sync item ABCD1234 --vault-path "<VAULT_PATH>" --dry-run
 obsidian-vault-mcp sync collection COLLECTION_KEY --vault-path "<VAULT_PATH>" --dry-run
 ```
 
-必须使用 Zotero **父条目**的 `zoteroKey`，而不是附件 key。详见 [Zotero]({{ '/zotero/' | relative_url }})。
+必须使用 Zotero **父条目**的 `zoteroKey`，而不是附件 key。详见 [Zotero](https://luffysolution-svg.github.io/obsidian-vault-mcp/zotero/)。
 
 ## MinerU、索引与 Analysis
 
@@ -45,7 +43,7 @@ obsidian-vault-mcp verify --vault-path "<VAULT_PATH>"
 obsidian-vault-mcp agent install codex --dry-run
 ```
 
-Analysis 通过 MCP Tools 与 Skills 协作；见 [Analysis 与 Skills]({{ '/analysis/' | relative_url }}) 和 [Agent]({{ '/agents/' | relative_url }})。
+Analysis 通过 MCP Tools 与 Skills 协作；见 [Analysis 与 Skills](https://luffysolution-svg.github.io/obsidian-vault-mcp/analysis/) 和 [Agent](https://luffysolution-svg.github.io/obsidian-vault-mcp/agents/)。
 
 ## 安全、升级与卸载
 

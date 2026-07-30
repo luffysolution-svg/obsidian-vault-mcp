@@ -27,4 +27,4 @@ obsidian-vault-mcp call zotero_search_items --json '{"query":"catalysis"}'
 obsidian-vault-mcp import item ABCD1234 --vault-path "<VAULT_PATH>" --dry-run
 ```
 
-Continue with [full installation]({{ '/en/installation/' | relative_url }}) and [configuration]({{ '/en/configuration/' | relative_url }}).
+Continue with [full installation](https://luffysolution-svg.github.io/obsidian-vault-mcp/en/installation/) and [configuration](https://luffysolution-svg.github.io/obsidian-vault-mcp/en/configuration/).
