@@ -1,4 +1,4 @@
-"""Strict validation and normalization for the V2 JSON configuration."""
+"""Strict validation and normalization for the public JSON configuration."""
 
 from __future__ import annotations
 
@@ -13,311 +13,223 @@ from ..domain.paths import normalize_vault_relative
 from .defaults import DEFAULT_CONFIG, SCHEMA_URL, SCHEMA_VERSION
 
 _ALLOWED_KEYS: dict[str, set[str]] = {
-    "root": {
-        "$schema",
-        "schemaVersion",
-        "literature",
-        "identity",
-        "naming",
-        "attachments",
-        "frontmatter",
-        "note",
-        "zotero",
-        "bibtex",
-        "mineru",
-        "analysis",
-        "index",
-        "base",
-        "safety",
-    },
-    "literature": {"root", "index", "base", "wikiFolder"},
-    "identity": {"strategy"},
-    "naming": {"note", "pdf", "mineruMarkdown", "mineruImage"},
-    "attachments": {"pdfFolder", "copyPdf", "overwritePolicy"},
-    "frontmatter": {"omitEmpty", "preserveUnknownFields", "fieldOrder"},
-    "note": {
-        "omitEmptySections",
-        "preserveUserSections",
-        "readingNotesHeading",
-        "embedPdf",
-        "embedMineruMarkdown",
-    },
-    "zotero": {
-        "apiBase",
-        "linkedAttachmentBaseDir",
-        "syncNotes",
-        "syncAnnotations",
-        "syncTags",
-        "paginationSize",
-    },
-    "bibtex": {"enabled", "provider", "fallback"},
-    "mineru": {
-        "enabled",
-        "mode",
-        "markdownFolder",
-        "imageFolder",
-        "imageLinkStyle",
-        "replacePreviousOutput",
-        "maxConcurrentJobs",
-    },
-    "analysis": {
-        "folder",
-        "base",
-        "fullReadsFolder",
-        "reviewsFolder",
-        "passageQaFolder",
-        "figureQaFolder",
-        "conceptsFolder",
-    },
-    "index": {"autoRebuild", "recentLimit", "groupBy"},
-    "base": {"autoRebuild", "name"},
-    "safety": {
-        "atomicWrites",
-        "backupBeforeReplace",
-        "retainBackups",
-        "defaultDryRunForMigration",
-        "lockPerItem",
+    "root": set(DEFAULT_CONFIG),
+    **{
+        name: set(values)
+        for name, values in DEFAULT_CONFIG.items()
+        if isinstance(values, dict)
     },
 }
 
-# A public JSON Schema description for editors and integrations. Runtime
-# validation below also performs cross-field, path, and filename checks that
-# JSON Schema cannot express concisely.
+
+def _string(default: str, *, min_length: int | None = None) -> dict[str, Any]:
+    result: dict[str, Any] = {"type": "string"}
+    if min_length is not None:
+        result["minLength"] = min_length
+    result["default"] = default
+    return result
+
+
+def _boolean(default: bool) -> dict[str, Any]:
+    return {"type": "boolean", "default": default}
+
+
+def _integer(default: int, minimum: int, maximum: int) -> dict[str, Any]:
+    return {
+        "type": "integer",
+        "minimum": minimum,
+        "maximum": maximum,
+        "default": default,
+    }
+
+
+def _enum(default: str, values: list[str]) -> dict[str, Any]:
+    return {"type": "string", "enum": values, "default": default}
+
+
+def _section(name: str, properties: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "default": DEFAULT_CONFIG[name],
+        "properties": properties,
+    }
+
+
 CONFIG_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": SCHEMA_URL,
-    "title": "Obsidian Vault MCP V2 configuration",
+    "title": "Obsidian Vault MCP configuration",
     "description": "Configuration for the local Zotero, MinerU, and Obsidian literature pipeline.",
     "type": "object",
     "required": ["schemaVersion"],
     "additionalProperties": False,
     "properties": {
-        "$schema": {
-            "type": "string",
-            "minLength": 1,
-            "default": SCHEMA_URL,
-        },
+        "$schema": _string(SCHEMA_URL, min_length=1),
         "schemaVersion": {"const": SCHEMA_VERSION, "default": SCHEMA_VERSION},
-        "literature": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["literature"],
-            "properties": {
-                "root": {"type": "string", "minLength": 1, "default": "Literature"},
-                "index": {"type": "string", "minLength": 1, "default": "Literature/index.md"},
-                "base": {"type": "string", "minLength": 1, "default": "Literature/Literature.base"},
-                "wikiFolder": {"type": "string", "minLength": 1, "default": "Literature/Wiki"},
+        "literature": _section(
+            "literature",
+            {
+                "root": _string("Literature", min_length=1),
+                "index": _string("Literature/index.md", min_length=1),
+                "base": _string("Literature/Literature.base", min_length=1),
+                "wikiFolder": _string("Literature/Wiki", min_length=1),
             },
-        },
-        "identity": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["identity"],
-            "properties": {
-                "strategy": {"const": "zoteroKey", "default": "zoteroKey"},
+        ),
+        "identity": _section(
+            "identity",
+            {"strategy": {"const": "zoteroKey", "default": "zoteroKey"}},
+        ),
+        "naming": _section(
+            "naming",
+            {
+                "note": _string("{zoteroKey}.md", min_length=1),
+                "pdf": _string("{zoteroKey}.pdf", min_length=1),
+                "mineruMarkdown": _string("{zoteroKey}.md", min_length=1),
+                "mineruImage": _string("{zoteroKey}-fig{index:02d}.{ext}", min_length=1),
             },
-        },
-        "naming": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["naming"],
-            "properties": {
-                "note": {"type": "string", "minLength": 1, "default": "{zoteroKey}.md"},
-                "pdf": {"type": "string", "minLength": 1, "default": "{zoteroKey}.pdf"},
-                "mineruMarkdown": {"type": "string", "minLength": 1, "default": "{zoteroKey}.md"},
-                "mineruImage": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "{zoteroKey}-fig{index:02d}.{ext}",
-                },
+        ),
+        "attachments": _section(
+            "attachments",
+            {
+                "pdfFolder": _string("Literature/attachment", min_length=1),
+                "copyPdf": _boolean(True),
+                "overwritePolicy": _enum(
+                    "if-source-changed",
+                    ["always", "never", "if-source-changed"],
+                ),
             },
-        },
-        "attachments": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["attachments"],
-            "properties": {
-                "pdfFolder": {"type": "string", "minLength": 1, "default": "Literature/attachment"},
-                "copyPdf": {"type": "boolean", "default": True},
-                "overwritePolicy": {
-                    "type": "string",
-                    "enum": ["always", "never", "if-source-changed"],
-                    "default": "if-source-changed",
-                },
-            },
-        },
-        "frontmatter": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["frontmatter"],
-            "properties": {
-                "omitEmpty": {"type": "boolean", "default": True},
-                "preserveUnknownFields": {"type": "boolean", "default": True},
+        ),
+        "frontmatter": _section(
+            "frontmatter",
+            {
+                "omitEmpty": _boolean(True),
+                "preserveUnknownFields": _boolean(True),
                 "fieldOrder": {
                     "type": "array",
                     "const": list(MANAGED_FIELD_ORDER),
                     "default": list(MANAGED_FIELD_ORDER),
                 },
             },
-        },
-        "note": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["note"],
-            "properties": {
-                "omitEmptySections": {"type": "boolean", "default": True},
-                "preserveUserSections": {"type": "boolean", "default": True},
-                "readingNotesHeading": {"type": "string", "minLength": 1, "default": "Reading Notes"},
-                "embedPdf": {"type": "boolean", "default": True},
-                "embedMineruMarkdown": {"type": "boolean", "default": True},
+        ),
+        "note": _section(
+            "note",
+            {
+                "omitEmptySections": _boolean(True),
+                "preserveUserSections": _boolean(True),
+                "readingNotesHeading": _string("Reading Notes", min_length=1),
+                "embedPdf": _boolean(True),
+                "embedMineruMarkdown": _boolean(True),
             },
-        },
-        "zotero": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["zotero"],
-            "properties": {
-                "apiBase": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "http://127.0.0.1:23119/api",
-                },
-                "linkedAttachmentBaseDir": {"type": "string", "default": ""},
-                "syncNotes": {"type": "boolean", "default": True},
-                "syncAnnotations": {"type": "boolean", "default": True},
-                "syncTags": {"type": "boolean", "default": True},
-                "paginationSize": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100},
+        ),
+        "zotero": _section(
+            "zotero",
+            {
+                "apiBase": _string("http://127.0.0.1:23119/api", min_length=1),
+                "linkedAttachmentBaseDir": _string(""),
+                "syncNotes": _boolean(True),
+                "syncAnnotations": _boolean(True),
+                "syncTags": _boolean(True),
+                "paginationSize": _integer(100, 1, 1000),
             },
-        },
-        "bibtex": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["bibtex"],
-            "properties": {
-                "enabled": {"type": "boolean", "default": True},
-                "provider": {
-                    "type": "string",
-                    "enum": ["auto", "better-bibtex", "zotero", "builtin"],
-                    "default": "auto",
-                },
-                "fallback": {"type": "string", "enum": ["builtin", "none"], "default": "builtin"},
+        ),
+        "bibtex": _section(
+            "bibtex",
+            {
+                "enabled": _boolean(True),
+                "provider": _enum(
+                    "auto",
+                    ["auto", "better-bibtex", "zotero", "builtin"],
+                ),
+                "fallback": _enum("builtin", ["builtin", "none"]),
             },
-        },
-        "mineru": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["mineru"],
-            "properties": {
-                "enabled": {"type": "boolean", "default": True},
-                "mode": {"type": "string", "enum": ["auto", "local", "api"], "default": "auto"},
-                "markdownFolder": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "Literature/attachment/MinerU",
-                },
-                "imageFolder": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "Literature/attachment/MinerU/image",
-                },
-                "imageLinkStyle": {
-                    "type": "string",
-                    "enum": ["markdown-relative"],
-                    "default": "markdown-relative",
-                },
-                "replacePreviousOutput": {"type": "boolean", "default": True},
-                "maxConcurrentJobs": {"type": "integer", "minimum": 1, "maximum": 64, "default": 2},
+        ),
+        "mineru": _section(
+            "mineru",
+            {
+                "enabled": _boolean(True),
+                "mode": _enum("auto", ["auto", "local", "api"]),
+                "markdownFolder": _string(
+                    "Literature/attachment/MinerU",
+                    min_length=1,
+                ),
+                "imageFolder": _string(
+                    "Literature/attachment/MinerU/image",
+                    min_length=1,
+                ),
+                "imageLinkStyle": _enum(
+                    "markdown-relative",
+                    ["markdown-relative"],
+                ),
+                "replacePreviousOutput": _boolean(True),
+                "maxConcurrentJobs": _integer(2, 1, 64),
             },
-        },
-        "analysis": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["analysis"],
-            "properties": {
-                "folder": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "Literature/Analysis",
-                },
-                "base": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "Literature/Analysis/Analysis.base",
-                },
-                "fullReadsFolder": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "Literature/Analysis/full-reads",
-                },
-                "reviewsFolder": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "Literature/Analysis/reviews",
-                },
-                "passageQaFolder": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "Literature/Analysis/qa/passages",
-                },
-                "figureQaFolder": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "Literature/Analysis/qa/figures",
-                },
-                "conceptsFolder": {
-                    "type": "string",
-                    "minLength": 1,
-                    "default": "Literature/Analysis/concepts",
-                },
+        ),
+        "analysis": _section(
+            "analysis",
+            {
+                "folder": _string("Literature/Analysis", min_length=1),
+                "base": _string("Literature/Analysis/Analysis.base", min_length=1),
+                "fullReadsFolder": _string(
+                    "Literature/Analysis/full-reads",
+                    min_length=1,
+                ),
+                "reviewsFolder": _string(
+                    "Literature/Analysis/reviews",
+                    min_length=1,
+                ),
+                "passageQaFolder": _string(
+                    "Literature/Analysis/qa/passages",
+                    min_length=1,
+                ),
+                "figureQaFolder": _string(
+                    "Literature/Analysis/qa/figures",
+                    min_length=1,
+                ),
+                "conceptsFolder": _string(
+                    "Literature/Analysis/concepts",
+                    min_length=1,
+                ),
             },
-        },
-        "index": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["index"],
-            "properties": {
-                "autoRebuild": {"type": "boolean", "default": True},
-                "recentLimit": {"type": "integer", "minimum": 0, "maximum": 10000, "default": 20},
+        ),
+        "index": _section(
+            "index",
+            {
+                "autoRebuild": _boolean(True),
+                "recentLimit": _integer(20, 0, 10_000),
                 "groupBy": {
                     "type": "array",
-                    "items": {"type": "string", "enum": ["year", "journal", "tags"]},
+                    "items": {
+                        "type": "string",
+                        "enum": ["year", "journal", "tags"],
+                    },
                     "uniqueItems": True,
                     "default": ["year", "journal", "tags"],
                 },
             },
-        },
-        "base": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["base"],
-            "properties": {
-                "autoRebuild": {"type": "boolean", "default": True},
-                "name": {"type": "string", "minLength": 1, "default": "Literature Matrix"},
+        ),
+        "base": _section(
+            "base",
+            {
+                "autoRebuild": _boolean(True),
+                "name": _string("Literature Matrix", min_length=1),
             },
-        },
-        "safety": {
-            "type": "object",
-            "additionalProperties": False,
-            "default": DEFAULT_CONFIG["safety"],
-            "properties": {
-                "atomicWrites": {"type": "boolean", "default": True},
-                "backupBeforeReplace": {"type": "boolean", "default": True},
-                "retainBackups": {"type": "integer", "minimum": 0, "maximum": 10000, "default": 10},
-                "defaultDryRunForMigration": {"type": "boolean", "default": True},
-                "lockPerItem": {"type": "boolean", "default": True},
+        ),
+        "safety": _section(
+            "safety",
+            {
+                "atomicWrites": _boolean(True),
+                "backupBeforeReplace": _boolean(True),
+                "retainBackups": _integer(10, 0, 10_000),
+                "lockPerItem": _boolean(True),
             },
-        },
+        ),
     },
 }
 
 
 def validate_config(config: Mapping[str, Any]) -> dict[str, Any]:
-    """Strictly validate user config and return a normalized full config.
-
-    Sections may omit values to inherit V2 defaults. Unknown fields, wrong
-    types, unsafe paths, unsupported enum values, and unstable naming patterns
-    are rejected rather than silently ignored.
-    """
+    """Validate user configuration and return a normalized complete config."""
 
     if not isinstance(config, Mapping):
         raise ConfigurationError("configuration root must be a JSON object")
@@ -398,8 +310,7 @@ def _validate_paths(config: dict[str, Any]) -> None:
 def _validate_identity_and_naming(config: dict[str, Any]) -> None:
     strategy = _expect_string(config["identity"]["strategy"], "identity.strategy", non_empty=True)
     if strategy != "zoteroKey":
-        raise ConfigurationError("identity.strategy must be 'zoteroKey' in V2")
-
+        raise ConfigurationError("identity.strategy must be 'zoteroKey'")
     requirements = {
         "note": ("zoteroKey",),
         "pdf": ("zoteroKey",),
@@ -422,8 +333,7 @@ def _validate_identity_and_naming(config: dict[str, Any]) -> None:
             )
         except IdentityError as exc:
             raise ConfigurationError(f"invalid naming.{name}: {exc}") from exc
-    expected_suffixes = {"note": ".md", "pdf": ".pdf", "mineruMarkdown": ".md"}
-    for name, suffix in expected_suffixes.items():
+    for name, suffix in {"note": ".md", "pdf": ".pdf", "mineruMarkdown": ".md"}.items():
         if not rendered[name].lower().endswith(suffix):
             raise ConfigurationError(f"naming.{name} must render a {suffix} filename")
     if not rendered["mineruImage"].lower().endswith(".png"):
@@ -438,7 +348,7 @@ def _validate_frontmatter(config: dict[str, Any]) -> None:
     if not isinstance(order, list) or any(not isinstance(name, str) for name in order):
         raise ConfigurationError("frontmatter.fieldOrder must be an array of strings")
     if order != list(MANAGED_FIELD_ORDER):
-        raise ConfigurationError("frontmatter.fieldOrder must match the fixed V2 managed field order")
+        raise ConfigurationError("frontmatter.fieldOrder must match the managed field order")
 
 
 def _validate_scalar_sections(config: dict[str, Any]) -> None:
@@ -449,31 +359,26 @@ def _validate_scalar_sections(config: dict[str, Any]) -> None:
         "attachments.overwritePolicy",
         {"always", "never", "if-source-changed"},
     )
-
     note = config["note"]
     for name in ("omitEmptySections", "preserveUserSections", "embedPdf", "embedMineruMarkdown"):
         _expect_bool(note[name], f"note.{name}")
     _expect_string(note["readingNotesHeading"], "note.readingNotesHeading", non_empty=True)
-
     zotero = config["zotero"]
     _expect_string(zotero["apiBase"], "zotero.apiBase", non_empty=True)
     _expect_string(zotero["linkedAttachmentBaseDir"], "zotero.linkedAttachmentBaseDir")
     for name in ("syncNotes", "syncAnnotations", "syncTags"):
         _expect_bool(zotero[name], f"zotero.{name}")
     _expect_int(zotero["paginationSize"], "zotero.paginationSize", minimum=1, maximum=1000)
-
     bibtex = config["bibtex"]
     _expect_bool(bibtex["enabled"], "bibtex.enabled")
     _expect_enum(bibtex["provider"], "bibtex.provider", {"auto", "better-bibtex", "zotero", "builtin"})
     _expect_enum(bibtex["fallback"], "bibtex.fallback", {"builtin", "none"})
-
     mineru = config["mineru"]
     _expect_bool(mineru["enabled"], "mineru.enabled")
     _expect_bool(mineru["replacePreviousOutput"], "mineru.replacePreviousOutput")
     _expect_enum(mineru["mode"], "mineru.mode", {"auto", "local", "api"})
     _expect_enum(mineru["imageLinkStyle"], "mineru.imageLinkStyle", {"markdown-relative"})
     _expect_int(mineru["maxConcurrentJobs"], "mineru.maxConcurrentJobs", minimum=1, maximum=64)
-
     index = config["index"]
     _expect_bool(index["autoRebuild"], "index.autoRebuild")
     _expect_int(index["recentLimit"], "index.recentLimit", minimum=0, maximum=10_000)
@@ -482,18 +387,11 @@ def _validate_scalar_sections(config: dict[str, Any]) -> None:
         raise ConfigurationError("index.groupBy may contain only 'year', 'journal', and 'tags'")
     if len(groups) != len(set(groups)):
         raise ConfigurationError("index.groupBy cannot contain duplicates")
-
     base = config["base"]
     _expect_bool(base["autoRebuild"], "base.autoRebuild")
     _expect_string(base["name"], "base.name", non_empty=True)
-
     safety = config["safety"]
-    for name in (
-        "atomicWrites",
-        "backupBeforeReplace",
-        "defaultDryRunForMigration",
-        "lockPerItem",
-    ):
+    for name in ("atomicWrites", "backupBeforeReplace", "lockPerItem"):
         _expect_bool(safety[name], f"safety.{name}")
     _expect_int(safety["retainBackups"], "safety.retainBackups", minimum=0, maximum=10_000)
 
