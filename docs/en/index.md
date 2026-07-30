@@ -8,7 +8,7 @@ description: A local-first literature research workflow connecting Zotero, Miner
 
 <p class="lead">A local-first literature research workflow connecting Zotero, MinerU, Obsidian, and AI agents.</p>
 
-<span class="badge">Version 3.0.0</span>
+<span class="badge">Version {{ site.release_version }}</span>
 
 [Quick start](quickstart/){:.button} [Full installation](installation/){:.button} [GitHub](https://github.com/luffysolution-svg/obsidian-vault-mcp){:.button} [Changelog](changelog/){:.button}
 
@@ -31,13 +31,13 @@ Zotero Desktop → stable zoteroKey → Markdown main note + PDF
 ## Quick install (after release)
 
 ```bash
-uv tool install "zotero-obsidian-mcp==3.0.0"
+uv tool install "zotero-obsidian-mcp==3.0.1"
 obsidian-vault-mcp --help
 obsidian-vault-mcp call literature_version --json '{}'
 ```
 
 ```bash
-uvx --from "zotero-obsidian-mcp==3.0.0" obsidian-vault-mcp --help
+uvx --from "zotero-obsidian-mcp==3.0.1" obsidian-vault-mcp --help
 ```
 
 ## Documentation

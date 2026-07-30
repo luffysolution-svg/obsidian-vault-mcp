@@ -8,11 +8,11 @@ obsidian-vault-mcp call <tool-name> --json <arguments>
 
 ## Install
 
-Install the Python package persistently first so the Pi process can resolve `obsidian-vault-mcp` on `PATH`. Use the package selector after 3.0.0 is published, or replace it with `"<WHEEL_PATH>"` for local production acceptance:
+Install the Python package persistently first so the Pi process can resolve `obsidian-vault-mcp` on `PATH`. Use the package selector after 3.0.1 is published, or replace it with `"<WHEEL_PATH>"` for local production acceptance:
 
 ```bash
-pipx install "zotero-obsidian-mcp==3.0.0"
-# or: uv tool install "zotero-obsidian-mcp==3.0.0"
+pipx install "zotero-obsidian-mcp==3.0.1"
+# or: uv tool install "zotero-obsidian-mcp==3.0.1"
 ```
 
 The release package carries the same thin Extension as a wheel resource. Preview and install it into the target Pi project:

@@ -5,10 +5,10 @@ lang: zh-CN
 ---
 # 快速开始
 
-发布后安装 3.0.0，并验证运行时契约：
+发布后安装 3.0.1，并验证运行时契约：
 
 ```bash
-uv tool install "zotero-obsidian-mcp==3.0.0"
+uv tool install "zotero-obsidian-mcp==3.0.1"
 obsidian-vault-mcp call literature_version --json '{}'
 ```
 

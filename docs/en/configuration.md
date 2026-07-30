@@ -5,7 +5,7 @@ lang: en
 ---
 # User configuration
 
-The only runtime configuration is `<Vault>/.obsidian-vault-mcp.json`. Its `schemaVersion` is an independent data-format version, not package version 3.0.0.
+The only runtime configuration is `<Vault>/.obsidian-vault-mcp.json`. Its `schemaVersion` is an independent data-format version, not package version 3.0.1.
 
 `config init` creates it, `config get` reads it, and `config validate` validates it. Its top-level domains are:
 

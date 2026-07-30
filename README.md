@@ -59,27 +59,27 @@ Zotero Desktop ── PDF ── MinerU ── Obsidian Vault
 
 ## 安装
 
-`3.0.0` 已完成发布准备，要求 Python 3.10+。正式 GitHub Release 发布后，以下公开安装命令才会生效。
+`3.0.1` 已完成发布准备，要求 Python 3.10+。正式 GitHub Release 发布后，以下公开安装命令才会生效。
 
 ### uv（推荐）
 
 ```powershell
-uv tool install "zotero-obsidian-mcp==3.0.0"
+uv tool install "zotero-obsidian-mcp==3.0.1"
 obsidian-vault-mcp --help
 ```
 
 无需持久安装：
 
 ```powershell
-uvx --from "zotero-obsidian-mcp==3.0.0" obsidian-vault-mcp doctor --vault-path "<VAULT_PATH>"
+uvx --from "zotero-obsidian-mcp==3.0.1" obsidian-vault-mcp doctor --vault-path "<VAULT_PATH>"
 ```
 
 ### pipx / pip
 
 ```powershell
-pipx install "zotero-obsidian-mcp==3.0.0"
+pipx install "zotero-obsidian-mcp==3.0.1"
 # 或
-python -m pip install "zotero-obsidian-mcp==3.0.0"
+python -m pip install "zotero-obsidian-mcp==3.0.1"
 ```
 
 ### MCP Registry
@@ -97,7 +97,7 @@ io.github.luffysolution-svg/obsidian-vault-mcp
       "command": "uvx",
       "args": [
         "--from",
-        "zotero-obsidian-mcp==3.0.0",
+        "zotero-obsidian-mcp==3.0.1",
         "obsidian-vault-mcp",
         "serve",
         "--transport",
@@ -176,7 +176,7 @@ obsidian-vault-mcp agent install codex
 GitHub Release 中的离线插件包：
 
 ```text
-obsidian-vault-mcp-3.0.0-plugins.zip
+obsidian-vault-mcp-3.0.1-plugins.zip
 ```
 
 ## Skills
@@ -207,7 +207,7 @@ obsidian-vault-mcp-3.0.0-plugins.zip
 
 ## 发布一致性
 
-`3.0.0` 必须同时出现在 Python 包、运行时 `__version__`、MCP Registry `server.json`、Codex/Claude 插件清单、Pi 包、Git Tag `v3.0.0`、GitHub Release 和 PyPI 中。Release workflow 会校验版本、Tag 和产物身份，构建 wheel、sdist、插件 ZIP，执行测试与 handshake，并生成 `SHA256SUMS`。
+`3.0.1` 必须同时出现在 Python 包、运行时 `__version__`、MCP Registry `server.json`、Codex/Claude 插件清单、Pi 包、Git Tag `v3.0.1`、GitHub Release 和 PyPI 中。Release workflow 会校验版本、Tag 和产物身份，构建 wheel、sdist、插件 ZIP，执行测试与 handshake，并生成 `SHA256SUMS`。
 
 ## 安全边界
 

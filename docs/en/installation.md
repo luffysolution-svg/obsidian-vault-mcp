@@ -12,13 +12,13 @@ Use Python 3.10+. Open the target Vault in Obsidian at least once. Run Zotero De
 {% include release-notice.html %}
 
 ```bash
-python -m pip install --upgrade "zotero-obsidian-mcp==3.0.0"
-pipx install "zotero-obsidian-mcp==3.0.0"
-uv tool install "zotero-obsidian-mcp==3.0.0"
-uvx --from "zotero-obsidian-mcp==3.0.0" obsidian-vault-mcp --help
+python -m pip install --upgrade "zotero-obsidian-mcp==3.0.1"
+pipx install "zotero-obsidian-mcp==3.0.1"
+uv tool install "zotero-obsidian-mcp==3.0.1"
+uvx --from "zotero-obsidian-mcp==3.0.1" obsidian-vault-mcp --help
 ```
 
-The compatible `zotero-obsidian-mcp` CLI and primary `obsidian-vault-mcp` CLI start the same program. After release, source installation is possible from the official tag: `git checkout v3.0.0`, then `python -m pip install -e ".[dev]"`.
+The compatible `zotero-obsidian-mcp` CLI and primary `obsidian-vault-mcp` CLI start the same program. After release, source installation is possible from the official tag: `git checkout v3.0.1`, then `python -m pip install -e ".[dev]"`.
 
 ## Initialize, import, and sync
 

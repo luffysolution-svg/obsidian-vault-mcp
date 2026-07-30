@@ -6,7 +6,7 @@ repository: luffysolution-svg/obsidian-vault-mcp
 lang: zh-CN
 theme: null
 release_status: release-candidate
-release_version: 3.0.0
+release_version: 3.0.1
 markdown: kramdown
 kramdown:
   input: GFM

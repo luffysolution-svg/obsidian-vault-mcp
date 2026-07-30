@@ -144,8 +144,9 @@ def test_pypi_guard_resumes_only_the_exact_missing_artifact(
     sdist_name = next(name for name in files if name.endswith(".tar.gz"))
     published_name = wheel_name if published_suffix == ".whl" else sdist_name
     missing_name = sdist_name if published_suffix == ".whl" else wheel_name
+    server_version = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))["version"]
     payload = {
-        "info": {"name": "zotero-obsidian-mcp", "version": "3.0.0"},
+        "info": {"name": "zotero-obsidian-mcp", "version": server_version},
         "urls": [
             {
                 "filename": published_name,

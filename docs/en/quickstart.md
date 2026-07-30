@@ -5,10 +5,10 @@ lang: en
 ---
 # Quick start
 
-After release, install 3.0.0 and confirm the runtime contract:
+After release, install 3.0.1 and confirm the runtime contract:
 
 ```bash
-uv tool install "zotero-obsidian-mcp==3.0.0"
+uv tool install "zotero-obsidian-mcp==3.0.1"
 obsidian-vault-mcp call literature_version --json '{}'
 ```
 
