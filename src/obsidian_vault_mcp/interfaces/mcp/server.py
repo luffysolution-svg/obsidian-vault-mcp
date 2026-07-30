@@ -17,8 +17,9 @@ _READ_ONLY_TOOLS = frozenset(
         "zotero_get_children",
         "zotero_get_bibtex",
         "literature_verify",
-        "literature_analysis_context",
-        "literature_uncertainty_list",
+        "literature_paper_read",
+        "literature_retrieve",
+        "literature_analysis_get",
         "literature_wiki_context",
         "literature_wiki_list",
         "literature_preview_transaction",
@@ -37,11 +38,8 @@ _MUTATING_TOOLS = frozenset(
         "literature_remove_mineru_output",
         "literature_rebuild_index",
         "literature_rebuild_base",
-        "literature_paper_read",
         "literature_analysis_write",
-        "literature_uncertainty_resolve",
-        "literature_rebuild_analysis_index",
-        "literature_retrieve",
+        "literature_rebuild_analysis_base",
         "literature_wiki_write",
         "literature_migrate_v1_to_v2",
         "literature_rollback_transaction",
@@ -73,7 +71,8 @@ def _tool_annotations(name: str) -> ToolAnnotations:
 
 
 def create_server() -> FastMCP:
-    """Create a fresh explicitly registered V2 MCP server."""
+    """Create a fresh explicitly registered V3 MCP server."""
+
     server = FastMCP("obsidian-literature", json_response=True)
     for function in TOOL_FUNCTIONS:
         server.tool(annotations=_tool_annotations(function.__name__))(function)

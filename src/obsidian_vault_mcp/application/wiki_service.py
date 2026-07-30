@@ -16,7 +16,11 @@ from ..config.schema import validate_config
 from ..domain.errors import FrontmatterError, IdentityError, PathValidationError, TransactionConflictError
 from ..domain.frontmatter import compose_frontmatter, parse_frontmatter
 from ..domain.identity import sanitize_filename, validate_zotero_key
-from ..domain.paths import VaultPaths, normalize_vault_relative
+from ..domain.paths import (
+    VaultPaths,
+    naming_metadata_from_fields,
+    normalize_vault_relative,
+)
 from .transaction_service import TransactionService
 from .verify_service import _vault_link_target, scan_unsafe_references
 
@@ -242,7 +246,12 @@ class WikiService:
             except (PathValidationError, TypeError, ValueError):
                 pass
         try:
-            candidates.append(self.paths.mineru_markdown(key))
+            candidates.append(
+                self.paths.mineru_markdown(
+                    key,
+                    **naming_metadata_from_fields(fields),
+                )
+            )
         except (IdentityError, PathValidationError):
             pass
         for relative in dict.fromkeys(candidates):

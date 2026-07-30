@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -91,6 +91,23 @@ def to_vault_relative(vault_root: str | os.PathLike[str], path: str | os.PathLik
     return normalize_vault_relative(relative.as_posix())
 
 
+def naming_metadata_from_fields(fields: Mapping[str, Any]) -> dict[str, Any]:
+    """Map note frontmatter fields to configurable filename placeholders."""
+
+    author = _first_metadata_value(fields.get("authors"))
+    if not author:
+        author = fields.get("firstAuthor") or _first_metadata_value(
+            fields.get("creators")
+        )
+    if isinstance(author, Mapping):
+        author = author.get("lastName") or author.get("name") or ""
+    return {
+        "firstAuthor": str(author or ""),
+        "year": fields.get("year") or "",
+        "shortTitle": fields.get("title") or "",
+    }
+
+
 class VaultPaths:
     """Build all V2 paths from one Vault root and one validated config mapping."""
 
@@ -130,7 +147,7 @@ class VaultPaths:
             raise PathValidationError("MinerU image index must be a positive integer")
         values = dict(metadata)
         values.update(index=index, ext=ext.lstrip("."))
-        return self._named_path(
+        filename_path = self._named_path(
             "mineru",
             "imageFolder",
             "Literature/attachment/MinerU/image",
@@ -138,70 +155,51 @@ class VaultPaths:
             zotero_key,
             values,
         )
+        filename = PurePosixPath(filename_path).name
+        return normalize_vault_relative(f"{self.mineru_image_folder(zotero_key)}/{filename}")
+
+    def mineru_image_folder(self, zotero_key: str) -> str:
+        key = validate_zotero_key(zotero_key)
+        folder = normalize_vault_relative(
+            str(_nested_value(self.config, "mineru", "imageFolder", default="Literature/attachment/MinerU/image"))
+        )
+        return f"{folder}/{key}"
+
+    @property
+    def analysis_base(self) -> str:
+        return normalize_vault_relative(
+            str(
+                _nested_value(
+                    self.config,
+                    "analysis",
+                    "base",
+                    default="Literature/Analysis/Analysis.base",
+                )
+            )
+        )
+
+    def analysis_folder(self, analysis_type: str | None = None) -> str:
+        section = self.config.get("analysis", {})
+        if not isinstance(section, Mapping):
+            section = {}
+        if analysis_type is None:
+            key, default = "folder", "Literature/Analysis"
+        else:
+            mapping = {
+                "full_read": ("fullReadsFolder", "Literature/Analysis/full-reads"),
+                "literature_review": ("reviewsFolder", "Literature/Analysis/reviews"),
+                "passage_qa": ("passageQaFolder", "Literature/Analysis/qa/passages"),
+                "figure_qa": ("figureQaFolder", "Literature/Analysis/qa/figures"),
+                "concept": ("conceptsFolder", "Literature/Analysis/concepts"),
+            }
+            if analysis_type not in mapping:
+                raise PathValidationError(f"unsupported analysis type: {analysis_type}")
+            key, default = mapping[analysis_type]
+        return normalize_vault_relative(str(section.get(key, default)))
 
     def state(self, zotero_key: str) -> str:
         key = validate_zotero_key(zotero_key)
         return f"{self.internal_root}/state/items/{key}.json"
-
-    def image_manifest(self, zotero_key: str) -> str:
-        key = validate_zotero_key(zotero_key)
-        root = normalize_vault_relative(
-            str(
-                _nested_value(
-                    self.config,
-                    "mineru",
-                    "candidateCacheFolder",
-                    default=f"{self.internal_root}/cache/mineru-assets",
-                )
-            )
-        )
-        return f"{root}/{key}/manifest.json"
-
-    def image_candidate_cache(
-        self,
-        zotero_key: str,
-        asset_id: str | None = None,
-        ext: str | None = None,
-    ) -> str:
-        key = validate_zotero_key(zotero_key)
-        root = PurePosixPath(self.image_manifest(key)).parent.as_posix()
-        folder = f"{root}/assets"
-        if asset_id is None and ext is None:
-            return folder
-        if not asset_id or not ext:
-            raise PathValidationError("candidate cache asset_id and ext must be supplied together")
-        expected_prefix = f"IMG-{key}-"
-        if not asset_id.startswith(expected_prefix) or not re.fullmatch(r"[0-9a-f]{12}", asset_id[len(expected_prefix) :]):
-            raise PathValidationError(f"invalid candidate image assetId: {asset_id}")
-        extension = ext.lower().lstrip(".")
-        if not re.fullmatch(r"[a-z0-9]+", extension):
-            raise PathValidationError(f"invalid candidate image extension: {ext}")
-        return normalize_vault_relative(f"{folder}/{asset_id}.{extension}")
-
-    def evidence_state(self, zotero_key: str) -> str:
-        key = validate_zotero_key(zotero_key)
-        return f"{self.internal_root}/state/evidence/{key}.json"
-
-    def uncertainty_state(self, zotero_key: str) -> str:
-        key = validate_zotero_key(zotero_key)
-        return f"{self.internal_root}/state/uncertainties/{key}.json"
-
-    def coverage_state(self, zotero_key: str) -> str:
-        key = validate_zotero_key(zotero_key)
-        return f"{self.internal_root}/state/coverage/{key}.json"
-
-    def analysis_note(self, zotero_key: str) -> str:
-        key = validate_zotero_key(zotero_key)
-        folder = normalize_vault_relative(
-            str(_nested_value(self.config, "analysis", "folder", default="Literature/Analysis"))
-        )
-        return f"{folder}/{key}.md"
-
-    @property
-    def analysis_index(self) -> str:
-        return normalize_vault_relative(
-            str(_nested_value(self.config, "analysis", "index", default="Literature/Analysis/index.md"))
-        )
 
     def item_lock(self, zotero_key: str) -> str:
         key = validate_zotero_key(zotero_key)
@@ -265,6 +263,12 @@ def _nested_value(
     if not isinstance(value, Mapping):
         return default
     return value.get(key, default)
+
+
+def _first_metadata_value(value: Any) -> Any:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return value[0] if value else ""
+    return value
 
 
 def _validate_portable_component(part: str) -> None:

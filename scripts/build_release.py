@@ -13,24 +13,36 @@ ROOT = Path(__file__).resolve().parents[1]
 MARKETPLACE_ROOT = ROOT / "src" / "obsidian_vault_mcp" / "resources" / "agent_marketplace"
 PLUGIN_NAME = "obsidian-literature"
 AGENT_SKILL_NAMES = (
-    "analyze-figures",
+    "paper-qa",
+    "full-read",
+    "passage-qa",
+    "figure-qa",
     "compare-papers",
-    "evidence-based-qa",
     "literature-review",
-    "structured-paper-note",
-    "theory-note-synthesis",
-    "topic-note-synthesis",
-    "uncertainty-audit",
-    "verify-paper-claims",
+    "concept-learning",
 )
-BUNDLE_FILES = (
+CORE_BUNDLE_FILES = (
     ".agents/plugins/marketplace.json",
     ".claude-plugin/marketplace.json",
     f"plugins/{PLUGIN_NAME}/.codex-plugin/plugin.json",
     f"plugins/{PLUGIN_NAME}/.claude-plugin/plugin.json",
     f"plugins/{PLUGIN_NAME}/.mcp.json",
     f"plugins/{PLUGIN_NAME}/assets/icon.svg",
-    *(f"plugins/{PLUGIN_NAME}/skills/{name}/SKILL.md" for name in AGENT_SKILL_NAMES),
+    f"plugins/{PLUGIN_NAME}/LICENSE",
+)
+SKILL_FILES = tuple(f"plugins/{PLUGIN_NAME}/skills/{name}/SKILL.md" for name in AGENT_SKILL_NAMES)
+REFERENCE_FILES = tuple(
+    sorted(
+        path.relative_to(MARKETPLACE_ROOT).as_posix()
+        for name in AGENT_SKILL_NAMES
+        for path in (MARKETPLACE_ROOT / "plugins" / PLUGIN_NAME / "skills" / name / "references").rglob("*.md")
+        if path.is_file()
+    )
+)
+BUNDLE_FILES = (
+    *CORE_BUNDLE_FILES,
+    *SKILL_FILES,
+    *REFERENCE_FILES,
 )
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
@@ -68,8 +80,17 @@ def project_version() -> str:
 def validate_inputs(version: str) -> dict[str, Path]:
     resources = {relative_path: MARKETPLACE_ROOT / relative_path for relative_path in BUNDLE_FILES}
     missing = [relative_path for relative_path, path in resources.items() if not path.is_file()]
-    if missing:
-        raise BuildError(f"Release bundle inputs are missing: {missing}")
+    actual = {
+        path.relative_to(MARKETPLACE_ROOT).as_posix()
+        for path in MARKETPLACE_ROOT.rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts and path.name != "__init__.py"
+    }
+    unexpected = sorted(actual - set(BUNDLE_FILES))
+    if missing or unexpected:
+        raise BuildError(f"Release bundle input mismatch; missing={missing}, unexpected={unexpected}")
+    plugin_license = resources[f"plugins/{PLUGIN_NAME}/LICENSE"]
+    if plugin_license.read_text(encoding="utf-8") != (ROOT / "LICENSE").read_text(encoding="utf-8"):
+        raise BuildError("Bundled plugin LICENSE differs from the repository LICENSE.")
 
     codex = _read_json(f"plugins/{PLUGIN_NAME}/.codex-plugin/plugin.json")
     claude = _read_json(f"plugins/{PLUGIN_NAME}/.claude-plugin/plugin.json")

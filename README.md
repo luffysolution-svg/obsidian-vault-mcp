@@ -1,222 +1,234 @@
-# Obsidian Vault MCP V2
+<!-- mcp-name: io.github.luffysolution-svg/obsidian-vault-mcp -->
 
-[English](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/README.en.md) · [完整使用教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md) · [开发者文档](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.md) · [PyPI](https://pypi.org/project/zotero-obsidian-mcp/)
+# Obsidian Vault MCP
 
-把 Zotero 文献、PDF、MinerU 全文解析和 Obsidian 知识库连接成一条本地优先、可回滚的文献管道。V2 使用 Zotero 父条目的 `zoteroKey` 作为永久身份：标题、作者、年份或 citekey 改变时，只更新原来的主笔记，不再生成重复文件。
+把 Zotero 文献、PDF、MinerU 全文与 Obsidian Analysis 连接成一条本地优先、事务式、可回滚的研究管道。
+
+[English](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/README.en.md) · [完整教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md) · [开发文档](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.md)
+
+## V3.0.0
+
+V3 保留经过验证的 V2 稳定核心，并把结构化研究层收敛为一个 Analysis 模型：
+
+- Zotero 父条目的 `zoteroKey` 仍是主笔记、PDF 与 MinerU 产物的稳定身份。
+- MCP 固定为 31 个工具：V2 的 26 个稳定工具，加 5 个 Analysis 工具。
+- Analysis 仅有 `full_read`、`literature_review`、`passage_qa`、`figure_qa`、`concept` 五类。
+- 状态仅有 `draft`、`ready`、`reviewed`、`needs_update`、`archived`。
+- 学科 profile 仅有 `general`、`medicine`、`chemistry`、`materials`、`catalysis`、`physics`、`mathematics`。
+- `Literature/Analysis/Analysis.base` 是唯一 Analysis 导航，内含 9 个视图。
+- Agent 能力恰好由 7 个 Skills 提供：`paper-qa`、`full-read`、`passage-qa`、`figure-qa`、`compare-papers`、`literature-review`、`concept-learning`。
+
+V3 不再创建或维护 Evidence、Coverage、Uncertainty、Analysis index、Topic、Theory 或 Analysis 模板。`Literature/index.md` 与 `Literature/Literature.base` 属于保留的 V2 文献资产，不是已删除的 Analysis index。
+
+## 快速安装
+
+要求 Python 3.10+。Zotero 导入需要正在运行且已启用本地 API 的 Zotero Desktop；MinerU 仅在解析全文时需要。
+
+任选一种安装方式：
+
+```powershell
+# pip
+python -m pip install "zotero-obsidian-mcp==3.0.0"
+
+# pipx
+pipx install "zotero-obsidian-mcp==3.0.0"
+
+# uv tool
+uv tool install "zotero-obsidian-mcp==3.0.0"
+```
+
+无需持久安装也可用 uvx：
+
+```powershell
+uvx --from "zotero-obsidian-mcp==3.0.0" obsidian-vault-mcp doctor --vault-path "<VAULT_PATH>"
+```
+
+从 MCP Registry 安装时，搜索：
 
 ```text
-Zotero 元数据与 PDF
-        ↓
-一份稳定主笔记 + PDF 副本
-        ↓
-MinerU 全文 Markdown 与图片
-        ↓
-Index 仪表盘 + Obsidian Base + 可追溯 Wiki
+io.github.luffysolution-svg/obsidian-vault-mcp
 ```
 
-## 你会得到什么
+等价的 stdio 启动配置是：
 
-- 单篇或整套 Zotero 集合导入，完整处理分页，不静默漏掉第 100 条之后的文献。
-- 每个父条目只生成一份 `Literature/{zoteroKey}.md` 主笔记。
-- 同步元数据、标签、Zotero 存储附件或链接附件 PDF、notes/annotations 与 BibTeX，同时保留托管区块外的用户正文和未知 Frontmatter 字段。
-- 可选调用 MinerU Open API CLI，将 PDF 规范化为可移植的 Markdown 与相对图片链接。
-- 自动维护 `Literature/index.md`、`Literature/Literature.base` 和来源可追溯的 Wiki 页面。
-- 所有正式写入经过 dry-run、staging、原子替换、备份、锁和事务；支持预览与回滚。
-- 同一套业务能力同时提供 CLI 和 33 个 MCP Tools；Codex、Claude Code、OpenCode、Hermes、WorkBuddy 与 Pi 均可接入。
-- 为每篇 MinerU 全文建立图片 Manifest、可追溯 EvidenceChunk、读取覆盖账本、结构化 Analysis 笔记和待复核事项。
+```json
+{
+  "command": "uvx",
+  "args": [
+    "--from",
+    "zotero-obsidian-mcp==3.0.0",
+    "obsidian-vault-mcp",
+    "serve",
+    "--transport",
+    "stdio"
+  ],
+  "env": {
+    "OBSIDIAN_VAULT_PATH": "<VAULT_PATH>"
+  }
+}
+```
 
-Wiki 正文由连接的 AI 客户端综合撰写，本项目负责检索本地证据、校验 Zotero keys、补充来源链接并安全写回；项目本身不绑定任何大模型供应商。
+不要把机器绝对路径、Zotero 数据或 MinerU token 提交到仓库。
 
-## 5 分钟开始
-
-前置条件：Python 3.10+、一个已由 Obsidian 打开过的 Vault，以及正在运行且已启用本地 API 的 Zotero Desktop。MinerU 仅在需要全文解析时安装。
-
-以下示例使用 Windows PowerShell。macOS/Linux、软件官方下载、MinerU 精准模式和各 AI 客户端配置见[完整教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md)。
+## 初始化与首次导入
 
 ```powershell
-# 1. 持久安装 V2，任选一种；以下包选择器在 2.1.0 发布到 PyPI 后使用
-pipx install "zotero-obsidian-mcp==2.1.0"
-# 或：uv tool install "zotero-obsidian-mcp==2.1.0"
-# 本地生产验收可把包选择器替换为 "<WHEEL_PATH>"
-
-# 2. 显式指定 Vault。auto 只会从进程当前目录向父目录查找 .obsidian
-$env:OBSIDIAN_VAULT_PATH = "<VAULT_DIR>"
-
-# 3. 先预览，再初始化唯一的 Vault 配置
-obsidian-vault-mcp config init --dry-run
-obsidian-vault-mcp config init
-obsidian-vault-mcp config validate
-
-# 4. 检查配置、Zotero 与 MinerU 子状态
-obsidian-vault-mcp doctor
-
-# 5. 搜索 Zotero 并导入父条目
-obsidian-vault-mcp call zotero_search_items --json '{"query":"photocatalysis"}'
-obsidian-vault-mcp import item ABCD1234 --dry-run
-obsidian-vault-mcp import item ABCD1234
+obsidian-vault-mcp config init --vault-path "<VAULT_PATH>" --dry-run
+obsidian-vault-mcp config init --vault-path "<VAULT_PATH>"
+obsidian-vault-mcp doctor --vault-path "<VAULT_PATH>"
+obsidian-vault-mcp import item ABCD1234 --vault-path "<VAULT_PATH>" --dry-run
+obsidian-vault-mcp import item ABCD1234 --vault-path "<VAULT_PATH>"
 ```
 
-`doctor` 顶层的 `ok` 只表示配置能够加载；请另外检查结果中的 `zotero.ok` 和 `mineru.available`。首次导入成功后应看到主笔记、PDF、Index 与 Base。完成 MinerU 认证后可继续：
+所有写操作都应先 dry-run。`doctor` 的配置状态不能替代对 Zotero 与 MinerU 子状态的检查。
 
-如果 Zotero 附件使用“链接到文件”，请先在配置中设置 `zotero.linkedAttachmentBaseDir`，或设置 `ZOTERO_LINKED_ATTACHMENT_BASE_DIR`；完整示例见[教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md#5-%E9%85%8D%E7%BD%AE-zotero-%E6%9C%AC%E5%9C%B0-api)。
+如果 Zotero PDF 使用“链接到文件”，请把 Zotero 的“链接附件基础目录”配置为固定目录，并在 Vault 的 `.obsidian-vault-mcp.json` 中填写同一路径：
+
+```json
+{
+  "zotero": {
+    "linkedAttachmentBaseDir": "<ZOTERO_LINKED_ATTACHMENT_BASE_DIR>"
+  }
+}
+```
+
+也可在启动 CLI/MCP server 前设置 `ZOTERO_LINKED_ATTACHMENT_BASE_DIR`；非空配置值优先于环境变量。`ZOTERO_STORAGE_DIR` 只处理 Zotero 管理的 `storage:` 附件，前述配置只处理 `attachments:` 链接附件。这个本机绝对路径不得提交到仓库；越出基础目录的 `..`、盘符路径和其他不安全路径会被拒绝。
+
+MinerU 解析：
 
 ```powershell
-mineru-open-api auth
-obsidian-vault-mcp mineru parse ABCD1234
-obsidian-vault-mcp verify
+obsidian-vault-mcp mineru parse ABCD1234 --vault-path "<VAULT_PATH>" --dry-run
+obsidian-vault-mcp mineru parse ABCD1234 --vault-path "<VAULT_PATH>"
 ```
 
-## 默认 Vault 结构
+每篇文献使用独立图片目录：
 
 ```text
-<Vault>/
-├─ .obsidian/
-├─ .obsidian-vault-mcp.json
-├─ .obsidian-vault-mcp/
-│  ├─ state/items/ABCD1234.json
-│  ├─ state/evidence/ABCD1234.json
-│  ├─ state/uncertainties/ABCD1234.json
-│  ├─ state/coverage/ABCD1234.json
-│  ├─ cache/mineru-assets/ABCD1234/manifest.json
-│  ├─ staging/
-│  ├─ backups/
-│  └─ locks/
-└─ Literature/
-   ├─ index.md
-   ├─ Literature.base
-   ├─ ABCD1234.md
-   ├─ Analysis/ABCD1234.md
-   ├─ Analysis/index.md
-   ├─ Topic/
-   ├─ Theory/
-   ├─ Wiki/
-   └─ attachment/
-      ├─ ABCD1234.pdf
-      └─ MinerU/
-         ├─ ABCD1234.md
-         └─ image/ABCD1234-fig01.png
+Literature/attachment/MinerU/ABCD1234.md
+Literature/attachment/MinerU/image/ABCD1234/ABCD1234-fig01.png
 ```
 
-用户可见文件只使用 Vault 相对路径和 `/` 分隔符。Zotero 源 PDF 的绝对路径与哈希只保存在隐藏 state 中，不写进主笔记、Index、Base 或 Wiki。
+Markdown 中的链接为 `image/ABCD1234/ABCD1234-fig01.png`，移动 Vault 后仍可用。
 
-## 实际效果
+## Analysis
 
-以下截图来自 5 篇 Zotero 文献的端到端验收，包含 PDF 导入、MinerU 精准解析、Index、Base 和 Wiki 综合。
+五个新增 MCP 工具是：
 
-### 文献目录
+| 工具 | 用途 |
+|---|---|
+| `literature_paper_read` | 按 overview、targeted 或 figures 模式读取单篇文献，不写持久状态。 |
+| `literature_retrieve` | 跨文献检索有来源定位的片段；覆盖信息仅存在于本次响应。 |
+| `literature_analysis_get` | 按 ID、类型或来源读取已有 Analysis。 |
+| `literature_analysis_write` | 校验并事务式预览/写入 Analysis。 |
+| `literature_rebuild_analysis_base` | 重建唯一的 `Analysis.base`。 |
 
-<img src="https://raw.githubusercontent.com/luffysolution-svg/obsidian-vault-mcp/main/docs/assets/screenshots/v2/vault-structure.png" alt="Obsidian Literature 目录，包含 PDF、MinerU、Wiki 和 Base" width="300">
+`Analysis.base` 的 9 个视图是 Dashboard、Full Reads、Reviews、Passage Q&A、Figure Q&A、Concepts、Needs Attention、By Discipline、Recently Updated。
 
-### 自动增长的 Index
-
-<img src="https://raw.githubusercontent.com/luffysolution-svg/obsidian-vault-mcp/main/docs/assets/screenshots/v2/literature-index.png" alt="Literature Index 仪表盘，按年份、期刊和标签组织文献" width="720">
-
-### 五篇文献形成的主题 Wiki
-
-<details>
-<summary>展开完整 Wiki 效果图</summary>
-
-<img src="https://raw.githubusercontent.com/luffysolution-svg/obsidian-vault-mcp/main/docs/assets/screenshots/v2/wiki-synthesis.png" alt="基于五篇 Zotero 文献生成的可追溯 Wiki 综合页面" width="760">
-
-</details>
-
-单篇主笔记、全文嵌入和 Base 矩阵的完整截图见[教程中的效果展示](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md#10-效果展示)。
-
-## 接入 AI 客户端
-
-Codex Desktop/CLI 与 Claude Code 使用同一个 `obsidian-literature` 原生插件。插件同时提供 33 个 MCP Tools 和 9 个模型无关 Skills；插件包不包含 Python runtime，因此应先用 `pipx` 或 `uv tool` 持久安装上面的 Python 包，并确认 GUI/CLI 客户端启动时能在 `PATH` 中找到 `obsidian-vault-mcp`。
-
-取得并解压本地构建产物或 Release 附件 `obsidian-vault-mcp-2.1.0-plugins.zip` 后，把 `<MARKETPLACE_DIR>` 指向解压根目录（其中直接包含 `.agents/`、`.claude-plugin/` 和 `plugins/`），再使用客户端原生命令：
+建议让已连接的 Agent 使用对应 Skill 完成检索、阅读、溯源和写入。直接调用工具时可用统一 JSON CLI：
 
 ```powershell
-codex plugin marketplace add "<MARKETPLACE_DIR>"
-codex plugin add obsidian-literature@obsidian-vault-mcp
-
-claude plugin marketplace add "<MARKETPLACE_DIR>" --scope user
-claude plugin install obsidian-literature@obsidian-vault-mcp --scope user
+obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"overview","vault_path":"<VAULT_PATH>"}'
+obsidian-vault-mcp call literature_rebuild_analysis_base --json '{"vault_path":"<VAULT_PATH>","dry_run":true}'
 ```
 
-也可以让便捷入口调用同一组原生 CLI 命令；它不会为 Codex/Claude 写项目 `.mcp.json` 或复制项目 Skills：
+## Agent、Skills 与插件
+
+先安装 Python 包，再执行客户端安装器：
 
 ```powershell
 obsidian-vault-mcp agent install codex --dry-run
 obsidian-vault-mcp agent install codex
-# Claude Code：把 codex 换成 claude
 ```
 
-安装后请完全退出并重新打开 Codex Desktop/Claude Code，或新建 CLI 会话。OpenCode 继续使用项目 `opencode.json` 与 `.opencode/skills`；Pi 使用薄 TypeScript Extension；Hermes 和 WorkBuddy 只安装 MCP，并明确提示不提供未经验证的项目级 Skills。可用客户端名称仍为 `codex`、`claude`、`opencode`、`pi`、`hermes`、`workbuddy`。
+将 `codex` 替换为 `claude`、`opencode`、`pi`、`hermes` 或 `workbuddy` 即可。Codex 与 Claude 使用原生插件 marketplace，包含 MCP server 与 7 个 Skills；OpenCode 安装项目本地 MCP/Skills；Pi 安装薄 TypeScript Extension。Hermes 与 WorkBuddy 安装 MCP 配置，但当前没有已验证的原生 Skill 安装契约。
 
-共享插件 `.mcp.json` 不写入 Vault 绝对路径，而是继承客户端进程环境。项目不在 Vault 内时，应在本机安全地设置 `OBSIDIAN_VAULT_PATH=<VAULT_DIR>` 后重启客户端；不要把真实路径提交到仓库。
+安装器会尽量合并而非覆盖已有配置，写前备份并执行 MCP handshake；失败时回滚本次新增状态。
 
-连接后可以直接告诉 Agent：
-
-```text
-在执行写操作前先 dry-run。搜索 Zotero 中与 CdS 光催化制氢有关的文献，
-导入我确认的父条目，使用 MinerU 精准解析 PDF，重建 Index 和 Base；
-然后基于这些 zoteroKey 获取 Wiki context，生成带主笔记来源链接的主题页，
-最后运行 literature_verify 并报告 transactionId。
-```
-
-## 结构化精读与证据检索
-
-V2.1 保留原 26 个工具并新增 7 个模型无关工具：`literature_paper_read`、`literature_analysis_context`、`literature_analysis_write`、`literature_uncertainty_list`、`literature_uncertainty_resolve`、`literature_rebuild_analysis_index` 和 `literature_retrieve`。
+`opencode`、`pi`、`hermes`、`workbuddy` 都写入项目本地配置，请在目标项目目录运行，或显式传入 `--project-dir <PROJECT_DIR>`。从 2.x 升级时，先按原安装方式精确升级 Python 包，再刷新原生插件缓存并重新运行安装器完成 handshake：
 
 ```powershell
-obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"targeted","query":"charge transfer mechanism","record_coverage":true}'
-obsidian-vault-mcp call literature_analysis_context --json '{"zotero_key":"ABCD1234","include_figures":true}'
-obsidian-vault-mcp call literature_retrieve --json '{"query":"CdS nickel cocatalyst","scope":{"zotero_keys":["ABCD1234"]},"depth":"evidence","record_coverage":true}'
+# uv tool 用户
+uv tool install --force "zotero-obsidian-mcp==3.0.0"
+
+# pipx 用户
+pipx install --force "zotero-obsidian-mcp==3.0.0"
+
+# Codex 的 plugin add 会原子替换已安装的旧版本
+codex plugin add obsidian-literature@obsidian-vault-mcp --json
+
+# Claude Code：先刷新 marketplace，再更新插件；完成后重启 Claude Code
+claude plugin marketplace update obsidian-vault-mcp
+claude plugin update obsidian-literature@obsidian-vault-mcp --scope user
 ```
 
-Server 只返回原文证据、资产状态、覆盖边界和安全写入能力，不自行生成论文结论。Evidence 重建会把确定性的 `^ev-*` block ID 物理写入派生 MinerU Markdown，因此 `sourceLink` 可由 `literature_verify` 核对真实锚点。`assetId` 只代表图片资产；论文事实仍应引用 `evidenceId`。MinerU 候选图在没有可靠 PDF crop 时不会被标记为视觉验证。
-
-读取工具默认不产生写操作；只有显式传入 `record_coverage=true` 才更新 Coverage Ledger。此时单篇读取返回 `coverageLedger`，跨文献检索为每篇返回对应记录及真实 `transactionId`；配合 `coverage_dry_run=true` 可只预览，并可用 `coverage_transaction_id` 指定可辨识的事务前缀。Coverage 只描述读到了什么，不是论文事实。
-
-## 稳定身份与安全边界
-
-- `zoteroKey` 是 V2 唯一永久主键；自定义文件名仍必须包含 `{zoteroKey}`。
-- 插件只重建 `<!-- ovm:*:start/end -->` 之间的托管区块；Reading Notes 与其他用户章节保留。
-- MinerU 先写 staging，验证 Markdown 和图片后才整体替换正式产物；失败不会提交半成品。
-- 默认 MCP transport 是本地 `stdio`。SSE/HTTP 没有内建认证，不建议直接暴露到网络。
-- MinerU 精准模式会把 PDF 发送给 MinerU 服务；没有 token 时 `auto` 使用受限的 `flash-extract`。
-- `doctor`、事务预览和 Wiki context 会向当前 Agent 返回必要的本机状态或文献内容；请只连接你信任的 Agent host。
-- Token、Vault 绝对路径与私人文献内容不得提交到 Git。
-
-## 迁移与恢复
-
-V1 数据必须先预览，再正式迁移：
+GitHub Release 中的 `obsidian-vault-mcp-3.0.0-plugins.zip` 是同一份离线 marketplace。校验 `SHA256SUMS` 后解压；全新安装执行对应的完整命令：
 
 ```powershell
-obsidian-vault-mcp migrate v1-to-v2 --dry-run
-obsidian-vault-mcp migrate v1-to-v2 --apply
-obsidian-vault-mcp preview <transaction-id>
-obsidian-vault-mcp rollback <transaction-id> --dry-run
-obsidian-vault-mcp rollback <transaction-id>
+codex plugin marketplace add "<EXTRACTED_DIR>" --json
+codex plugin add obsidian-literature@obsidian-vault-mcp --json
+
+claude plugin marketplace add "<EXTRACTED_DIR>" --scope user
+claude plugin install obsidian-literature@obsidian-vault-mcp --scope user
 ```
 
-如果事务之后文件又被用户修改，回滚会拒绝覆盖。只有明确接受覆盖风险时才使用 `--conflict-policy overwrite-managed`。
+已有同名 marketplace 时不要重新绑定到另一路径，应按升级命令处理。
 
-V2.1 会在旧 item state 上增量补充 `mineruAssetRoot` 和 `collectionKeys`：前者用于在 `candidateCacheFolder` 改动时事务化迁移该条目的 Manifest/候选缓存，后者让 `literature_retrieve.scope.collection_key` 可按已知 Zotero 集合成员过滤。旧 state 无需手工改写；后续导入、同步或 MinerU 解析会按实际信息更新，且可随事务回滚。
+## 从旧数据迁移
 
-## 文档
+旧版平铺 MinerU 图片先默认预览迁移计划：
 
-- [完整使用教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md)：软件下载、Zotero/MinerU API、可选插件、安装命令、Agent 接入、自定义配置、首次完整流程、截图与排错。
-- [开发者文档](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.md)：架构、数据契约、33 个工具、测试、构建、发布、安全边界和已知限制。
-- [English user guide](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/README.en.md) · [English tutorial](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.en.md) · [English developer guide](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.en.md)
+```powershell
+obsidian-vault-mcp migrate mineru-images-v2-to-v3 --vault-path "<VAULT_PATH>"
+```
+
+检查 `copiedImages`、`preservedLegacyImages`、`rewrittenMarkdown`、
+`missingReferencedImages` 与 `reparseZoteroKeys`；只有报告可接受时才提交：
+
+```powershell
+obsidian-vault-mcp migrate mineru-images-v2-to-v3 --vault-path "<VAULT_PATH>" --apply
+```
+
+默认安全模式会把图片复制到 `image/{zoteroKey}/` 并在同一事务中重写对应
+Markdown，同时保留旧平铺图片作为兼容别名；这样即使未协调的编辑器在提交瞬间
+新增旧路径引用，也不会产生断链。不确定、缺失或不安全的条目保留原位并报告。
+
+只有确实需要清理旧平铺图片时，先停止 Obsidian、同步程序、索引器及其他所有
+Vault 写入者，再显式确认离线状态：
+
+```powershell
+obsidian-vault-mcp migrate mineru-images-v2-to-v3 --vault-path "<VAULT_PATH>" --apply --cleanup-legacy --confirm-vault-offline
+```
+
+此模式把图片复制、Markdown 链接重写和旧图片清理放在同一事务中；发现其他
+Vault 笔记仍引用旧路径时会阻止对应论文迁移。
+
+旧 Analysis 迁移同样默认只生成计划：
+
+```powershell
+obsidian-vault-mcp migrate analysis-v2-to-v3 --vault-path "<VAULT_PATH>"
+```
+
+先检查报告中的迁移、跳过与人工复核项，再提交：
+
+```powershell
+obsidian-vault-mcp migrate analysis-v2-to-v3 --vault-path "<VAULT_PATH>" --apply
+obsidian-vault-mcp preview <transaction-id> --vault-path "<VAULT_PATH>"
+obsidian-vault-mcp rollback <transaction-id> --vault-path "<VAULT_PATH>" --dry-run
+obsidian-vault-mcp rollback <transaction-id> --vault-path "<VAULT_PATH>"
+```
+
+迁移会规范化可识别的旧 Analysis、移除旧锚点并生成 `Analysis.base`；无法安全映射的 Topic/Theory 文件保留并列入人工处理，不会静默删除。
+
+## 安全边界
+
+- 先 dry-run，再提交；保存返回的 `transactionId`。
+- 不在用户真实 Vault 上运行自动写测试。真实 Vault 只做只读校验，写入、迁移和回滚必须在隔离副本中完成。
+- 隔离前后对真实 Vault 建立文件清单/哈希，并排除锁、staging 与历史备份。
+- MinerU 模式会把选中的 PDF 发往外部服务；使用前确认授权与组织政策。
+- 非 stdio MCP 传输必须置于可信认证边界之后。
 
 ## 贡献者
 
-感谢 [方珸 / Lym Fang (@LimFang)](https://github.com/LimFang) 发现 Zotero 链接附件兼容需求并在 [PR #6](https://github.com/luffysolution-svg/obsidian-vault-mcp/pull/6) 中提出原始实现。完整贡献记录见 [CONTRIBUTORS.md](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/CONTRIBUTORS.md)。
+感谢 [方珸 / Lym Fang (@LimFang)](https://github.com/LimFang) 发现 Zotero 链接附件兼容需求并在 [PR #6](https://github.com/luffysolution-svg/obsidian-vault-mcp/pull/6) 中提出原始实现；该方案经 V2 架构移植后由 [PR #8](https://github.com/luffysolution-svg/obsidian-vault-mcp/pull/8) 落地，并由 V3 继续保留。完整记录见 [CONTRIBUTORS.md](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/CONTRIBUTORS.md)。
 
-## 项目命名
-
-| 对象 | 名称 |
-|---|---|
-| GitHub 仓库 | `obsidian-vault-mcp` |
-| PyPI distribution | `zotero-obsidian-mcp` |
-| Python import | `obsidian_vault_mcp` |
-| CLI | `obsidian-vault-mcp` |
-| MCP server | `obsidian-literature` |
-| 插件 marketplace | `obsidian-vault-mcp` |
-| Codex/Claude plugin | `obsidian-literature` |
-
-问题请提交到 [GitHub Issues](https://github.com/luffysolution-svg/obsidian-vault-mcp/issues)。项目采用 [MIT License](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/LICENSE)。
+详细安装、完整 31 工具表、迁移与端到端验收见[完整教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md)。架构、契约、测试和发布流程见[开发文档](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.md)。

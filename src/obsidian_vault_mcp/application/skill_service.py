@@ -3,24 +3,25 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from dataclasses import dataclass
 from importlib import resources
+from pathlib import Path
 from typing import Any
 
 from ..domain.frontmatter import parse_frontmatter
 
 MANAGED_START = "<!-- ovm:skill-managed:start -->"
 MANAGED_END = "<!-- ovm:skill-managed:end -->"
+SKILL_RESOURCE_VERSION = "1.0.0"
 SKILL_NAMES = (
-    "structured-paper-note",
-    "evidence-based-qa",
+    "paper-qa",
+    "full-read",
+    "passage-qa",
+    "figure-qa",
     "compare-papers",
     "literature-review",
-    "analyze-figures",
-    "uncertainty-audit",
-    "verify-paper-claims",
-    "topic-note-synthesis",
-    "theory-note-synthesis",
+    "concept-learning",
 )
 
 
@@ -74,13 +75,12 @@ def upgrade_managed_skill(
             "warnings": [{"code": "managed-block-modified", "message": "The installed managed block differs from the expected version."}],
         }
     content = f"{current.before}{MANAGED_START}{replacement.content}{MANAGED_END}{current.after}"
-    official_fields = parse_frontmatter(official).fields
     return {
         "ok": True,
         "changed": content != existing,
         "content": content,
         "managedHash": replacement.sha256,
-        "version": official_fields.get("version"),
+        "version": SKILL_RESOURCE_VERSION,
         "warnings": [],
     }
 
@@ -101,13 +101,58 @@ class SkillResourceService:
                 {
                     "name": name,
                     "description": str(document.fields.get("description") or ""),
-                    "version": str(document.fields.get("version") or ""),
+                    "version": SKILL_RESOURCE_VERSION,
                     "managedHash": block.sha256,
+                    "files": {
+                        relative_path: hashlib.sha256(content.encode("utf-8")).hexdigest()
+                        for relative_path, content in self.files(name).items()
+                    },
                 }
             )
         return result
 
     def read(self, name: str) -> str:
+        return self.files(name)["SKILL.md"]
+
+    def files(self, name: str) -> dict[str, str]:
+        """Return every canonical Skill file with deterministic POSIX-relative paths."""
+
         if name not in SKILL_NAMES:
             raise ValueError(f"unknown Agent Skill: {name}")
-        return resources.files(self.package).joinpath(self.skill_root, name, "SKILL.md").read_text(encoding="utf-8")
+        root = resources.files(self.package).joinpath(self.skill_root, name)
+        if isinstance(root, Path):
+            root = _extended_length_path(root)
+        discovered: dict[str, str] = {}
+
+        def visit(directory: Any, prefix: tuple[str, ...] = ()) -> None:
+            for child in sorted(directory.iterdir(), key=lambda item: item.name):
+                if child.name == "__pycache__":
+                    continue
+                relative_parts = (*prefix, child.name)
+                if child.is_dir():
+                    visit(child, relative_parts)
+                elif child.is_file():
+                    relative_path = "/".join(relative_parts)
+                    if relative_path != "SKILL.md" and not (
+                        relative_path.startswith("references/") and relative_path.endswith(".md")
+                    ):
+                        raise ValueError(f"unsupported Agent Skill resource: {name}/{relative_path}")
+                    discovered[relative_path] = child.read_text(encoding="utf-8")
+
+        visit(root)
+        if "SKILL.md" not in discovered:
+            raise ValueError(f"Agent Skill is missing SKILL.md: {name}")
+        return discovered
+
+
+def _extended_length_path(path: Path) -> Path:
+    """Use the Windows extended path namespace for deeply installed resources."""
+
+    if os.name != "nt":
+        return path
+    absolute = os.path.abspath(path)
+    if absolute.startswith("\\\\?\\"):
+        return Path(absolute)
+    if absolute.startswith("\\\\"):
+        return Path(f"\\\\?\\UNC\\{absolute[2:]}")
+    return Path(f"\\\\?\\{absolute}")

@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=77,<81", "wheel>=0.43,<1"]
+requires = ["setuptools==80.9.0", "wheel==0.45.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "zotero-obsidian-mcp"
-version = "2.1.0"
+version = "3.0.0"
 description = "Local MCP server for a Zotero + MinerU + Obsidian literature pipeline."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["obsidian", "zotero", "mineru", "literature", "markdown", "mcp"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
@@ -36,6 +36,7 @@ dev = [
 
 [project.scripts]
 obsidian-vault-mcp = "obsidian_vault_mcp.interfaces.cli.main:main"
+zotero-obsidian-mcp = "obsidian_vault_mcp.interfaces.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/luffysolution-svg/obsidian-vault-mcp"
@@ -59,7 +60,10 @@ include = ["obsidian_vault_mcp*"]
   "plugins/obsidian-literature/.claude-plugin/plugin.json",
   "plugins/obsidian-literature/.mcp.json",
   "plugins/obsidian-literature/assets/icon.svg",
+  "plugins/obsidian-literature/LICENSE",
   "plugins/obsidian-literature/skills/*/SKILL.md",
+  "plugins/obsidian-literature/skills/*/references/*.md",
+  "plugins/obsidian-literature/skills/*/references/**/*.md",
 ]
 
 [tool.ruff]

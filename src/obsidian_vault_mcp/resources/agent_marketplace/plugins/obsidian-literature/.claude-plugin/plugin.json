@@ -1,7 +1,7 @@
 {
   "name": "obsidian-literature",
-  "version": "2.1.0",
-  "description": "Precise Zotero, MinerU, and Obsidian literature workflows",
+  "version": "3.0.0",
+  "description": "Focused paper reading and structured literature analysis",
   "author": {
     "name": "Obsidian Vault MCP Contributors",
     "url": "https://github.com/luffysolution-svg/obsidian-vault-mcp"

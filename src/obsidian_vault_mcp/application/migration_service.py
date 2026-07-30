@@ -22,7 +22,11 @@ from ..config.loader import load_config
 from ..domain.frontmatter import compose_frontmatter, merge_frontmatter, parse_frontmatter
 from ..domain.identity import validate_zotero_key
 from ..domain.models import ItemState
-from ..domain.paths import VaultPaths, to_vault_relative
+from ..domain.paths import (
+    VaultPaths,
+    naming_metadata_from_fields,
+    to_vault_relative,
+)
 from .index_service import IndexService
 from .transaction_service import Transaction, TransactionService
 
@@ -258,7 +262,7 @@ class MigrationService:
             except ValueError as exc:
                 skipped.append({"path": _relative(self.vault_path, path), "reason": "invalid-zotero-key", "error": str(exc)})
                 continue
-            metadata = _filename_metadata(document.fields)
+            metadata = naming_metadata_from_fields(document.fields)
             canonical = self.paths.note(key, **metadata)
             relative = _relative(self.vault_path, path)
             if self._state_points_to(key, relative) or (
@@ -293,7 +297,7 @@ class MigrationService:
         )
 
     def _discover_item(self, note: _LegacyNote) -> _ItemPlan:
-        metadata = _filename_metadata(note.fields)
+        metadata = naming_metadata_from_fields(note.fields)
         plan = _ItemPlan(note=note, note_target=self.paths.note(note.key, **metadata))
 
         pdf_values = _field_values(
@@ -757,17 +761,6 @@ def _contains_absolute_path(value: Any) -> bool:
     if isinstance(value, (list, tuple, set)):
         return any(_contains_absolute_path(item) for item in value)
     return False
-
-
-def _filename_metadata(fields: Mapping[str, Any]) -> dict[str, Any]:
-    author = _first_scalar(fields.get("authors")) or fields.get("firstAuthor") or ""
-    if isinstance(author, Mapping):
-        author = author.get("lastName") or author.get("name") or ""
-    return {
-        "firstAuthor": str(author),
-        "year": fields.get("year") or "",
-        "shortTitle": fields.get("title") or "",
-    }
 
 
 def _field_values(fields: Mapping[str, Any], names: Iterable[str]) -> list[str]:

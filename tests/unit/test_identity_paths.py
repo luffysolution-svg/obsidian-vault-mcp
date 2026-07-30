@@ -7,7 +7,12 @@ from pathlib import Path
 from obsidian_vault_mcp.config import default_config, validate_config
 from obsidian_vault_mcp.domain.errors import ConfigurationError, IdentityError, PathValidationError
 from obsidian_vault_mcp.domain.identity import item_id, render_filename, sanitize_filename
-from obsidian_vault_mcp.domain.paths import VaultPaths, normalize_vault_relative, resolve_vault_path
+from obsidian_vault_mcp.domain.paths import (
+    VaultPaths,
+    naming_metadata_from_fields,
+    normalize_vault_relative,
+    resolve_vault_path,
+)
 
 
 class IdentityAndPathTests(unittest.TestCase):
@@ -35,6 +40,29 @@ class IdentityAndPathTests(unittest.TestCase):
         with self.assertRaises(IdentityError):
             render_filename("{shortTitle}.md", zotero_key="ABCD1234", short_title="Mutable")
 
+    def test_note_fields_supply_all_configurable_naming_metadata(self) -> None:
+        config = default_config()
+        config["naming"]["mineruMarkdown"] = (
+            "{firstAuthor}-{year}-{shortTitle}-{zoteroKey}.md"
+        )
+        paths = VaultPaths("C:/Vault", config)
+
+        relative = paths.mineru_markdown(
+            "ABCD1234",
+            **naming_metadata_from_fields(
+                {
+                    "authors": [{"lastName": "Smith"}],
+                    "year": 2024,
+                    "title": "Custom title",
+                }
+            ),
+        )
+
+        self.assertEqual(
+            relative,
+            "Literature/attachment/MinerU/Smith-2024-Custom title-ABCD1234.md",
+        )
+
     def test_filename_is_portable(self) -> None:
         self.assertEqual(sanitize_filename('A:B?C*D|E<test>".md'), "A-B-C-D-E-test-.md")
         self.assertEqual(sanitize_filename("CON.txt"), "_CON.txt")
@@ -54,7 +82,19 @@ class IdentityAndPathTests(unittest.TestCase):
             self.assertTrue(resolved.is_relative_to(vault.resolve()))
             paths = VaultPaths(vault)
             self.assertEqual(paths.note("ABCD1234"), "Literature/ABCD1234.md")
-            self.assertEqual(paths.mineru_image("ABCD1234", 1, "png"), "Literature/attachment/MinerU/image/ABCD1234-fig01.png")
+            self.assertEqual(
+                paths.mineru_image("ABCD1234", 1, "png"),
+                "Literature/attachment/MinerU/image/ABCD1234/ABCD1234-fig01.png",
+            )
+            self.assertEqual(
+                paths.mineru_image_folder("ABCD1234"),
+                "Literature/attachment/MinerU/image/ABCD1234",
+            )
+            self.assertEqual(paths.analysis_base, "Literature/Analysis/Analysis.base")
+            self.assertEqual(
+                paths.analysis_folder("figure_qa"),
+                "Literature/Analysis/qa/figures",
+            )
 
     def test_config_is_strict_and_normalized(self) -> None:
         config = default_config()
@@ -64,6 +104,14 @@ class IdentityAndPathTests(unittest.TestCase):
         config["unexpected"] = True
         with self.assertRaises(ConfigurationError):
             validate_config(config)
+
+    def test_removed_v21_analysis_configuration_is_rejected(self) -> None:
+        for field in ("index", "topicFolder", "theoryFolder", "templateFolder"):
+            with self.subTest(field=field):
+                config = default_config()
+                config["analysis"][field] = "Literature/obsolete"
+                with self.assertRaises(ConfigurationError):
+                    validate_config(config)
 
 
 if __name__ == "__main__":

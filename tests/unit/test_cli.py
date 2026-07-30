@@ -112,5 +112,44 @@ def test_migration_rejects_conflicting_execution_flags(capsys) -> None:
     assert "cannot be used together" in payload["error"]["message"]
 
 
+def test_analysis_v3_migration_defaults_to_preview_and_requires_apply(
+    monkeypatch,
+    capsys,
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    class FakeMigration:
+        def __init__(self, vault_path):
+            self.vault_path = vault_path
+
+        def migrate(self, **kwargs):
+            calls.append({"vault_path": self.vault_path, **kwargs})
+            return {"ok": True, "status": "dry-run" if kwargs["dry_run"] else "committed"}
+
+    (tmp_path / ".obsidian").mkdir()
+    monkeypatch.setitem(main.__globals__, "AnalysisMigrationService", FakeMigration)
+    preview = ["migrate", "analysis-v2-to-v3", "--vault-path", str(tmp_path)]
+    assert main(preview) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "dry-run"
+    assert calls[-1]["dry_run"] is True
+    assert calls[-1]["apply"] is False
+
+    applied = [
+        "migrate",
+        "analysis-v2-to-v3",
+        "--vault-path",
+        str(tmp_path),
+        "--apply",
+        "--transaction-id",
+        "analysis-v3",
+    ]
+    assert main(applied) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "committed"
+    assert calls[-1]["dry_run"] is False
+    assert calls[-1]["apply"] is True
+    assert calls[-1]["transaction_id"] == "analysis-v3"
+
+
 def test_package_exports_main() -> None:
     assert package_main is main

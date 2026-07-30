@@ -44,7 +44,7 @@ def install(
         update=update,
         config_format="json",
         uninstall_instructions=(
-            f'Remove "mcp.obsidian-literature" from {target}; remove the nine managed Skill folders and manifest from '
+            f'Remove "mcp.obsidian-literature" from {target}; remove the seven managed Skill folders and manifest from '
             f"{project_root / SKILL_RELATIVE_PATH}."
         ),
         dry_run=dry_run,

@@ -61,6 +61,10 @@ def install(
             f"Run `claude plugin uninstall {PLUGIN_SELECTOR} --scope user`. If this marketplace is no longer needed, "
             f"run `claude plugin marketplace remove {MARKETPLACE_NAME} --scope user`."
         ),
+        upgrade_instructions=(
+            f"`claude plugin marketplace update {MARKETPLACE_NAME}`, then "
+            f"`claude plugin update {PLUGIN_SELECTOR} --scope user`, then restart Claude Code"
+        ),
         dry_run=dry_run,
         which=which,
         runner=runner,

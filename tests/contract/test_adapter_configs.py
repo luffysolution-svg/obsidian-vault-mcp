@@ -71,7 +71,7 @@ def test_pi_extension_is_a_bounded_shell_free_json_cli_adapter() -> None:
     assert "exec(" not in source
 
 
-def test_pi_extension_registers_the_complete_v2_tool_surface() -> None:
+def test_pi_extension_registers_the_complete_v3_tool_surface() -> None:
     source = (ROOT / "adapters" / "pi" / "index.ts").read_text(encoding="utf-8")
     expected_tools = {
         "literature_doctor",
@@ -95,12 +95,10 @@ def test_pi_extension_registers_the_complete_v2_tool_surface() -> None:
         "literature_rebuild_base",
         "literature_verify",
         "literature_paper_read",
-        "literature_analysis_context",
-        "literature_analysis_write",
-        "literature_uncertainty_list",
-        "literature_uncertainty_resolve",
-        "literature_rebuild_analysis_index",
         "literature_retrieve",
+        "literature_analysis_get",
+        "literature_analysis_write",
+        "literature_rebuild_analysis_base",
         "literature_wiki_context",
         "literature_wiki_write",
         "literature_wiki_list",

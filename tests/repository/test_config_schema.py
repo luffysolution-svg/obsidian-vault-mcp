@@ -54,13 +54,36 @@ def test_published_schema_exposes_runtime_enums_and_numeric_bounds() -> None:
         "maximum": 1000,
         "default": 100,
     }
-    assert properties["zotero"]["properties"]["linkedAttachmentBaseDir"] == {
-        "type": "string",
-        "default": "",
-    }
     assert properties["mineru"]["properties"]["maxConcurrentJobs"] == {
         "type": "integer",
         "minimum": 1,
         "maximum": 64,
         "default": 2,
     }
+    assert set(properties["analysis"]["properties"]) == {
+        "folder",
+        "base",
+        "fullReadsFolder",
+        "reviewsFolder",
+        "passageQaFolder",
+        "figureQaFolder",
+        "conceptsFolder",
+    }
+    assert properties["zotero"]["properties"]["linkedAttachmentBaseDir"]["default"] == ""
+
+
+def test_configuration_does_not_expose_removed_v21_state_or_template_fields() -> None:
+    serialized = json.dumps(CONFIG_SCHEMA, ensure_ascii=False)
+
+    for removed in (
+        '"evidence"',
+        '"coverage"',
+        '"uncertainty"',
+        '"topicFolder"',
+        '"theoryFolder"',
+        '"templateFolder"',
+        '"customTemplate"',
+        '"dimensions"',
+        '"analysis.index"',
+    ):
+        assert removed not in serialized

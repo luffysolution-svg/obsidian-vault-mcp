@@ -60,6 +60,9 @@ def install(
             f"Run `codex plugin remove {PLUGIN_SELECTOR} --json`. If this marketplace is no longer needed, "
             f"run `codex plugin marketplace remove {MARKETPLACE_NAME} --json`."
         ),
+        upgrade_instructions=(
+            f"`codex plugin add {PLUGIN_SELECTOR} --json`"
+        ),
         dry_run=dry_run,
         which=which,
         runner=runner,

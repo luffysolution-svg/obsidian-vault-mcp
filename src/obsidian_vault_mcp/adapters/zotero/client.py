@@ -578,7 +578,9 @@ class ZoteroClient:
         operation: str,
         limit: int | None,
     ) -> Iterator[Mapping[str, Any]]:
-        page_limit = self.page_size if limit is None else limit
+        if limit is not None and (type(limit) is not int or limit <= 0):
+            raise ValueError("Zotero result limit must be a positive integer")
+        page_limit = self.page_size if limit is None else min(self.page_size, limit)
 
         def fetch_page(start: int, requested_limit: int) -> Sequence[Mapping[str, Any]]:
             page_params = dict(params)
@@ -599,12 +601,17 @@ class ZoteroClient:
                 )
             return payload
 
-        yield from iter_items(
+        emitted = 0
+        for item in iter_items(
             fetch_page,
             start=0,
             limit=page_limit,
-            identity=lambda item: _raw_key(item),
-        )
+            identity=lambda value: _raw_key(value),
+        ):
+            yield item
+            emitted += 1
+            if limit is not None and emitted >= limit:
+                return
 
     def _request_json(
         self,

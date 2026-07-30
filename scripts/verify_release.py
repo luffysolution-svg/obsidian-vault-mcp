@@ -18,31 +18,45 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT_NAME = "zotero-obsidian-mcp"
 PLUGIN_NAME = "obsidian-literature"
+MCP_NAME = "io.github.luffysolution-svg/obsidian-vault-mcp"
+MCP_SCHEMA = "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json"
 MARKETPLACE_RELATIVE = Path("src/obsidian_vault_mcp/resources/agent_marketplace")
 MARKETPLACE_ROOT = ROOT / MARKETPLACE_RELATIVE
 PLUGIN_RELATIVE = Path("plugins") / PLUGIN_NAME
 AGENT_SKILL_NAMES = (
-    "analyze-figures",
+    "paper-qa",
+    "full-read",
+    "passage-qa",
+    "figure-qa",
     "compare-papers",
-    "evidence-based-qa",
     "literature-review",
-    "structured-paper-note",
-    "theory-note-synthesis",
-    "topic-note-synthesis",
-    "uncertainty-audit",
-    "verify-paper-claims",
+    "concept-learning",
 )
-BUNDLE_FILES = (
+CORE_BUNDLE_FILES = (
     ".agents/plugins/marketplace.json",
     ".claude-plugin/marketplace.json",
     f"plugins/{PLUGIN_NAME}/.codex-plugin/plugin.json",
     f"plugins/{PLUGIN_NAME}/.claude-plugin/plugin.json",
     f"plugins/{PLUGIN_NAME}/.mcp.json",
     f"plugins/{PLUGIN_NAME}/assets/icon.svg",
-    *(f"plugins/{PLUGIN_NAME}/skills/{name}/SKILL.md" for name in AGENT_SKILL_NAMES),
+    f"plugins/{PLUGIN_NAME}/LICENSE",
 )
+SKILL_FILES = tuple(f"plugins/{PLUGIN_NAME}/skills/{name}/SKILL.md" for name in AGENT_SKILL_NAMES)
+REFERENCE_FILES = tuple(
+    sorted(
+        path.relative_to(MARKETPLACE_ROOT).as_posix()
+        for name in AGENT_SKILL_NAMES
+        for path in (MARKETPLACE_ROOT / "plugins" / PLUGIN_NAME / "skills" / name / "references").rglob("*.md")
+        if path.is_file()
+    )
+)
+BUNDLE_FILES = (*CORE_BUNDLE_FILES, *SKILL_FILES, *REFERENCE_FILES)
 TRACKED_RELEASE_INPUTS = (
+    ".github/workflows/release.yml",
     "pyproject.toml",
+    "scripts/build_release.py",
+    "scripts/release_guard.py",
+    "server.json",
     "src/obsidian_vault_mcp/__init__.py",
     "adapters/pi/package.json",
     "adapters/pi/package-lock.json",
@@ -66,6 +80,25 @@ REMOVED_PATHS = (
     "tests/test_obsidian_vault_mcp.py",
     "docs/superpowers",
     "requirements.txt",
+    "src/obsidian_vault_mcp/application/analysis_index_service.py",
+    "src/obsidian_vault_mcp/application/coverage_service.py",
+    "src/obsidian_vault_mcp/application/evidence_service.py",
+    "src/obsidian_vault_mcp/application/uncertainty_service.py",
+    "src/obsidian_vault_mcp/domain/coverage.py",
+    "src/obsidian_vault_mcp/domain/evidence.py",
+    "src/obsidian_vault_mcp/domain/image_assets.py",
+    "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature/skills/analyze-figures",
+    "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature/skills/evidence-based-qa",
+    "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature/skills/structured-paper-note",
+    "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature/skills/theory-note-synthesis",
+    "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature/skills/topic-note-synthesis",
+    "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature/skills/uncertainty-audit",
+    "src/obsidian_vault_mcp/resources/agent_marketplace/plugins/obsidian-literature/skills/verify-paper-claims",
+    "tests/unit/test_analysis_services.py",
+    "tests/unit/test_coverage_service.py",
+    "tests/unit/test_evidence_paper_read_services.py",
+    "tests/unit/test_retrieval_service.py",
+    "tests/unit/test_verify_mineru_assets.py",
 )
 TEXT_SUFFIXES = {".json", ".md", ".ps1", ".py", ".svg", ".toml", ".ts", ".yaml", ".yml"}
 PERSONAL_PATH_PATTERNS = (
@@ -216,9 +249,13 @@ def check_dependency_bounds() -> None:
     for group_name, requirements in groups.items():
         for requirement in requirements:
             specifier = requirement.split(";", 1)[0]
+            has_exact = re.search(
+                r"(?<![!<>=~])==\s*[0-9][A-Za-z0-9._+-]*\s*$",
+                specifier,
+            ) is not None
             has_lower = re.search(r">=?\s*[^,]+", specifier) is not None
             has_upper = re.search(r"<=?\s*[^,]+", specifier) is not None
-            if not has_lower or not has_upper:
+            if not has_exact and (not has_lower or not has_upper):
                 raise VerificationError(f"{group_name} dependency lacks lower and upper bounds: {requirement}")
 
 
@@ -250,8 +287,8 @@ def check_versions(tag: str | None) -> str:
     project_name, version = project_metadata()
     if project_name != PROJECT_NAME:
         raise VerificationError(f"Unexpected Python project name: {project_name}")
-    if re.fullmatch(r"2\.\d+\.\d+", version) is None:
-        raise VerificationError(f"V2 release version must use 2.MINOR.PATCH, found {version}.")
+    if re.fullmatch(r"\d+\.\d+\.\d+", version) is None:
+        raise VerificationError(f"Release version must use MAJOR.MINOR.PATCH, found {version}.")
 
     package_version = python_string_constant("src/obsidian_vault_mcp/__init__.py", "__version__")
     if package_version != version:
@@ -319,11 +356,16 @@ def check_versions(tag: str | None) -> str:
             raise VerificationError(f"Release tag must use vMAJOR.MINOR.PATCH: {tag}")
         if tag != f"v{version}":
             raise VerificationError(f"Release tag {tag} does not match package version {version}.")
-        tag_commit = git("rev-list", "-n", "1", tag)
+        tag_ref = f"refs/tags/{tag}"
+        try:
+            git("show-ref", "--verify", tag_ref)
+        except VerificationError as exc:
+            raise VerificationError(f"Release tag ref does not exist: {tag_ref}") from exc
+        tag_commit = git("rev-parse", f"{tag_ref}^{{commit}}")
         head_commit = git("rev-parse", "HEAD")
         if tag_commit != head_commit:
             raise VerificationError(f"Checked-out commit {head_commit} is not release tag {tag} ({tag_commit}).")
-        check_release_inputs_tracked(tag)
+        check_release_inputs_tracked(tag_ref)
 
     return version
 
@@ -362,11 +404,63 @@ def check_adapter_configs() -> None:
         },
     }
     if read_json("opencode.json") != expected_opencode:
-        raise VerificationError("opencode.json does not match the portable V2 stdio configuration.")
+        raise VerificationError("opencode.json does not match the portable stdio configuration.")
+
+
+def check_mcp_registry_metadata(version: str) -> None:
+    """Require immutable Registry metadata for the published PyPI stdio server."""
+
+    scripts_section = toml_section(
+        (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+        "project.scripts",
+    )
+    expected_entrypoint = "obsidian_vault_mcp.interfaces.cli.main:main"
+    for command in ("obsidian-vault-mcp", PROJECT_NAME):
+        if toml_string(scripts_section, command) != expected_entrypoint:
+            raise VerificationError(
+                f"PyPI must expose {command!r} as the production CLI entrypoint."
+            )
+
+    server = read_json("server.json")
+    if server.get("$schema") != MCP_SCHEMA:
+        raise VerificationError(f"server.json must use the supported MCP Registry schema {MCP_SCHEMA}.")
+    if server.get("name") != MCP_NAME or server.get("version") != version:
+        raise VerificationError("server.json name/version does not match the production release.")
+    if server.get("repository") != {
+        "url": "https://github.com/luffysolution-svg/obsidian-vault-mcp",
+        "source": "github",
+    }:
+        raise VerificationError("server.json repository metadata is not canonical.")
+    expected_package = {
+        "registryType": "pypi",
+        "registryBaseUrl": "https://pypi.org",
+        "identifier": PROJECT_NAME,
+        "version": version,
+        "runtimeHint": "uvx",
+        "packageArguments": [
+            {"type": "positional", "value": "serve", "isRequired": True},
+            {"type": "named", "name": "--transport", "value": "stdio", "isRequired": True},
+        ],
+        "environmentVariables": [
+            {
+                "name": "OBSIDIAN_VAULT_PATH",
+                "description": "Absolute path to the Obsidian vault, or auto when the client project is inside it.",
+                "isRequired": True,
+                "isSecret": False,
+                "format": "filepath",
+            }
+        ],
+        "transport": {"type": "stdio"},
+    }
+    if server.get("packages") != [expected_package]:
+        raise VerificationError("server.json must expose the exact PyPI/uvx stdio installation contract.")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    if f"<!-- mcp-name: {MCP_NAME} -->" not in readme:
+        raise VerificationError("README.md is missing the MCP Registry PyPI ownership marker.")
 
 
 def marketplace_resources() -> dict[str, Path]:
-    """Return the exact 15-file marketplace payload used by every release artifact."""
+    """Return the exact recursive marketplace payload used by every release artifact."""
 
     resources = {relative_path: MARKETPLACE_ROOT / relative_path for relative_path in BUNDLE_FILES}
     missing = [relative_path for relative_path, path in resources.items() if not path.is_file()]
@@ -380,6 +474,9 @@ def marketplace_resources() -> dict[str, Path]:
         raise VerificationError(
             f"Marketplace resource set mismatch; missing={missing}, unexpected={unexpected}."
         )
+    plugin_license = resources[f"plugins/{PLUGIN_NAME}/LICENSE"]
+    if plugin_license.read_text(encoding="utf-8") != (ROOT / "LICENSE").read_text(encoding="utf-8"):
+        raise VerificationError("Bundled plugin LICENSE differs from the repository LICENSE.")
     return {relative_path: resources[relative_path] for relative_path in BUNDLE_FILES}
 
 
@@ -413,6 +510,7 @@ def check_portability() -> None:
             "opencode.json",
             "obsidian-vault-mcp.schema.json",
             "pyproject.toml",
+            "server.json",
         )
     )
     for path in sorted(files):
@@ -446,6 +544,7 @@ def check_repository() -> str:
     version = check_versions(None)
     check_dependency_bounds()
     check_adapter_configs()
+    check_mcp_registry_metadata(version)
     marketplace_resources()
     check_portability()
 
@@ -483,7 +582,7 @@ def verify_wheel(wheel: Path, version: str) -> None:
         if wheel_metadata_version(archive) != version:
             raise VerificationError(f"Wheel metadata version does not match {version}: {wheel.name}")
         if "obsidian_vault_mcp/interfaces/cli/main.py" not in names:
-            raise VerificationError("Wheel is missing the V2 CLI entrypoint module.")
+            raise VerificationError("Wheel is missing the CLI entrypoint module.")
         pi_resource = "obsidian_vault_mcp/interfaces/agent_install/pi_extension.ts"
         if pi_resource not in names:
             raise VerificationError("Wheel is missing the Pi installer Extension resource.")
@@ -503,7 +602,7 @@ def verify_wheel(wheel: Path, version: str) -> None:
             if name.startswith(resource_prefix) and name != f"{resource_prefix}__init__.py"
         }
         if archived_resources != set(expected_resources):
-            raise VerificationError("Wheel marketplace resource set does not match the canonical 15-file source tree.")
+            raise VerificationError("Wheel marketplace resources do not match the canonical recursive source tree.")
         for name, source in expected_resources.items():
             if archive.read(name) != source.read_bytes():
                 raise VerificationError(f"Wheel marketplace resource differs from the canonical source tree: {name}")
@@ -532,7 +631,7 @@ def verify_sdist(sdist: Path, version: str) -> None:
         if metadata_version is None or metadata_version.group(1) != version:
             raise VerificationError(f"Source distribution metadata version does not match {version}: {sdist.name}")
         if not any(name.endswith("/src/obsidian_vault_mcp/interfaces/cli/main.py") for name in names):
-            raise VerificationError("Source distribution is missing the V2 CLI entrypoint module.")
+            raise VerificationError("Source distribution is missing the CLI entrypoint module.")
         pi_resource = f"{expected_prefix}src/obsidian_vault_mcp/interfaces/agent_install/pi_extension.ts"
         if pi_resource not in names:
             raise VerificationError("Source distribution is missing the Pi installer Extension resource.")
@@ -553,7 +652,7 @@ def verify_sdist(sdist: Path, version: str) -> None:
             if name.startswith(resource_prefix) and name != f"{resource_prefix}__init__.py"
         }
         if archived_resources != set(expected_resources):
-            raise VerificationError("Source distribution marketplace resource set does not match the canonical 15-file source tree.")
+            raise VerificationError("Source distribution marketplace resources do not match the canonical recursive source tree.")
         for name, source in expected_resources.items():
             resource_file = archive.extractfile(name)
             if resource_file is None or resource_file.read() != source.read_bytes():
@@ -604,14 +703,20 @@ def smoke_wheel(wheel: Path, version: str) -> None:
             "from importlib.metadata import distribution; "
             f"d=distribution({PROJECT_NAME!r}); "
             f"assert d.version == {version!r}; "
-            "eps=[e for e in d.entry_points if e.group == 'console_scripts' and e.name == 'obsidian-vault-mcp']; "
-            "assert len(eps) == 1 and callable(eps[0].load())"
+            "eps={e.name:e for e in d.entry_points if e.group == 'console_scripts'}; "
+            "assert {'obsidian-vault-mcp','zotero-obsidian-mcp'} <= set(eps); "
+            "assert all(callable(eps[name].load()) for name in ('obsidian-vault-mcp','zotero-obsidian-mcp'))"
         )
         subprocess.run([str(python), "-c", smoke_code], check=True, cwd=temporary_path, env=environment)
 
         executable = environment_path / ("Scripts/obsidian-vault-mcp.exe" if os.name == "nt" else "bin/obsidian-vault-mcp")
         if not executable.is_file():
             raise VerificationError("Installed wheel did not create the obsidian-vault-mcp console executable.")
+        registry_executable = environment_path / (
+            "Scripts/zotero-obsidian-mcp.exe" if os.name == "nt" else "bin/zotero-obsidian-mcp"
+        )
+        if not registry_executable.is_file():
+            raise VerificationError("Installed wheel did not create the MCP Registry package-name console executable.")
         cli = subprocess.run(
             [
                 str(executable),
@@ -636,10 +741,20 @@ def smoke_wheel(wheel: Path, version: str) -> None:
         protocol_smoke = (
             "from obsidian_vault_mcp.interfaces.agent_install.common import mcp_stdio_handshake; "
             "from obsidian_vault_mcp.interfaces.mcp.server import create_server; "
-            "assert len(create_server()._tool_manager.list_tools()) == 33; "
-            f"assert mcp_stdio_handshake(command={str(executable)!r}, args=('serve','--transport','stdio'), timeout=15)"
+            "from obsidian_vault_mcp.application.skill_service import SkillResourceService; "
+            "assert len(create_server()._tool_manager.list_tools()) == 31; "
+            "skills=SkillResourceService(); "
+            "assert len(skills.list()) == 7; "
+            "assert sum(len(skills.files(item['name']))-1 for item in skills.list()) == 8; "
+            f"assert mcp_stdio_handshake(command={str(executable)!r}, args=('serve','--transport','stdio'), timeout=30)"
         )
         subprocess.run([str(python), "-c", protocol_smoke], check=True, cwd=temporary_path, env=environment)
+        registry_protocol_smoke = (
+            "from obsidian_vault_mcp.interfaces.agent_install.common import mcp_stdio_handshake; "
+            f"assert mcp_stdio_handshake(command={str(registry_executable)!r}, "
+            "args=('serve','--transport','stdio'), timeout=30)"
+        )
+        subprocess.run([str(python), "-c", registry_protocol_smoke], check=True, cwd=temporary_path, env=environment)
 
 
 def check_artifacts(directory: Path, version: str, require_sdist: bool, run_smoke: bool) -> None:
@@ -669,7 +784,7 @@ def check_bundle(directory: Path, version: str) -> None:
         infos = archive.infolist()
         entries = [info.filename.replace("\\", "/") for info in infos]
         if entries != expected_entries:
-            raise VerificationError(f"Plugin marketplace bundle must contain the ordered 15-file allowlist; found {entries}.")
+            raise VerificationError(f"Plugin marketplace bundle must contain the ordered recursive allowlist; found {entries}.")
         if archive.comment:
             raise VerificationError("Plugin marketplace bundle must not contain a ZIP comment.")
         for info in infos:
@@ -730,7 +845,7 @@ def check_checksums(directory: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Verify V2 release metadata and artifacts.")
+    parser = argparse.ArgumentParser(description="Verify release metadata and artifacts.")
     parser.add_argument("--tag", help="Release tag to compare with package and plugin versions.")
     parser.add_argument("--artifacts-dir", type=Path, help="Directory containing wheel and optional sdist artifacts.")
     parser.add_argument("--require-sdist", action="store_true", help="Require exactly one .tar.gz source distribution.")
