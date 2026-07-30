@@ -152,6 +152,53 @@ class MinerUNormalizerTests(unittest.TestCase):
             finally:
                 _remove_directory_link(linked)
 
+    def test_staging_root_beneath_a_linked_ancestor_is_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            real = base / "real"
+            staging = real / "staging"
+            staging.mkdir(parents=True)
+            (staging / "paper.md").write_text("# Paper\n", encoding="utf-8")
+            linked = base / "linked"
+            _create_directory_link(linked, real)
+            try:
+                result = normalize_mineru_output(
+                    linked / "staging",
+                    zotero_key="ABCD1234",
+                    title="x",
+                    source_pdf_path="../ABCD1234.pdf",
+                    image_link_prefix="image/ABCD1234",
+                )
+                self.assertIn("# x", result.markdown)
+            finally:
+                _remove_directory_link(linked)
+
+    def test_staging_internal_symbolic_link_or_junction_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            staging = base / "staging"
+            outside = base / "outside"
+            staging.mkdir()
+            outside.mkdir()
+            (outside / "image.png").write_bytes(b"image")
+            (staging / "paper.md").write_text(
+                "![image](images/image.png)\n",
+                encoding="utf-8",
+            )
+            linked = staging / "images"
+            _create_directory_link(linked, outside)
+            try:
+                with self.assertRaises(MinerUNormalizationError):
+                    normalize_mineru_output(
+                        staging,
+                        zotero_key="ABCD1234",
+                        title="x",
+                        source_pdf_path="../ABCD1234.pdf",
+                        image_link_prefix="image/ABCD1234",
+                    )
+            finally:
+                _remove_directory_link(linked)
+
 
 if __name__ == "__main__":
     unittest.main()

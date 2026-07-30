@@ -712,7 +712,12 @@ def test_existing_case_variant_targets_block_the_paper(
     assert reason in {entry["reason"] for entry in report["skipped"]}
     assert source.read_bytes() == b"source"
     assert existing.read_bytes() == b"preexisting"
-    assert not target.exists()
+    target_entries = (
+        {entry.name for entry in target.parent.iterdir()}
+        if target.parent.exists()
+        else set()
+    )
+    assert target.name not in target_entries
 
 
 def test_ambiguous_or_unowned_flat_images_are_skipped(tmp_path: Path) -> None:

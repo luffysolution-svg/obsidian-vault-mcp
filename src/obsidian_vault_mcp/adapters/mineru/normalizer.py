@@ -280,7 +280,7 @@ def normalize_mineru_output(
 
     key = validate_zotero_key(zotero_key)
     requested_root = Path(os.path.abspath(Path(staging_dir).expanduser()))
-    if _path_uses_link_or_reparse_point(requested_root):
+    if _is_link_or_reparse_point(requested_root):
         raise MinerUNormalizationError(
             "MinerU staging directory cannot be a symbolic link or reparse point"
         )
