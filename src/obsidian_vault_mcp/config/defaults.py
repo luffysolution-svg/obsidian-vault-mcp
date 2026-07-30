@@ -1,4 +1,4 @@
-"""Canonical defaults for the one V2 Vault configuration file."""
+"""Canonical defaults for the Obsidian Vault MCP configuration file."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any
 from ..domain.frontmatter import MANAGED_FIELD_ORDER
 
 CONFIG_FILENAME = ".obsidian-vault-mcp.json"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 SCHEMA_URL = (
     "https://raw.githubusercontent.com/luffysolution-svg/"
     "obsidian-vault-mcp/main/obsidian-vault-mcp.schema.json"
@@ -91,7 +91,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "atomicWrites": True,
         "backupBeforeReplace": True,
         "retainBackups": 10,
-        "defaultDryRunForMigration": True,
         "lockPerItem": True,
     },
 }
