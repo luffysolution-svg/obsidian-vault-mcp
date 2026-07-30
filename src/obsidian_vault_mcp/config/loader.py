@@ -1,4 +1,4 @@
-"""Load and initialize the single V2 Vault configuration file."""
+"""Load and initialize the single Vault configuration file."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def load_config(
     *,
     require_exists: bool = True,
 ) -> dict[str, Any]:
-    """Read, strictly parse, validate, and normalize the one V2 config file."""
+    """Read, strictly parse, validate, and normalize the configuration file."""
 
     root = Path(vault_path).expanduser().resolve()
     path = root / CONFIG_FILENAME
