@@ -132,6 +132,8 @@ The following must use `3.0.0`:
 - GitHub Release
 - PyPI
 
+The configuration `schemaVersion` is an independent data-format version and is not tied to the software version.
+
 ## 9. Release procedure
 
 1. Complete code, documentation, and version changes on `main`.
@@ -160,7 +162,16 @@ SHA256SUMS
 
 Published versions are immutable. Corrections require a new semantic version.
 
-## 10. Release checklist
+## 10. Release recovery rules
+
+The release workflow stores a workflow marker for each external publish stage. On rerun, it may resume only the draft GitHub Release for the same tag and must revalidate every `SHA256` before upload.
+
+- If the version already exists on PyPI or MCP Registry, verify its content and state instead of uploading again.
+- A GitHub draft may be completed only with the same tag and checksums.
+- Once public or protected by immutable releases, the release must be resumed without deletion or overwrite.
+- Any artifact, tag, or checksum mismatch must stop the workflow and require a new semantic version.
+
+## 11. Release checklist
 
 - [ ] Exactly 31 MCP tools.
 - [ ] Exactly 7 Skills with references.
@@ -171,7 +182,7 @@ Published versions are immutable. Corrections require a new semantic version.
 - [ ] Wheel, sdist, plugin ZIP, and checksums pass verification.
 - [ ] No credentials or machine-local absolute paths are present.
 
-## 11. Security requirements
+## 12. Security requirements
 
 - Prefer local stdio.
 - Put network transports behind trusted authentication and access control.
