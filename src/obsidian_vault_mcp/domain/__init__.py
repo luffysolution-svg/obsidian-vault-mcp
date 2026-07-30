@@ -1,4 +1,4 @@
-"""V2 domain contracts."""
+"""Domain contracts for the literature pipeline."""
 
 from .errors import (
     AtomicWriteError,
