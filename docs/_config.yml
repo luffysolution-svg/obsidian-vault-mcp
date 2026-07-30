@@ -8,6 +8,7 @@ theme: null
 release_status: stable
 release_version: 3.0.1
 markdown: kramdown
+permalink: pretty
 kramdown:
   input: GFM
 exclude:
