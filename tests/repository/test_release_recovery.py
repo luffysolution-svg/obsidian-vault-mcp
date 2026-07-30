@@ -560,8 +560,8 @@ def test_release_workflow_preflights_each_destination_and_creates_github_release
     assert "--notes \"$RELEASE_NOTES\"" in workflow
     assert "Five Analysis types" in workflow
     assert "31 MCP tools" in workflow
-    assert "V2-to-V3 migrations with preview and rollback" in workflow
-    assert "Seven recursively packaged Agent Skills" in workflow
+    assert "Transactional Vault writes with dry-run, backups, conflict protection, and rollback" in workflow
+    assert "Seven packaged Agent Skills for literature research workflows" in workflow
     assert "Dual CLI entry points" in workflow
     assert '--missing-assets-file "$missing_assets"' in workflow
     assert '--missing-artifacts-file "$missing_artifacts"' in workflow

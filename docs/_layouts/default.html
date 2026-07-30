@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="{{ page.lang | default: site.lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if page.title %}{{ page.title }} · {% endif %}{{ site.title }}</title>
+  <meta name="description" content="{{ page.description | default: site.description }}">
+  <link rel="canonical" href="{{ site.url }}{{ site.baseurl }}{{ page.url | replace: 'index.html', '' }}">
+  <meta property="og:title" content="{{ page.title | default: site.title }}">
+  <meta property="og:description" content="{{ page.description | default: site.description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ site.url }}{{ site.baseurl }}{{ page.url | replace: 'index.html', '' }}">
+  <link rel="icon" href="{{ '/assets/icon.svg' | relative_url }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="{{ '/' | relative_url }}">Obsidian Vault MCP <span>3.0.0</span></a>
+    <nav aria-label="Primary">
+      {% if page.lang == 'en' %}
+      <a href="{{ '/en/installation/' | relative_url }}">Install</a><a href="{{ '/en/configuration/' | relative_url }}">Configure</a><a href="{{ '/en/analysis/' | relative_url }}">Analysis</a><a href="{{ '/en/agents/' | relative_url }}">Agents</a><a href="{{ '/en/tools/' | relative_url }}">Tools</a><a href="{{ '/' | relative_url }}">中文</a>
+      {% else %}
+      <a href="{{ '/installation/' | relative_url }}">安装</a><a href="{{ '/configuration/' | relative_url }}">配置</a><a href="{{ '/analysis/' | relative_url }}">Analysis</a><a href="{{ '/agents/' | relative_url }}">Agent</a><a href="{{ '/tools/' | relative_url }}">工具</a><a href="{{ '/en/' | relative_url }}">EN</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main class="content">{{ content }}</main>
+  <footer>Obsidian Vault MCP · <a href="https://github.com/luffysolution-svg/obsidian-vault-mcp">GitHub</a> · <a href="https://pypi.org/project/zotero-obsidian-mcp/">PyPI</a> · <a href="https://registry.modelcontextprotocol.io/">MCP Registry</a></footer>
+</body>
+</html>

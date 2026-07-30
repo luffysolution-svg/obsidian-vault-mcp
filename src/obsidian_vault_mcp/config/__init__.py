@@ -1,4 +1,4 @@
-"""Single-file V2 configuration."""
+"""Single-file Vault configuration."""
 
 from .defaults import CONFIG_FILENAME, DEFAULT_CONFIG, SCHEMA_VERSION, default_config
 from .loader import ConfigLoader, config_path, initialize_config, load_config, save_config

@@ -1,4 +1,4 @@
-"""Canonical defaults for the one V2 Vault configuration file."""
+"""Canonical defaults for the Obsidian Vault MCP configuration file."""
 
 from __future__ import annotations
 
@@ -91,7 +91,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "atomicWrites": True,
         "backupBeforeReplace": True,
         "retainBackups": 10,
-        "defaultDryRunForMigration": True,
         "lockPerItem": True,
     },
 }

@@ -420,12 +420,14 @@ jobs:
           RELEASE_NOTES: |
             <!-- obsidian-vault-mcp-release-workflow:draft-v1 -->
 
-            ## Obsidian Vault MCP V3
+            ## Obsidian Vault MCP 3.0.0
 
-            - Five Analysis types with deterministic Base views.
-            - 31 MCP tools across the stable V2 surface and V3 Analysis.
-            - Transactional V2-to-V3 migrations with preview and rollback.
-            - Seven recursively packaged Agent Skills.
+            - Five Analysis types with deterministic Obsidian Base views.
+            - 31 MCP tools across the production architecture.
+            - Transactional Vault writes with dry-run, backups, conflict protection, and rollback.
+            - Seven packaged Agent Skills for literature research workflows.
+            - Codex, Claude Code, OpenCode, Pi, Hermes, and WorkBuddy integration.
+            - Zotero, MinerU, and Obsidian workflow support.
             - Dual CLI entry points: `obsidian-vault-mcp` and `zotero-obsidian-mcp`.
           EXPECTED_COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
           EXPECTED_TAG_OBJECT_SHA: ${{ needs.build.outputs.tag_object_sha }}

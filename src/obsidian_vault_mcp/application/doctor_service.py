@@ -11,7 +11,7 @@ from ..config.loader import config_path, load_config
 
 
 class DoctorService:
-    """Probe local V2 configuration and external adapter readiness."""
+    """Probe the local configuration and external adapter readiness."""
 
     def __init__(self, vault_path: str | os.PathLike[str]) -> None:
         self.vault_path = Path(vault_path).expanduser().resolve()
