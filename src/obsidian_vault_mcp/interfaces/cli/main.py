@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from ..agent_install import SUPPORTED_CLIENTS, install_agent
-from ..common import resolve_vault
 from ..mcp.server import run_server
 from ..mcp.tools import TOOL_BY_NAME
 
