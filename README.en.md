@@ -13,7 +13,7 @@ Natural-language research task
         ↓
 7 research Skills: intent routing, workflow planning, evidence and output rules
         ↓
-30 MCP tools: query, import, parse, retrieve, validate, and transactional writes
+31 MCP tools: version contract, query, import, parse, retrieve, validate, and write
         ↓
 Zotero Desktop ── PDF ── MinerU ── Obsidian Vault
                                       ├─ literature notes
@@ -23,11 +23,11 @@ Zotero Desktop ── PDF ── MinerU ── Obsidian Vault
                                       └─ five Analysis types / Analysis.base
 ```
 
-The project is model-provider independent. MCP tools implement deterministic data operations; Skills define reusable research procedures.
+The project is model-provider independent. MCP tools implement deterministic local operations; Skills define reusable research procedures.
 
 ## Features
 
-- Stable identity based on the Zotero parent-item `zoteroKey`.
+- Stable Zotero parent-item identity based on `zoteroKey`.
 - Item and collection import/sync, notes, annotations, BibTeX, stored PDFs, and linked attachments.
 - Staged MinerU parsing with one portable image directory per paper.
 - Automatic `Literature/index.md`, `Literature/Literature.base`, source-linked Wiki pages, and validation.
@@ -35,6 +35,7 @@ The project is model-provider independent. MCP tools implement deterministic dat
 - One nine-view `Literature/Analysis/Analysis.base` database.
 - Seven Skills: `paper-qa`, `full-read`, `passage-qa`, `figure-qa`, `compare-papers`, `literature-review`, and `concept-learning`.
 - Dry-run, staging, locks, backups, atomic replacement, transaction preview, and rollback.
+- A read-only `literature_version` tool exposing the version and public capability counts.
 - Codex, Claude Code, OpenCode, Pi, Hermes, and WorkBuddy integrations.
 
 ## Screenshots
@@ -49,12 +50,7 @@ The project is model-provider independent. MCP tools implement deterministic dat
 
 ### Traceable multi-paper Wiki
 
-<details>
-<summary>Show screenshot</summary>
-
 <img src="https://raw.githubusercontent.com/luffysolution-svg/obsidian-vault-mcp/main/docs/assets/screenshots/v2/wiki-synthesis.png" alt="Traceable Wiki synthesis" width="780">
-
-</details>
 
 ## Install
 
@@ -117,6 +113,7 @@ obsidian-vault-mcp config init --vault-path "<VAULT_PATH>" --dry-run
 obsidian-vault-mcp config init --vault-path "<VAULT_PATH>"
 obsidian-vault-mcp config validate --vault-path "<VAULT_PATH>"
 obsidian-vault-mcp doctor --vault-path "<VAULT_PATH>"
+obsidian-vault-mcp call literature_version --json '{}'
 ```
 
 With Zotero Desktop running and its local API enabled:
@@ -127,7 +124,7 @@ obsidian-vault-mcp import item ABCD1234 --vault-path "<VAULT_PATH>" --dry-run
 obsidian-vault-mcp import item ABCD1234 --vault-path "<VAULT_PATH>"
 ```
 
-For Zotero linked files, configure the same linked-attachment base directory used by Zotero:
+For linked attachments:
 
 ```json
 {
@@ -162,7 +159,7 @@ Replace `codex` with `claude`, `opencode`, `pi`, `hermes`, or `workbuddy`.
 | Hermes | MCP configuration |
 | WorkBuddy | MCP configuration |
 
-The GitHub Release provides `obsidian-vault-mcp-3.0.0-plugins.zip` for offline Codex and Claude installation.
+The GitHub Release provides `obsidian-vault-mcp-3.0.0-plugins.zip`.
 
 ## Skills
 
@@ -170,15 +167,29 @@ The GitHub Release provides `obsidian-vault-mcp-3.0.0-plugins.zip` for offline C
 |---|---|
 | `paper-qa` | Fast single-paper Q&A without persistent output by default |
 | `full-read` | Complete paper reading saved as `full_read` |
-| `passage-qa` | Locate and answer from a specific passage, method, value, or claim |
+| `passage-qa` | Locate a specific passage, method, value, or claim |
 | `figure-qa` | Interpret figures, tables, schemes, and equations |
 | `compare-papers` | Build a comparability matrix for selected papers |
 | `literature-review` | Synthesize a defined literature pool by theme |
 | `concept-learning` | Build a reusable concept model across papers |
 
+## Production tool surface
+
+| Group | Count |
+|---|---:|
+| Version, system, and configuration | 5 |
+| Zotero | 6 |
+| Import and sync | 4 |
+| MinerU | 3 |
+| Navigation and validation | 3 |
+| Analysis | 5 |
+| Wiki | 3 |
+| Transactions | 2 |
+| **Total** | **31** |
+
 ## Release consistency
 
-Version `3.0.0` must match the Python package, runtime `__version__`, MCP Registry metadata, Codex and Claude manifests, Pi package, Git tag `v3.0.0`, GitHub Release, and PyPI. The release workflow verifies the exact tag, runs tests and handshakes, builds wheel/sdist/plugin ZIP artifacts, and generates `SHA256SUMS`.
+Version `3.0.0` must match the Python package, runtime `__version__`, MCP Registry metadata, Codex and Claude manifests, Pi package, Git tag `v3.0.0`, GitHub Release, and PyPI. The release workflow verifies version and tag identity, runs tests and handshakes, builds wheel/sdist/plugin ZIP artifacts, and generates `SHA256SUMS`.
 
 ## Safety
 
