@@ -5,7 +5,7 @@ baseurl: /obsidian-vault-mcp
 repository: luffysolution-svg/obsidian-vault-mcp
 lang: zh-CN
 theme: null
-release_status: release-candidate
+release_status: stable
 release_version: 3.0.1
 markdown: kramdown
 kramdown:

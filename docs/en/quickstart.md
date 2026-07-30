@@ -5,7 +5,7 @@ lang: en
 ---
 # Quick start
 
-After release, install 3.0.1 and confirm the runtime contract:
+Install 3.0.1 and confirm the runtime contract:
 
 ```bash
 uv tool install "zotero-obsidian-mcp==3.0.1"
