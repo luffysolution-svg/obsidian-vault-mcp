@@ -60,6 +60,14 @@ def test_public_docs_use_the_current_package_version() -> None:
         assert "3.0.0" not in text
 
 
+def test_pages_uses_pretty_urls_without_breaking_the_legacy_english_entry() -> None:
+    config = (DOCS / "_config.yml").read_text(encoding="utf-8")
+    legacy_entry = (DOCS / "index.en.md").read_text(encoding="utf-8")
+
+    assert "permalink: pretty" in config
+    assert "permalink: /index.en.html" in legacy_entry
+
+
 def test_public_docs_do_not_advertise_removed_migration_commands_or_old_cli_flags() -> None:
     public_docs = "\n".join(path.read_text(encoding="utf-8") for path in DOCS.rglob("*.md"))
     for forbidden in (
