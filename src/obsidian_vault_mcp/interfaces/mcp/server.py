@@ -41,7 +41,6 @@ _MUTATING_TOOLS = frozenset(
         "literature_analysis_write",
         "literature_rebuild_analysis_base",
         "literature_wiki_write",
-        "literature_migrate_v1_to_v2",
         "literature_rollback_transaction",
     }
 )
@@ -49,7 +48,6 @@ _MUTATING_TOOLS = frozenset(
 _DESTRUCTIVE_TOOLS = frozenset(
     {
         "literature_remove_mineru_output",
-        "literature_migrate_v1_to_v2",
         "literature_rollback_transaction",
     }
 )
@@ -71,7 +69,7 @@ def _tool_annotations(name: str) -> ToolAnnotations:
 
 
 def create_server() -> FastMCP:
-    """Create a fresh explicitly registered V3 MCP server."""
+    """Create a fresh explicitly registered production MCP server."""
 
     server = FastMCP("obsidian-literature", json_response=True)
     for function in TOOL_FUNCTIONS:
