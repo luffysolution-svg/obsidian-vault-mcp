@@ -63,7 +63,7 @@ def render_index(
     base_path: str = "Literature/Literature.base",
     wiki_folder: str = "Literature/Wiki",
 ) -> str:
-    """Render the V2 literature dashboard with deterministic managed blocks."""
+    """Render the literature dashboard with deterministic managed blocks."""
     items = [dict(record) for record in records if _text(record.get("zoteroKey"))]
     items.sort(key=lambda item: (_text(item.get("title")).casefold(), _text(item.get("zoteroKey"))))
 
