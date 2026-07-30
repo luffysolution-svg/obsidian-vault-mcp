@@ -12,13 +12,13 @@ lang: zh-CN
 {% include release-notice.html %}
 
 ```bash
-python -m pip install --upgrade "zotero-obsidian-mcp==3.0.0"
-pipx install "zotero-obsidian-mcp==3.0.0"
-uv tool install "zotero-obsidian-mcp==3.0.0"
-uvx --from "zotero-obsidian-mcp==3.0.0" obsidian-vault-mcp --help
+python -m pip install --upgrade "zotero-obsidian-mcp==3.0.1"
+pipx install "zotero-obsidian-mcp==3.0.1"
+uv tool install "zotero-obsidian-mcp==3.0.1"
+uvx --from "zotero-obsidian-mcp==3.0.1" obsidian-vault-mcp --help
 ```
 
-兼容 CLI `zotero-obsidian-mcp` 与主 CLI `obsidian-vault-mcp` 指向同一程序。发布后也可从正式 tag 安装源码：`git checkout v3.0.0` 后运行 `python -m pip install -e ".[dev]"`。
+兼容 CLI `zotero-obsidian-mcp` 与主 CLI `obsidian-vault-mcp` 指向同一程序。发布后也可从正式 tag 安装源码：`git checkout v3.0.1` 后运行 `python -m pip install -e ".[dev]"`。
 
 ## 初始化、导入与同步
 

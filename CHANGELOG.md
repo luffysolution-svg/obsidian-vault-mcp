@@ -2,6 +2,13 @@
 
 All notable changes to Obsidian Vault MCP are recorded in this file.
 
+## 3.0.1 — 2026-07-30
+
+### Changed
+
+- Aligned the package, runtime, MCP Registry metadata, Agent marketplaces, Pi extension, release workflow, documentation, and release tests on version `3.0.1`.
+- Published the rebuilt bilingual GitHub Pages documentation as the formal release documentation source.
+
 ## 3.0.0 — 2026-07-30
 
 ### Added

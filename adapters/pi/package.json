@@ -1,6 +1,6 @@
 {
   "name": "obsidian-vault-mcp-pi-extension",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Pi extension for the Obsidian Vault MCP V3 JSON CLI",
   "type": "module",
   "license": "MIT",

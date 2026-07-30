@@ -15,7 +15,7 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="{{ '/' | relative_url }}">Obsidian Vault MCP <span>3.0.0</span></a>
+    <a class="brand" href="{{ '/' | relative_url }}">Obsidian Vault MCP <span>{{ site.release_version }}</span></a>
     <nav aria-label="Primary">
       {% if page.lang == 'en' %}
       <a href="{{ '/en/installation/' | relative_url }}">Install</a><a href="{{ '/en/configuration/' | relative_url }}">Configure</a><a href="{{ '/en/analysis/' | relative_url }}">Analysis</a><a href="{{ '/en/agents/' | relative_url }}">Agents</a><a href="{{ '/en/tools/' | relative_url }}">Tools</a><a href="{{ '/' | relative_url }}">中文</a>

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag, for example v3.0.0"
+        description: "Existing release tag, for example v3.0.1"
         required: true
         type: string
 
@@ -420,7 +420,7 @@ jobs:
           RELEASE_NOTES: |
             <!-- obsidian-vault-mcp-release-workflow:draft-v1 -->
 
-            ## Obsidian Vault MCP 3.0.0
+            ## Obsidian Vault MCP 3.0.1
 
             - Five Analysis types with deterministic Obsidian Base views.
             - 31 MCP tools across the production architecture.
