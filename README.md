@@ -13,7 +13,7 @@
         ↓
 7 个科研 Skills：识别意图、规划步骤、约束证据与输出
         ↓
-30 个 MCP Tools：查询、导入、解析、检索、校验与事务写入
+31 个 MCP Tools：版本契约、查询、导入、解析、检索、校验与事务写入
         ↓
 Zotero Desktop ── PDF ── MinerU ── Obsidian Vault
                                       ├─ Literature 主笔记
@@ -27,14 +27,15 @@ Zotero Desktop ── PDF ── MinerU ── Obsidian Vault
 
 ## 核心功能
 
-- **稳定文献身份**：以 Zotero 父条目 `zoteroKey` 作为主键，标题、作者、年份或 citekey 变化时仍更新同一份记录。
-- **Zotero 导入与同步**：支持单篇、Collection、notes、annotations、BibTeX、Zotero 存储附件和链接附件。
-- **MinerU 全文解析**：将 PDF 规范化为 Markdown；每篇文献拥有独立图片目录和可移植相对链接。
+- **稳定文献身份**：以 Zotero 父条目 `zoteroKey` 作为主键。
+- **Zotero 导入与同步**：支持单篇、Collection、notes、annotations、BibTeX、存储附件和链接附件。
+- **MinerU 全文解析**：将 PDF 规范化为 Markdown，每篇文献使用独立图片目录和相对链接。
 - **Obsidian 文献库**：自动维护 `Literature/index.md`、`Literature/Literature.base`、主笔记、PDF、全文和 Wiki。
 - **结构化研究层**：支持 `full_read`、`literature_review`、`passage_qa`、`figure_qa`、`concept` 五类 Analysis。
-- **统一数据库视图**：`Literature/Analysis/Analysis.base` 提供 Dashboard、精读、综述、问答、概念、待复核、学科和更新时间等 9 个视图。
+- **统一数据库视图**：`Literature/Analysis/Analysis.base` 提供 9 个视图。
 - **科研 Skills**：内置 `paper-qa`、`full-read`、`passage-qa`、`figure-qa`、`compare-papers`、`literature-review`、`concept-learning`。
-- **安全写入**：写操作支持 dry-run、staging、锁、备份、原子替换、事务预览和回滚。
+- **安全写入**：支持 dry-run、staging、锁、备份、原子替换、事务预览和回滚。
+- **版本可验证**：`literature_version` 返回当前版本、31 个工具、7 个 Skills 和五类 Analysis。
 - **多客户端接入**：支持 Codex、Claude Code、OpenCode、Pi、Hermes 和 WorkBuddy。
 
 ## 效果展示
@@ -56,11 +57,9 @@ Zotero Desktop ── PDF ── MinerU ── Obsidian Vault
 
 </details>
 
-更多主笔记、全文、Base 与工作流截图见[完整安装教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md)。
-
 ## 安装
 
-正式版本：`3.0.0`。要求 Python 3.10+。Zotero 和 MinerU 仅在使用对应能力时需要。
+正式版本：`3.0.0`。要求 Python 3.10+。
 
 ### uv（推荐）
 
@@ -85,13 +84,11 @@ python -m pip install "zotero-obsidian-mcp==3.0.0"
 
 ### MCP Registry
 
-Registry 名称：
-
 ```text
 io.github.luffysolution-svg/obsidian-vault-mcp
 ```
 
-等价的 `uvx` stdio 配置：
+等价的 stdio 配置：
 
 ```json
 {
@@ -123,9 +120,10 @@ obsidian-vault-mcp config init --vault-path "<VAULT_PATH>" --dry-run
 obsidian-vault-mcp config init --vault-path "<VAULT_PATH>"
 obsidian-vault-mcp config validate --vault-path "<VAULT_PATH>"
 obsidian-vault-mcp doctor --vault-path "<VAULT_PATH>"
+obsidian-vault-mcp call literature_version --json '{}'
 ```
 
-启动 Zotero Desktop 并启用本地 API 后：
+启动 Zotero Desktop 并启用本地 API：
 
 ```powershell
 obsidian-vault-mcp call zotero_search_items --json '{"query":"photocatalysis"}'
@@ -133,7 +131,7 @@ obsidian-vault-mcp import item ABCD1234 --vault-path "<VAULT_PATH>" --dry-run
 obsidian-vault-mcp import item ABCD1234 --vault-path "<VAULT_PATH>"
 ```
 
-链接附件需要在 `.obsidian-vault-mcp.json` 中设置 Zotero 的链接附件基础目录：
+链接附件配置：
 
 ```json
 {
@@ -159,8 +157,6 @@ Literature/attachment/MinerU/image/ABCD1234/ABCD1234-fig01.png
 
 ## Agent 与插件安装
 
-先安装 Python 包，再运行统一安装器：
-
 ```powershell
 obsidian-vault-mcp agent install codex --dry-run
 obsidian-vault-mcp agent install codex
@@ -177,23 +173,13 @@ obsidian-vault-mcp agent install codex
 | Hermes | MCP 配置 |
 | WorkBuddy | MCP 配置 |
 
-Codex / Claude 离线安装包为 GitHub Release 中的：
+GitHub Release 中的离线插件包：
 
 ```text
 obsidian-vault-mcp-3.0.0-plugins.zip
 ```
 
-解压后安装：
-
-```powershell
-codex plugin marketplace add "<EXTRACTED_DIR>" --json
-codex plugin add obsidian-literature@obsidian-vault-mcp --json
-
-claude plugin marketplace add "<EXTRACTED_DIR>" --scope user
-claude plugin install obsidian-literature@obsidian-vault-mcp --scope user
-```
-
-## Skills 的作用
+## Skills
 
 | Skill | 工作流 |
 |---|---|
@@ -205,38 +191,23 @@ claude plugin install obsidian-literature@obsidian-vault-mcp --scope user
 | `literature-review` | 对文献池进行主题化综述 |
 | `concept-learning` | 跨文献建立概念模型 |
 
-Skills 不存储额外数据；它们负责选择工具、限制检索范围、保留来源、区分事实与推断、检查重复 Analysis，并控制 dry-run 与正式写入。
+## 正式工具面
 
-## Vault 结构
-
-```text
-<Vault>/
-├─ .obsidian-vault-mcp.json
-├─ .obsidian-vault-mcp/
-│  ├─ state/
-│  ├─ staging/
-│  ├─ backups/
-│  └─ locks/
-└─ Literature/
-   ├─ index.md
-   ├─ Literature.base
-   ├─ ABCD1234.md
-   ├─ Wiki/
-   ├─ Analysis/
-   │  ├─ Analysis.base
-   │  ├─ full-reads/
-   │  ├─ reviews/
-   │  ├─ qa/passages/
-   │  ├─ qa/figures/
-   │  └─ concepts/
-   └─ attachment/
-      ├─ ABCD1234.pdf
-      └─ MinerU/
-```
+| 分组 | 数量 |
+|---|---:|
+| 版本、系统与配置 | 5 |
+| Zotero | 6 |
+| 导入与同步 | 4 |
+| MinerU | 3 |
+| 导航与校验 | 3 |
+| Analysis | 5 |
+| Wiki | 3 |
+| 事务 | 2 |
+| **合计** | **31** |
 
 ## 发布一致性
 
-`3.0.0` 必须同时出现在 Python 包、运行时 `__version__`、MCP Registry `server.json`、Codex/Claude 插件清单、Pi 包、Git Tag `v3.0.0`、GitHub Release 和 PyPI 中。Release workflow 会在发布前校验这些值、构建 wheel/sdist/插件 ZIP、执行测试和 handshake，并生成 `SHA256SUMS`。
+`3.0.0` 必须同时出现在 Python 包、运行时 `__version__`、MCP Registry `server.json`、Codex/Claude 插件清单、Pi 包、Git Tag `v3.0.0`、GitHub Release 和 PyPI 中。Release workflow 会校验版本、Tag 和产物身份，构建 wheel、sdist、插件 ZIP，执行测试与 handshake，并生成 `SHA256SUMS`。
 
 ## 安全边界
 
@@ -249,5 +220,3 @@ Skills 不存储额外数据；它们负责选择工具、限制检索范围、�
 ## 贡献者
 
 感谢 [方珸 / Lym Fang (@LimFang)](https://github.com/LimFang) 提出 Zotero 链接附件兼容方案。完整记录见 [CONTRIBUTORS.md](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/CONTRIBUTORS.md)。
-
-详细安装、配置和故障排查见[完整安装教程](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/docs/index.md)；架构、测试和发布规范见[开发文档](https://github.com/luffysolution-svg/obsidian-vault-mcp/blob/main/DEVELOPMENT.md)。
