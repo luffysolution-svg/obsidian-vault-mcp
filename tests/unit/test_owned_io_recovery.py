@@ -220,6 +220,7 @@ class OwnedIoRecoveryTests(unittest.TestCase):
                     note.write_bytes(b"old")
 
                 filesystem = VaultFilesystem(vault)
+                expected_literature = filesystem.root / "Literature"
                 original_rename = filesystem_module._WindowsNative.rename_relative
                 original_assert = filesystem_module._WindowsNative.assert_path
                 primary_completed = False
@@ -255,7 +256,7 @@ class OwnedIoRecoveryTests(unittest.TestCase):
                         primary_completed
                         and not failed_postcheck
                         and relative == "Literature/note.md"
-                        and expected == literature
+                        and expected == expected_literature
                     ):
                         failed_postcheck = True
                         raise VaultPathSafetyError(
@@ -376,6 +377,7 @@ class OwnedIoRecoveryTests(unittest.TestCase):
             staged.write_bytes(b"new")
 
             filesystem = VaultFilesystem(vault)
+            expected_literature = filesystem.root / "Literature"
             original_rename = filesystem_module._WindowsNative.rename_relative
             original_assert = filesystem_module._WindowsNative.assert_path
             primary_completed = False
@@ -411,7 +413,7 @@ class OwnedIoRecoveryTests(unittest.TestCase):
                     primary_completed
                     and not failed_postcheck
                     and relative == "Literature/note.md"
-                    and expected == literature
+                    and expected == expected_literature
                 ):
                     failed_postcheck = True
                     raise VaultPathSafetyError(
