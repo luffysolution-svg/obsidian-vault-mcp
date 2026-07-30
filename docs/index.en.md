@@ -14,9 +14,9 @@ This guide covers the production installation, Zotero, MinerU, Obsidian, Analysi
 | MinerU Open API CLI | Optional | PDF full text, figures, and equations |
 | AI client | Optional | Codex, Claude Code, OpenCode, Pi, Hermes, WorkBuddy |
 
-Local stdio is recommended. MinerU may upload PDFs; confirm authorization and policy before use.
+Prefer local stdio. MinerU may upload PDFs; confirm authorization and policy before use.
 
-## 2. Install the Python package
+## 2. Install
 
 ### uv
 
@@ -39,7 +39,7 @@ pipx install "zotero-obsidian-mcp==3.0.0"
 python -m pip install "zotero-obsidian-mcp==3.0.0"
 ```
 
-### Source installation from the release tag
+### Source installation from the tag
 
 ```bash
 git clone https://github.com/luffysolution-svg/obsidian-vault-mcp.git
@@ -49,13 +49,14 @@ uv sync --locked --all-extras
 uv run obsidian-vault-mcp --help
 ```
 
-Verify the installed version:
+Verify:
 
 ```bash
 python -c "from importlib.metadata import version; print(version('zotero-obsidian-mcp'))"
+obsidian-vault-mcp call literature_version --json '{}'
 ```
 
-The output must be `3.0.0`.
+The version must be `3.0.0`, with 31 tools and 7 Skills.
 
 ## 3. Initialize a Vault
 
@@ -71,24 +72,20 @@ obsidian-vault-mcp doctor --vault-path "$OBSIDIAN_VAULT_PATH"
 
 Windows PowerShell uses `$env:OBSIDIAN_VAULT_PATH = "<VAULT_PATH>"`.
 
-The configuration file is `<Vault>/.obsidian-vault-mcp.json`. Do not commit machine-local paths or credentials.
-
-## 4. Configure Zotero
+## 4. Zotero
 
 1. Start Zotero Desktop.
 2. Enable its local HTTP API.
-3. Test the connection:
+3. Test the connection and search parent items:
 
 ```bash
 obsidian-vault-mcp call zotero_ping --json '{}'
 obsidian-vault-mcp call zotero_search_items --json '{"query":"photocatalysis"}'
 ```
 
-Use the parent-item key returned by Zotero, not a PDF child attachment key.
+Do not use a PDF child attachment key as the literature identity.
 
-### Linked attachments
-
-For Zotero “Link to File” attachments, configure the same linked-attachment base directory:
+Linked attachments:
 
 ```json
 {
@@ -98,7 +95,7 @@ For Zotero “Link to File” attachments, configure the same linked-attachment 
 }
 ```
 
-Or set `ZOTERO_LINKED_ATTACHMENT_BASE_DIR`. Directory traversal, drive injection, and paths outside the configured base are rejected.
+The `ZOTERO_LINKED_ATTACHMENT_BASE_DIR` environment variable is also supported. Paths outside the configured base are rejected.
 
 ## 5. Import and synchronize
 
@@ -113,7 +110,7 @@ obsidian-vault-mcp sync item ABCD1234 --dry-run
 obsidian-vault-mcp sync item ABCD1234
 ```
 
-Default output:
+Output:
 
 ```text
 Literature/ABCD1234.md
@@ -122,9 +119,9 @@ Literature/index.md
 Literature/Literature.base
 ```
 
-The `zoteroKey` remains stable when titles, authors, years, or citation keys change.
+The `zoteroKey` remains stable when metadata changes.
 
-## 6. Parse full text with MinerU
+## 6. MinerU
 
 Install and authenticate `mineru-open-api` according to MinerU documentation. Never store its token in chat, the Vault, or Git.
 
@@ -142,11 +139,11 @@ Literature/attachment/MinerU/ABCD1234.md
 Literature/attachment/MinerU/image/ABCD1234/ABCD1234-fig01.png
 ```
 
-Markdown uses portable relative links. Parsing is staged and committed only after Markdown, figures, and links pass validation.
+Markdown uses relative links. Parsing is staged and committed only after validation.
 
 ## 7. Analysis and Skills
 
-| Analysis type | Use case | Skill |
+| Analysis | Purpose | Skill |
 |---|---|---|
 | `full_read` | complete single-paper reading | `full-read` |
 | `literature_review` | multi-paper synthesis or comparison | `literature-review`, `compare-papers` |
@@ -154,33 +151,29 @@ Markdown uses portable relative links. Parsing is staged and committed only afte
 | `figure_qa` | figure, table, scheme, or equation interpretation | `figure-qa` |
 | `concept` | cross-paper concept learning | `concept-learning` |
 
-`paper-qa` provides fast single-paper Q&A without persistent output by default.
-
-Discipline profiles are `general`, `medicine`, `chemistry`, `materials`, `catalysis`, `physics`, and `mathematics`.
+`paper-qa` provides fast non-persistent Q&A by default. Profiles: `general`, `medicine`, `chemistry`, `materials`, `catalysis`, `physics`, and `mathematics`.
 
 ```bash
 obsidian-vault-mcp call literature_paper_read --json '{"zotero_key":"ABCD1234","mode":"overview"}'
 obsidian-vault-mcp call literature_retrieve --json '{"query":"active sites","intent":"compare","depth":"evidence"}'
 ```
 
-A persistent workflow should call `literature_analysis_get` for duplicate detection, preview `literature_analysis_write` with `dry_run: true`, and commit only after reviewing the complete output.
-
-Rebuild the nine-view Analysis database:
+Persistent workflows should use `literature_analysis_get` for duplicate detection and preview `literature_analysis_write` before committing.
 
 ```bash
 obsidian-vault-mcp call literature_rebuild_analysis_base --json '{"dry_run":true}'
 obsidian-vault-mcp call literature_rebuild_analysis_base --json '{"dry_run":false}'
 ```
 
-## 8. MCP Registry and manual configuration
+`Analysis.base` contains nine views: Dashboard, Full Reads, Reviews, Passage Q&A, Figure Q&A, Concepts, Needs Attention, By Discipline, and Recently Updated.
 
-Registry name:
+## 8. MCP Registry
 
 ```text
 io.github.luffysolution-svg/obsidian-vault-mcp
 ```
 
-Equivalent `uvx` stdio configuration:
+`uvx` stdio configuration:
 
 ```json
 {
@@ -203,7 +196,7 @@ Equivalent `uvx` stdio configuration:
 }
 ```
 
-## 9. Install Agent integrations
+## 9. Agent integrations
 
 ```bash
 obsidian-vault-mcp agent install <client> --dry-run
@@ -221,40 +214,33 @@ Valid clients: `codex`, `claude`, `opencode`, `pi`, `hermes`, and `workbuddy`.
 | Hermes | MCP configuration |
 | WorkBuddy | MCP configuration |
 
-The GitHub Release includes `obsidian-vault-mcp-3.0.0-plugins.zip` for offline Codex and Claude installation.
+Offline Codex/Claude bundle: `obsidian-vault-mcp-3.0.0-plugins.zip`.
 
-## 10. Production MCP surface
+## 10. 31 MCP tools
 
-| Group | Tools |
-|---|---:|
-| System and configuration | 4 |
-| Zotero | 6 |
-| Import and sync | 4 |
-| MinerU | 3 |
-| Navigation and validation | 3 |
-| Analysis | 5 |
-| Wiki | 3 |
-| Transactions | 2 |
-
-Total: 30 tools.
+| Group | Count | Capability |
+|---|---:|---|
+| Version, system, and configuration | 5 | version, doctor, read, validate, initialize |
+| Zotero | 6 | ping, search, collections, item, children, BibTeX |
+| Import and sync | 4 | item and collection import/sync |
+| MinerU | 3 | single, batch, remove derived output |
+| Navigation and validation | 3 | Index, Base, Verify |
+| Analysis | 5 | read, retrieve, query, write, Base |
+| Wiki | 3 | context, write, list |
+| Transactions | 2 | preview, rollback |
 
 ## 11. Screenshots
 
-### Vault literature structure
-
 <img src="assets/screenshots/v2/vault-structure.png" alt="Vault literature structure" width="320">
 
-### Literature Index
-
 <img src="assets/screenshots/v2/literature-index.png" alt="Literature Index" width="760">
-
-### Traceable Wiki synthesis
 
 <img src="assets/screenshots/v2/wiki-synthesis.png" alt="Traceable Wiki synthesis" width="780">
 
 ## 12. Validation and troubleshooting
 
 ```bash
+obsidian-vault-mcp call literature_version --json '{}'
 obsidian-vault-mcp doctor
 obsidian-vault-mcp verify
 obsidian-vault-mcp index rebuild --dry-run
@@ -267,17 +253,20 @@ obsidian-vault-mcp base rebuild --dry-run
 | PDF not copied | Zotero storage or linked-attachment base directory |
 | MinerU fails | CLI, authentication, network, PDF authorization |
 | Analysis is `needs_update` | source fingerprint changed; review again |
-| Base missing | call the corresponding rebuild tool |
 | Client shows no tools | package version, PATH, environment, and client restart |
 
 ## 13. Release acceptance
 
-A production release requires all package, runtime, Registry, plugin, Pi, tag, GitHub Release, and PyPI versions to equal `3.0.0`; tests, Ruff, Pi checks, wheel smoke, MCP handshake, reproducible artifacts, and SHA-256 checks must pass.
+- Package, runtime, Registry, plugin, and Pi versions are `3.0.0`.
+- Tag `v3.0.0` points to the release commit on `main`.
+- Wheel, sdist, plugin ZIP, and `SHA256SUMS` pass validation.
+- Python tests, Ruff, Pi type checking, wheel smoke, 31-tool check, 7-Skill check, and MCP handshake pass.
+- PyPI, MCP Registry, and GitHub Release versions and artifacts match.
 
-## 14. Safety rules
+## 14. Safety
 
-- Preview every write with dry-run.
-- Retain transaction IDs and preview rollbacks before applying them.
+- Preview every write and retain transaction IDs.
+- Preview rollbacks before applying them.
 - Run automated write tests only on isolated Vault copies.
 - Keep an independent Vault backup.
 - Do not expose unauthenticated SSE or HTTP transports.
