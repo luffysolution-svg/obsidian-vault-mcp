@@ -9,7 +9,7 @@ BASE_TEMPLATE_VERSION = 1
 
 
 def base_document(literature_root: str = "Literature", name: str = "Literature Matrix") -> dict[str, Any]:
-    """Return the versioned Obsidian Bases document for V2 literature notes."""
+    """Return the versioned Obsidian Bases document for literature notes."""
     root = literature_root.replace("\\", "/").strip("/")
     if not root or root.startswith(".") or "/../" in f"/{root}/":
         raise ValueError("literature_root must be a safe vault-relative folder")
@@ -31,7 +31,7 @@ def base_document(literature_root: str = "Literature", name: str = "Literature M
         "filters": {
             "and": [
                 f'file.folder == "{root}"',
-                'zoteroKey != null',
+                "zoteroKey != null",
             ]
         },
         "properties": {
