@@ -6,13 +6,13 @@ This document defines the production architecture, code boundaries, test matrix,
 
 ## 1. Architecture principles
 
-1. The Zotero parent-item `zoteroKey` is the stable literature identity.
-2. All Vault paths are relative and use `/` separators.
+1. The Zotero parent-item `zoteroKey` is the stable identity.
+2. Vault-visible paths are relative, portable, and use `/`.
 3. Read tools must not perform hidden writes.
 4. Writes must support dry-run, transactions, backups, atomic replacement, and conflict policies.
-5. MCP tools provide deterministic capabilities; Skills define research workflows without duplicating business logic.
+5. MCP tools provide deterministic capabilities; Skills define research workflows.
 6. Analysis has five types and one `Analysis.base`.
-7. Version `3.0.0` must match every release metadata surface.
+7. Package, runtime, Registry, plugin, Pi, tag, Release, and PyPI versions must match.
 
 ## 2. Source layout
 
@@ -21,11 +21,11 @@ src/obsidian_vault_mcp/
 ├─ adapters/                 # Zotero, MinerU, Obsidian, and Vault I/O
 ├─ application/              # use cases and transaction orchestration
 ├─ config/                   # defaults, loader, and schema
-├─ domain/                   # identity, paths, Analysis, and domain models
+├─ domain/                   # identity, paths, Analysis, and models
 ├─ interfaces/
-│  ├─ cli/                   # CLI
-│  ├─ mcp/                   # 30 MCP tools and server
-│  └─ agent_install/         # installers for six clients
+│  ├─ cli/
+│  ├─ mcp/                   # 31 MCP tools
+│  └─ agent_install/
 └─ resources/agent_marketplace/
    └─ plugins/obsidian-literature/
       ├─ .mcp.json
@@ -34,19 +34,9 @@ src/obsidian_vault_mcp/
       └─ skills/             # 7 Skills
 ```
 
-Dependency direction:
-
-```text
-interfaces → application → domain
-      ↓            ↓
-adapters ←─────────┘
-```
-
-The interface layer must not reimplement filesystem, HTTP, or parsing work.
+Dependency direction is `interfaces → application → domain`; adapters implement external I/O. Interface code must not duplicate adapter logic.
 
 ## 3. Production data model
-
-Literature assets:
 
 ```text
 Literature/{zoteroKey}.md
@@ -55,47 +45,21 @@ Literature/attachment/MinerU/{zoteroKey}.md
 Literature/attachment/MinerU/image/{zoteroKey}/{zoteroKey}-figNN.ext
 ```
 
-Analysis types:
+Analysis types: `full_read`, `literature_review`, `passage_qa`, `figure_qa`, `concept`.
 
-```text
-full_read
-literature_review
-passage_qa
-figure_qa
-concept
-```
+Statuses: `draft`, `ready`, `reviewed`, `needs_update`, `archived`.
 
-Statuses:
-
-```text
-draft
-ready
-reviewed
-needs_update
-archived
-```
-
-Discipline profiles:
-
-```text
-general
-medicine
-chemistry
-materials
-catalysis
-physics
-mathematics
-```
+Profiles: `general`, `medicine`, `chemistry`, `materials`, `catalysis`, `physics`, `mathematics`.
 
 The only Analysis database is `Literature/Analysis/Analysis.base`.
 
 ## 4. MCP contract
 
-The production surface is fixed at 30 tools:
+The production surface is fixed at 31 tools:
 
 | Group | Count |
 |---|---:|
-| System and configuration | 4 |
+| Version, system, and configuration | 5 |
 | Zotero | 6 |
 | Import and sync | 4 |
 | MinerU | 3 |
@@ -104,7 +68,9 @@ The production surface is fixed at 30 tools:
 | Wiki | 3 |
 | Transactions | 2 |
 
-Every tool must be explicitly registered, have a non-empty docstring, declare all MCP behavior annotations, return JSON-serializable data, and avoid implicit registration through dynamic scanning.
+`literature_version` is a read-only contract tool exposing the version, tool count, Skill count, and Analysis types.
+
+Every tool must be explicitly registered, have a docstring, declare MCP behavior annotations, return JSON-serializable data, and pass the exact surface test.
 
 ## 5. Skills contract
 
@@ -120,7 +86,7 @@ literature-review
 concept-learning
 ```
 
-Each Skill uses `SKILL.md` as its entrypoint, stores output and discipline rules under `references/`, calls only production MCP tools, keeps no independent database, preserves source locations, separates facts from interpretations and inferences, and performs duplicate checks plus dry-run before persistent writes.
+Each Skill uses `SKILL.md`, stores output and discipline rules under `references/`, calls only production tools, keeps no independent database, and performs duplicate checks plus dry-run before persistent writes.
 
 ## 6. Local development
 
@@ -130,8 +96,6 @@ cd obsidian-vault-mcp
 uv sync --locked --all-extras
 uv run obsidian-vault-mcp --help
 ```
-
-Checks:
 
 ```bash
 uv run python -m ruff check .
@@ -143,53 +107,47 @@ npm ci --no-audit --no-fund
 npm run check
 ```
 
-Automated write tests must use temporary or isolated Vaults, never a user's active Vault.
+Automated write tests must use temporary or isolated Vaults.
 
 ## 7. Test matrix
 
 | Layer | Coverage |
 |---|---|
 | Unit | identity, paths, parsing, Analysis, transactions, installers |
-| Contract | client configuration, plugin manifests, MCP registration, schema |
+| Contract | 31 tools, 7 Skills, client configuration, plugin manifests, schema |
 | Repository | release hygiene, version consistency, reproducible artifacts, secret scanning |
-| Wheel smoke | isolated install, dependency check, CLI, 30 tools, 7 Skills, stdio handshake |
+| Wheel smoke | isolated install, dependency check, CLI, 31 tools, 7 Skills, stdio handshake |
 | Platform CI | Ubuntu, Windows, macOS; Python 3.10–3.13 |
-
-Any new tool, Skill, configuration field, or release asset must update the associated contract tests.
 
 ## 8. Version consistency
 
-The same version must appear in:
+The following must use `3.0.0`:
 
 - `pyproject.toml`
 - `src/obsidian_vault_mcp/__init__.py`
-- `server.json` and its PyPI package metadata
-- Codex plugin manifest
-- Claude plugin manifest and marketplace metadata
-- `adapters/pi/package.json`
-- `adapters/pi/package-lock.json`
+- `server.json`
+- Codex and Claude plugin manifests and marketplace metadata
+- `adapters/pi/package.json` and `package-lock.json`
 - Git tag `v3.0.0`
 - GitHub Release
 - PyPI
 
-`server.json` and the README MCP ownership marker must remain aligned.
-
 ## 9. Release procedure
 
-1. Complete all code, documentation, and version changes on `main`.
-2. Run all tests, Ruff, Pi type checking, and `scripts/verify_release.py`.
-3. Confirm the repository is clean.
-4. Create the release tag on the exact release commit:
+1. Complete code, documentation, and version changes on `main`.
+2. Run all tests, Ruff, Pi checks, and `scripts/verify_release.py`.
+3. Confirm a clean worktree.
+4. Create and push the tag:
 
 ```bash
 git tag -a v3.0.0 -m "Obsidian Vault MCP 3.0.0"
 git push origin v3.0.0
 ```
 
-5. The tag triggers `.github/workflows/release.yml`.
-6. The workflow verifies tag identity and ancestry on `main`.
-7. It builds and verifies wheel, sdist, and plugin ZIP artifacts, runs smoke tests and MCP handshakes, and generates SHA-256 checksums.
-8. It publishes PyPI, MCP Registry metadata, and the GitHub Release in a controlled order.
+5. `.github/workflows/release.yml` verifies the tag and its ancestry on `main`.
+6. It builds and verifies wheel, sdist, plugin ZIP, and `SHA256SUMS`.
+7. It runs wheel smoke, the 31-tool check, the 7-Skill check, and the MCP handshake.
+8. It publishes PyPI, MCP Registry metadata, and the GitHub Release in order.
 
 Artifacts:
 
@@ -200,17 +158,17 @@ obsidian-vault-mcp-3.0.0-plugins.zip
 SHA256SUMS
 ```
 
-Published versions and artifacts are immutable. Any correction requires a new semantic version.
+Published versions are immutable. Corrections require a new semantic version.
 
 ## 10. Release checklist
 
-- [ ] Exactly 30 MCP tools.
-- [ ] Exactly 7 Skills with all references.
+- [ ] Exactly 31 MCP tools.
+- [ ] Exactly 7 Skills with references.
 - [ ] README, installation guide, developer guide, and CLI agree.
 - [ ] Screenshots and contributor records are accessible.
-- [ ] Every installation command pins `3.0.0`.
+- [ ] Installation commands pin `3.0.0`.
 - [ ] Tag, PyPI, MCP Registry, plugins, and Pi use the same version.
-- [ ] Wheel, sdist, plugin ZIP, and checksum verification pass.
+- [ ] Wheel, sdist, plugin ZIP, and checksums pass verification.
 - [ ] No credentials or machine-local absolute paths are present.
 
 ## 11. Security requirements
@@ -219,4 +177,4 @@ Published versions and artifacts are immutable. Any correction requires a new se
 - Put network transports behind trusted authentication and access control.
 - Send only authorized PDFs to external parsing services.
 - Store tokens only in protected environments or credential stores.
-- Enforce path boundaries, locks, and transactions for Vault writes.
+- Enforce path checks, locks, and transactions for Vault writes.
