@@ -53,7 +53,7 @@ def test_version_tool_reports_public_contract() -> None:
     by_name = {function.__name__: function for function in TOOL_FUNCTIONS}
     payload = by_name["literature_version"]()
 
-    assert payload["version"] == "3.0.1"
+    assert payload["version"] == "3.0.2"
     assert payload["mcpToolCount"] == 31
     assert payload["skillCount"] == 7
     assert payload["analysisTypes"] == ["full_read", "literature_review", "passage_qa", "figure_qa", "concept"]

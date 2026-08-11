@@ -1,4 +1,4 @@
-# Obsidian Vault MCP 3.0.1 开发文档
+# Obsidian Vault MCP 3.0.2 开发文档
 
 [English](./DEVELOPMENT.en.md) · [README](./README.md) · [安装教程](./docs/index.md) · [更新日志](./CHANGELOG.md)
 
@@ -121,14 +121,14 @@ npm run check
 
 ## 8. 版本一致性
 
-以下位置必须使用 `3.0.1`：
+以下位置必须使用 `3.0.2`：
 
 - `pyproject.toml`
 - `src/obsidian_vault_mcp/__init__.py`
 - `server.json`
 - Codex / Claude plugin manifests 与 marketplace metadata
 - `adapters/pi/package.json` 和 `package-lock.json`
-- Git Tag `v3.0.1`
+- Git Tag `v3.0.2`
 - GitHub Release
 - PyPI
 
@@ -142,8 +142,8 @@ npm run check
 4. 创建并推送 Tag：
 
 ```bash
-git tag -a v3.0.1 -m "Obsidian Vault MCP 3.0.1"
-git push origin v3.0.1
+git tag -a v3.0.2 -m "Obsidian Vault MCP 3.0.2"
+git push origin v3.0.2
 ```
 
 5. `.github/workflows/release.yml` 验证 Tag 身份及其位于 `main`。
@@ -154,9 +154,9 @@ git push origin v3.0.1
 正式产物：
 
 ```text
-zotero_obsidian_mcp-3.0.1-py3-none-any.whl
-zotero_obsidian_mcp-3.0.1.tar.gz
-obsidian-vault-mcp-3.0.1-plugins.zip
+zotero_obsidian_mcp-3.0.2-py3-none-any.whl
+zotero_obsidian_mcp-3.0.2.tar.gz
+obsidian-vault-mcp-3.0.2-plugins.zip
 SHA256SUMS
 ```
 
@@ -177,7 +177,7 @@ SHA256SUMS
 - [ ] 7 个 Skills 和 references 完整。
 - [ ] README、教程、开发文档与 CLI 一致。
 - [ ] 效果截图和贡献者记录可访问。
-- [ ] 安装命令固定到 `3.0.1`。
+- [ ] 安装命令固定到 `3.0.2`。
 - [ ] Tag、PyPI、MCP Registry、插件与 Pi 版本一致。
 - [ ] wheel、sdist、插件 ZIP 和校验和通过验证。
 - [ ] 无凭据或本机绝对路径。

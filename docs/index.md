@@ -9,7 +9,7 @@ description: 连接 Zotero、MinerU、Obsidian 与 AI Agent 的本地优先文�
 
 <p class="lead">连接 Zotero、MinerU、Obsidian 与 AI Agent 的本地优先文献研究工作流。</p>
 
-<span class="badge">Version 3.0.1</span>
+<span class="badge">Version 3.0.2</span>
 
 <a class="button" href="https://luffysolution-svg.github.io/obsidian-vault-mcp/quickstart/">快速开始</a> <a class="button" href="https://luffysolution-svg.github.io/obsidian-vault-mcp/installation/">完整安装</a> <a class="button" href="https://github.com/luffysolution-svg/obsidian-vault-mcp">GitHub</a> <a class="button" href="https://luffysolution-svg.github.io/obsidian-vault-mcp/changelog/">更新日志</a>
 
@@ -30,13 +30,13 @@ Zotero Desktop → 稳定 zoteroKey → Markdown 主笔记 + PDF
 ## 快速安装（发布后）
 
 ```bash
-uv tool install "zotero-obsidian-mcp==3.0.1"
+uv tool install "zotero-obsidian-mcp==3.0.2"
 obsidian-vault-mcp --help
 obsidian-vault-mcp call literature_version --json '{}'
 ```
 
 ```bash
-uvx --from "zotero-obsidian-mcp==3.0.1" obsidian-vault-mcp --help
+uvx --from "zotero-obsidian-mcp==3.0.2" obsidian-vault-mcp --help
 ```
 
 ## 文档

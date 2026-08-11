@@ -5,7 +5,7 @@ lang: zh-CN
 ---
 # 用户配置
 
-唯一运行时配置文件是 `<Vault>/.obsidian-vault-mcp.json`。`schemaVersion` 是独立的数据格式版本，不等于软件包版本 3.0.1。
+唯一运行时配置文件是 `<Vault>/.obsidian-vault-mcp.json`。`schemaVersion` 是独立的数据格式版本，不等于软件包版本 3.0.2。
 
 `config init` 生成、`config get` 读取、`config validate` 校验该文件。它包括以下顶层配置域：
 

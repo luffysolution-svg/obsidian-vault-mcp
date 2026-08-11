@@ -25,7 +25,7 @@ PAGE_NAMES = (
 )
 
 
-def test_bilingual_pages_share_the_formal_3_0_1_information_architecture() -> None:
+def test_bilingual_pages_share_the_formal_3_0_2_information_architecture() -> None:
     for name in PAGE_NAMES:
         chinese = DOCS / f"{name}.md"
         english = DOCS / "en" / f"{name}.md"
@@ -43,7 +43,7 @@ def test_public_tool_references_match_the_runtime_registry() -> None:
 
 def test_release_notes_describe_the_production_architecture() -> None:
     release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
-    assert "## Obsidian Vault MCP 3.0.1" in release
+    assert "## Obsidian Vault MCP 3.0.2" in release
     assert "31 MCP tools across the production architecture." in release
     assert "V2 surface" not in release
     assert "V2-to-V3 migration" not in release
@@ -52,7 +52,7 @@ def test_release_notes_describe_the_production_architecture() -> None:
 def test_public_docs_use_the_current_package_version() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     version = re.search(r'(?m)^version = "([0-9]+\.[0-9]+\.[0-9]+)"$', pyproject).group(1)
-    assert version == "3.0.1"
+    assert version == "3.0.2"
     assert f"release_version: {version}" in (DOCS / "_config.yml").read_text(encoding="utf-8")
     for page in (DOCS / "index.md", DOCS / "en" / "index.md", DOCS / "installation.md", DOCS / "en" / "installation.md"):
         text = page.read_text(encoding="utf-8")

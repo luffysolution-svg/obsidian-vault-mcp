@@ -9,6 +9,7 @@ from pathlib import Path
 from obsidian_vault_mcp.adapters.mineru.normalizer import (
     MinerUNormalizationError,
     normalize_mineru_output,
+    parse_image_references,
     relative_source_pdf,
 )
 
@@ -108,6 +109,113 @@ class MinerUNormalizerTests(unittest.TestCase):
                 f'[shortcut]: {target} "Definition title"',
                 result.markdown,
             )
+
+    def test_html_table_images_are_normalized(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "images").mkdir()
+            (root / "images" / "structure.jpg").write_bytes(b"structure")
+            (root / "paper.md").write_text(
+                '<table><tr><td><img src="images/structure.jpg"/></td></tr></table>\n',
+                encoding="utf-8",
+            )
+
+            result = normalize_mineru_output(
+                root,
+                zotero_key="ABCD1234",
+                title="Normalized title",
+                source_pdf_path="../ABCD1234.pdf",
+            )
+
+            self.assertEqual(
+                [image.filename for image in result.images],
+                ["ABCD1234-fig01.jpg"],
+            )
+            self.assertIn(
+                '<td><img src="image/ABCD1234/ABCD1234-fig01.jpg" alt=""/></td>',
+                result.markdown,
+            )
+            self.assertEqual(
+                [
+                    (reference.syntax, reference.destination)
+                    for reference in parse_image_references(result.markdown)
+                ],
+                [("html", "image/ABCD1234/ABCD1234-fig01.jpg")],
+            )
+
+    def test_html_image_attributes_are_parsed_and_sanitized(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "images").mkdir()
+            (root / "images" / "real.jpg").write_bytes(b"real")
+            (root / "paper.md").write_text(
+                (
+                    "<img "
+                    "title='mentions src=\"images/fake.jpg\"' "
+                    'src="images/real.jpg" '
+                    'alt="A &gt; B" '
+                    'srcset="https://example.test/image.jpg" '
+                    'onerror="alert(1)"/>'
+                ),
+                encoding="utf-8",
+            )
+
+            result = normalize_mineru_output(
+                root,
+                zotero_key="ABCD1234",
+                title="Normalized title",
+                source_pdf_path="../ABCD1234.pdf",
+            )
+
+            self.assertIn(
+                '<img src="image/ABCD1234/ABCD1234-fig01.jpg" alt="A &gt; B"/>',
+                result.markdown,
+            )
+            self.assertNotIn("fake.jpg", result.markdown)
+            self.assertNotIn("srcset", result.markdown)
+            self.assertNotIn("onerror", result.markdown)
+
+    def test_html_images_require_one_real_source_attribute(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "images").mkdir()
+            (root / "images" / "real.jpg").write_bytes(b"real")
+            for markup in (
+                '<img title=\'mentions src="images/real.jpg"\'>',
+                '<img src="images/real.jpg" src="images/real.jpg">',
+            ):
+                (root / "paper.md").write_text(markup, encoding="utf-8")
+                with self.assertRaisesRegex(
+                    MinerUNormalizationError,
+                    "HTML image syntax is unsupported",
+                ):
+                    normalize_mineru_output(
+                        root,
+                        zotero_key="ABCD1234",
+                        title="x",
+                        source_pdf_path="../ABCD1234.pdf",
+                    )
+
+    def test_html_image_sources_use_existing_path_safety_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for destination in (
+                "images/missing.jpg",
+                "../outside.jpg",
+                "https://example.test/image.jpg",
+                "data:image/jpeg;base64,AAAA",
+            ):
+                (root / "paper.md").write_text(
+                    f'<img src="{destination}"/>\n',
+                    encoding="utf-8",
+                )
+                with self.assertRaises(MinerUNormalizationError):
+                    normalize_mineru_output(
+                        root,
+                        zotero_key="ABCD1234",
+                        title="x",
+                        source_pdf_path="../ABCD1234.pdf",
+                    )
 
     def test_missing_unsupported_absolute_and_url_images_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

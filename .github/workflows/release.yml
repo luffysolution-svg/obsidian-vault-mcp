@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag, for example v3.0.1"
+        description: "Existing release tag, for example v3.0.2"
         required: true
         type: string
 
@@ -420,7 +420,9 @@ jobs:
           RELEASE_NOTES: |
             <!-- obsidian-vault-mcp-release-workflow:draft-v1 -->
 
-            ## Obsidian Vault MCP 3.0.1
+            ## Obsidian Vault MCP 3.0.2
+
+            - Fixed MinerU HTML table images so validated local figures are normalized and packaged.
 
             - Five Analysis types with deterministic Obsidian Base views.
             - 31 MCP tools across the production architecture.
