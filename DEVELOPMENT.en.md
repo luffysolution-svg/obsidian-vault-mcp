@@ -1,4 +1,4 @@
-# Obsidian Vault MCP 3.0.1 Developer Guide
+# Obsidian Vault MCP 3.0.2 Developer Guide
 
 [中文](./DEVELOPMENT.md) · [README](./README.en.md) · [Installation guide](./docs/index.en.md) · [Changelog](./CHANGELOG.md)
 
@@ -121,14 +121,14 @@ Automated write tests must use temporary or isolated Vaults.
 
 ## 8. Version consistency
 
-The following must use `3.0.1`:
+The following must use `3.0.2`:
 
 - `pyproject.toml`
 - `src/obsidian_vault_mcp/__init__.py`
 - `server.json`
 - Codex and Claude plugin manifests and marketplace metadata
 - `adapters/pi/package.json` and `package-lock.json`
-- Git tag `v3.0.1`
+- Git tag `v3.0.2`
 - GitHub Release
 - PyPI
 
@@ -142,8 +142,8 @@ The configuration `schemaVersion` is an independent data-format version and is n
 4. Create and push the tag:
 
 ```bash
-git tag -a v3.0.1 -m "Obsidian Vault MCP 3.0.1"
-git push origin v3.0.1
+git tag -a v3.0.2 -m "Obsidian Vault MCP 3.0.2"
+git push origin v3.0.2
 ```
 
 5. `.github/workflows/release.yml` verifies the tag and its ancestry on `main`.
@@ -154,9 +154,9 @@ git push origin v3.0.1
 Artifacts:
 
 ```text
-zotero_obsidian_mcp-3.0.1-py3-none-any.whl
-zotero_obsidian_mcp-3.0.1.tar.gz
-obsidian-vault-mcp-3.0.1-plugins.zip
+zotero_obsidian_mcp-3.0.2-py3-none-any.whl
+zotero_obsidian_mcp-3.0.2.tar.gz
+obsidian-vault-mcp-3.0.2-plugins.zip
 SHA256SUMS
 ```
 
@@ -177,7 +177,7 @@ The release workflow stores a workflow marker for each external publish stage. O
 - [ ] Exactly 7 Skills with references.
 - [ ] README, installation guide, developer guide, and CLI agree.
 - [ ] Screenshots and contributor records are accessible.
-- [ ] Installation commands pin `3.0.1`.
+- [ ] Installation commands pin `3.0.2`.
 - [ ] Tag, PyPI, MCP Registry, plugins, and Pi use the same version.
 - [ ] Wheel, sdist, plugin ZIP, and checksums pass verification.
 - [ ] No credentials or machine-local absolute paths are present.

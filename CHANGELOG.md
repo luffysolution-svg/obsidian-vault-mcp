@@ -2,6 +2,16 @@
 
 All notable changes to Obsidian Vault MCP are recorded in this file.
 
+## 3.0.2 — 2026-08-11
+
+### Fixed
+
+- Normalized local HTML `<img>` references emitted inside MinerU table output while continuing to reject malformed, remote, missing, and path-traversing image sources.
+
+### Changed
+
+- Aligned the Python package, runtime, MCP Registry metadata, Agent plugin manifests, Pi extension, release workflow, documentation, and release tests on version `3.0.2`.
+
 ## 3.0.1 — 2026-07-30
 
 ### Changed

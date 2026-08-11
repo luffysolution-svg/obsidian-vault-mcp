@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import html
 import os
 import posixpath
 import re
 import stat
 from collections.abc import Callable
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 
 import yaml
@@ -21,7 +23,7 @@ _REFERENCE_DEFINITION_RE = re.compile(
 _DESTINATION_TITLE_RE = re.compile(
     r"^(.*?)(\s+(?:\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|\([^)]*\)))\s*$"
 )
-_HTML_IMAGE_RE = re.compile(r"<img\b", re.IGNORECASE)
+_HTML_IMAGE_START_RE = re.compile(r"<img(?=[\s/>])", re.IGNORECASE)
 
 
 class MinerUNormalizationError(ValueError):
@@ -55,8 +57,60 @@ class NormalizedMineru:
     images: tuple[NormalizedImage, ...]
 
 
+class _HTMLImageReferenceParser(HTMLParser):
+    def __init__(self, text: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self._line_offsets = [0, *(match.end() for match in re.finditer("\n", text))]
+        self.references: list[MinerUImageReference] = []
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        self._record_image(tag, attrs)
+
+    def handle_startendtag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        self._record_image(tag, attrs)
+
+    def _record_image(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        if tag.casefold() != "img":
+            return
+        raw_tag = self.get_starttag_text()
+        sources = [value for name, value in attrs if name.casefold() == "src"]
+        if raw_tag is None or len(sources) != 1 or not sources[0]:
+            return
+        line, column = self.getpos()
+        start = self._line_offsets[line - 1] + column
+        alt = next(
+            (
+                value
+                for name, value in attrs
+                if name.casefold() == "alt" and value is not None
+            ),
+            "",
+        )
+        self.references.append(
+            MinerUImageReference(
+                start,
+                start + len(raw_tag),
+                alt,
+                sources[0],
+                "html",
+            )
+        )
+
+
 def parse_image_references(text: str) -> tuple[MinerUImageReference, ...]:
-    """Parse inline, reference-style, and Wiki image links without resolving them."""
+    """Parse HTML, inline, reference-style, and Wiki image links without resolving them."""
 
     definitions: dict[str, tuple[str, int | None, int | None]] = {}
     for match in _REFERENCE_DEFINITION_RE.finditer(text):
@@ -68,9 +122,18 @@ def parse_image_references(text: str) -> tuple[MinerUImageReference, ...]:
             match.start(2) + local_start if local_start is not None else None,
             match.start(2) + local_end if local_end is not None else None,
         )
-    references: list[MinerUImageReference] = []
+    references = list(_parse_html_image_references(text))
+    html_reference_ends = {
+        reference.start: reference.end
+        for reference in references
+        if reference.syntax == "html"
+    }
     index = 0
     while index < len(text):
+        html_reference_end = html_reference_ends.get(index)
+        if html_reference_end is not None:
+            index = html_reference_end
+            continue
         if text.startswith("![[", index):
             end = text.find("]]", index + 3)
             if end >= 0:
@@ -160,7 +223,14 @@ def parse_image_references(text: str) -> tuple[MinerUImageReference, ...]:
                 )
             )
         index = alt_end + 1
-    return tuple(references)
+    return tuple(sorted(references, key=lambda reference: (reference.start, reference.end)))
+
+
+def _parse_html_image_references(text: str) -> tuple[MinerUImageReference, ...]:
+    parser = _HTMLImageReferenceParser(text)
+    parser.feed(text)
+    parser.close()
+    return tuple(parser.references)
 
 
 def resolve_image_reference(source_markdown: str, destination: str) -> str:
@@ -301,7 +371,14 @@ def normalize_mineru_output(
         raw_body = _strip_frontmatter(source_markdown.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeError) as exc:
         raise MinerUNormalizationError(f"cannot read MinerU Markdown: {exc}") from exc
-    if _HTML_IMAGE_RE.search(raw_body):
+    references = parse_image_references(raw_body)
+    parsed_html_starts = {
+        reference.start for reference in references if reference.syntax == "html"
+    }
+    if any(
+        match.start() not in parsed_html_starts
+        for match in _HTML_IMAGE_START_RE.finditer(raw_body)
+    ):
         raise MinerUNormalizationError("HTML image syntax is unsupported")
 
     portable_image_prefix = (
@@ -320,7 +397,7 @@ def normalize_mineru_output(
     image_names: dict[Path, str] = {}
     normalized_images: list[NormalizedImage] = []
     replacements: dict[tuple[int, int], str] = {}
-    for reference in parse_image_references(raw_body):
+    for reference in references:
         if not reference.destination:
             raise MinerUNormalizationError("unresolved MinerU image reference")
         path_part, _suffix = _split_destination(reference.destination)
@@ -347,10 +424,14 @@ def normalize_mineru_output(
                 NormalizedImage(source=source, filename=filename, content=source.read_bytes())
             )
         filename = image_names[source]
-        if reference.destination_start is None or reference.destination_end is None:
-            raise MinerUNormalizationError("MinerU image reference cannot be rewritten safely")
-        marker = (reference.destination_start, reference.destination_end)
         replacement = _image_link(portable_image_prefix, filename)
+        if reference.syntax == "html":
+            marker = (reference.start, reference.end)
+            replacement = _html_image_tag(replacement, reference.alt)
+        elif reference.destination_start is None or reference.destination_end is None:
+            raise MinerUNormalizationError("MinerU image reference cannot be rewritten safely")
+        else:
+            marker = (reference.destination_start, reference.destination_end)
         existing = replacements.get(marker)
         if existing is not None and existing != replacement:
             raise MinerUNormalizationError(
@@ -429,6 +510,13 @@ def _select_markdown(root: Path, markdown_path: str | os.PathLike[str] | None) -
 
 def _image_link(prefix: str, filename: str) -> str:
     return filename if prefix == "." else posixpath.join(prefix, filename)
+
+
+def _html_image_tag(destination: str, alt: str) -> str:
+    return (
+        f'<img src="{html.escape(destination, quote=True)}" '
+        f'alt="{html.escape(alt, quote=True)}"/>'
+    )
 
 
 def relative_source_pdf(mineru_markdown_path: str, pdf_path: str) -> str:

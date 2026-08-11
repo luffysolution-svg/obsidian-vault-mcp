@@ -54,27 +54,27 @@ The project is model-provider independent. MCP tools implement deterministic loc
 
 ## Install
 
-Version `3.0.1` is published. Python 3.10+ is required. The public installation commands below are available now.
+Version `3.0.2` is published. Python 3.10+ is required. The public installation commands below are available now.
 
 ### uv
 
 ```bash
-uv tool install "zotero-obsidian-mcp==3.0.1"
+uv tool install "zotero-obsidian-mcp==3.0.2"
 obsidian-vault-mcp --help
 ```
 
 One-shot execution:
 
 ```bash
-uvx --from "zotero-obsidian-mcp==3.0.1" obsidian-vault-mcp doctor --vault-path "<VAULT_PATH>"
+uvx --from "zotero-obsidian-mcp==3.0.2" obsidian-vault-mcp doctor --vault-path "<VAULT_PATH>"
 ```
 
 ### pipx / pip
 
 ```bash
-pipx install "zotero-obsidian-mcp==3.0.1"
+pipx install "zotero-obsidian-mcp==3.0.2"
 # or
-python -m pip install "zotero-obsidian-mcp==3.0.1"
+python -m pip install "zotero-obsidian-mcp==3.0.2"
 ```
 
 ### MCP Registry
@@ -92,7 +92,7 @@ Equivalent stdio configuration:
       "command": "uvx",
       "args": [
         "--from",
-        "zotero-obsidian-mcp==3.0.1",
+        "zotero-obsidian-mcp==3.0.2",
         "obsidian-vault-mcp",
         "serve",
         "--transport",
@@ -159,7 +159,7 @@ Replace `codex` with `claude`, `opencode`, `pi`, `hermes`, or `workbuddy`.
 | Hermes | MCP configuration |
 | WorkBuddy | MCP configuration |
 
-The GitHub Release provides `obsidian-vault-mcp-3.0.1-plugins.zip`.
+The GitHub Release provides `obsidian-vault-mcp-3.0.2-plugins.zip`.
 
 ## Skills
 
@@ -189,7 +189,7 @@ The GitHub Release provides `obsidian-vault-mcp-3.0.1-plugins.zip`.
 
 ## Release consistency
 
-Version `3.0.1` must match the Python package, runtime `__version__`, MCP Registry metadata, Codex and Claude manifests, Pi package, Git tag `v3.0.1`, GitHub Release, and PyPI. The release workflow verifies version and tag identity, runs tests and handshakes, builds wheel/sdist/plugin ZIP artifacts, and generates `SHA256SUMS`.
+Version `3.0.2` must match the Python package, runtime `__version__`, MCP Registry metadata, Codex and Claude manifests, Pi package, Git tag `v3.0.2`, GitHub Release, and PyPI. The release workflow verifies version and tag identity, runs tests and handshakes, builds wheel/sdist/plugin ZIP artifacts, and generates `SHA256SUMS`.
 
 ## Safety
 

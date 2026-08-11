@@ -10,13 +10,13 @@ lang: zh-CN
 需要 Python 3.10+；Obsidian 应至少打开过一次目标 Vault；Zotero Desktop 需运行并开启本地 API。MinerU 是可选的外部解析服务。
 
 ```bash
-python -m pip install --upgrade "zotero-obsidian-mcp==3.0.1"
-pipx install "zotero-obsidian-mcp==3.0.1"
-uv tool install "zotero-obsidian-mcp==3.0.1"
-uvx --from "zotero-obsidian-mcp==3.0.1" obsidian-vault-mcp --help
+python -m pip install --upgrade "zotero-obsidian-mcp==3.0.2"
+pipx install "zotero-obsidian-mcp==3.0.2"
+uv tool install "zotero-obsidian-mcp==3.0.2"
+uvx --from "zotero-obsidian-mcp==3.0.2" obsidian-vault-mcp --help
 ```
 
-兼容 CLI `zotero-obsidian-mcp` 与主 CLI `obsidian-vault-mcp` 指向同一程序。发布后也可从正式 tag 安装源码：`git checkout v3.0.1` 后运行 `python -m pip install -e ".[dev]"`。
+兼容 CLI `zotero-obsidian-mcp` 与主 CLI `obsidian-vault-mcp` 指向同一程序。发布后也可从正式 tag 安装源码：`git checkout v3.0.2` 后运行 `python -m pip install -e ".[dev]"`。
 
 ## 初始化、导入与同步
 
